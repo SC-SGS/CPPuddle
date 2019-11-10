@@ -63,7 +63,9 @@ execute_process(COMMAND "mkdir" "-p" "kokkos-build/install"
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies")
 
 # Run Kokkos CMakE
-execute_process(COMMAND "cmake" "-DKOKKOS_ENABLE_OPENMP=1" "-DKOKKOS_ENABLE_CUDA=1"
+execute_process(COMMAND "cmake" "-DKOKKOS_ENABLE_CUDA=1" "-DKokkos_ENABLE_SERIAL=1" "-DCMAKE_CXX_FLAGS=-isystem\ ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/include"
+  "-DKokkos_ENABLE_HPX=1" "-DKokkos_HPX_DIR=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build"
+  "-DHPX_DIR=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/build/lib/cmake/HPX" "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos"
   "-DCMAKE_CXX_COMPILER=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos/bin/nvcc_wrapper"
   "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-build/install"
   "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos"
