@@ -32,7 +32,7 @@ execute_process(COMMAND "mkdir" "-p" "hpx-build/build"
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies")
 
 # Run Hpx CMakE
-execute_process(COMMAND "cmake" "=DHPX_WITH_CUDA=ON" "-B=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/build"
+execute_process(COMMAND "cmake" "-DHPX_WITH_CUDA=ON" "-B=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/build"
   "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build" "-DHPX_WITH_EXAMPLES=OFF"
   "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx"
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/build")
@@ -52,35 +52,35 @@ link_directories(${HPX_DIR}/lib)
 # Setup Kokkos
 #================================================================================================================================================
 # Check whether the Kokkos module is initialised and issue error if not
-find_path(KOKKOS_DIR NAMES "CMakeLists.txt" PATHS "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos")
+find_path(KOKKOS_DIR NAMES "CMakeLists.txt" PATHS "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-master")
 if ((NOT KOKKOS_DIR) OR (NOT EXISTS ${KOKKOS_DIR}))
 	MESSAGE(FATAL_ERROR "Could not find the CMakeLists file within the Kokkos directory!\n"
 		            "To fix this error, clone to Kokkos submodule by running the following command within the project root directory:\n"
-			        "git submodule update --init external_dependencies/kokkos")
+			        "git submodule update --init external_dependencies/kokkos-master")
 endif()
 
-execute_process(COMMAND "mkdir" "-p" "kokkos-build/install" 
+execute_process(COMMAND "mkdir" "-p" "kokkos-master-build/install" 
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies")
 
 # Run Kokkos CMakE
 execute_process(COMMAND "cmake" "-DKOKKOS_ENABLE_CUDA=1" "-DKOKKOS_ARCH=Pascal61"
        	"-DKokkos_ENABLE_SERIAL=1" "-DCMAKE_CXX_FLAGS=-isystem\ ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/include"
   "-DKokkos_ENABLE_HPX=1" "-DKokkos_HPX_DIR=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build"
-  "-DHPX_DIR=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/build/lib/cmake/HPX" "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos"
-  "-DCMAKE_CXX_COMPILER=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos/bin/nvcc_wrapper"
-  "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-build/install"
-  "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos"
-			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-build")
+  "-DHPX_DIR=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/build/lib/cmake/HPX" "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-master"
+  "-DCMAKE_CXX_COMPILER=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-master/bin/nvcc_wrapper"
+  "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-master-build/install"
+  "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-master"
+			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-master-build")
 execute_process(COMMAND "make" "-j${N}" "VERBOSE=1"
-			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-build")
+			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-master-build")
 execute_process(COMMAND "make" "install"
-			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-build")
+			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-master-build")
 
-#set(KOKKOS_DIR /home/daissgr/workshop/kokkos-spielwiese/kokkos2/build/install)
-#set(CMAKE_CXX_COMPILER /home/daissgr/workshop/kokkos-spielwiese/kokkos2/bin/nvcc_wrapper)
+#set(KOKKOS_DIR /home/daissgr/workshop/kokkos-master-spielwiese/kokkos-master2/build/install)
+#set(CMAKE_CXX_COMPILER /home/daissgr/workshop/kokkos-master-spielwiese/kokkos-master2/bin/nvcc_wrapper)
 
-set(CMAKE_CXX_COMPILER ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos/bin/nvcc_wrapper)
-set(KOKKOS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-build/install)
+set(CMAKE_CXX_COMPILER ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-master/bin/nvcc_wrapper)
+set(KOKKOS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-master-build/install)
 
 enable_language(CUDA)
 add_compile_options(-Xcudafe --diag_suppress=esa_on_defaulted_function_ignored) # surpresses annotation warning, see https://github.com/kokkos/kokkos/issues/1473 
