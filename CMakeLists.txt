@@ -64,8 +64,8 @@ execute_process(COMMAND "mkdir" "-p" "kokkos-master-build/install"
 
 # Run Kokkos CMakE
 execute_process(COMMAND "cmake" "-DKOKKOS_ENABLE_CUDA=1" "-DKOKKOS_ARCH=Pascal61"
-       	"-DKokkos_ENABLE_SERIAL=1" "-DCMAKE_CXX_FLAGS=-isystem\ ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/include"
-  "-DKokkos_ENABLE_HPX=1" "-DKokkos_HPX_DIR=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build"
+	"-DKOKKOS_ENABLE_SERIAL=1" "-DCMAKE_CXX_FLAGS=-isystem\ ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/include"
+	"-DKOKKOS_ENABLE_HPX=1" "-DKOKKOS_HPX_DIR=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build"
   "-DHPX_DIR=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/build/lib/cmake/HPX" "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-master"
   "-DCMAKE_CXX_COMPILER=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-master/bin/nvcc_wrapper"
   "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-master-build/install"

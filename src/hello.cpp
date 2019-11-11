@@ -13,10 +13,21 @@ struct hello_world {
 int main (int argc, char* argv[]) {
   Kokkos::initialize (argc, argv);
 
-  printf ("Hello World on Kokkos execution space %s\n",
+  printf ("Hello World on Kokkos (default) execution space %s\n",
           typeid (Kokkos::DefaultExecutionSpace).name ());
 
-  Kokkos::parallel_for ("HelloWorld",15, hello_world ());
+  Kokkos::parallel_for ("HelloWorld",Kokkos::RangePolicy<Kokkos::Cuda>(0, 14), hello_world ());
+  Kokkos::fence();
+
+  printf ("Hello World on Kokkos execution space %s\n",
+          typeid (Kokkos::Experimental::HPX).name ());
+  Kokkos::parallel_for ("HelloWorld",Kokkos::RangePolicy<Kokkos::Experimental::HPX>(0,14), hello_world ());
+  Kokkos::fence();
+
+  printf ("Hello World on Kokkos execution space %s\n",
+          typeid (Kokkos::Serial).name ());
+  Kokkos::parallel_for ("HelloWorld",Kokkos::RangePolicy<Kokkos::Serial>(0,14), hello_world ());
+  Kokkos::fence();
 
   Kokkos::finalize ();
 }
