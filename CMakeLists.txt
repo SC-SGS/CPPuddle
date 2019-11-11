@@ -32,7 +32,7 @@ execute_process(COMMAND "mkdir" "-p" "hpx-build/build"
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies")
 
 # Run Hpx CMakE
-execute_process(COMMAND "cmake" "-DHPX_WITH_CUDA=ON" "-B=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/build"
+execute_process(COMMAND "cmake" "-DHPX_WITH_CUDA=ON" 
   "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build" "-DHPX_WITH_EXAMPLES=OFF"
   "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx"
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/build")
