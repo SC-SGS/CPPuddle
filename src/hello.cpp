@@ -1,4 +1,4 @@
-
+#include <hpx/hpx_main.hpp>
 #include <Kokkos_Core.hpp>
 #include <cstdio>
 #include <typeinfo>
@@ -13,8 +13,10 @@ struct hello_world {
 int main (int argc, char* argv[]) {
   Kokkos::initialize (argc, argv);
 
-  printf ("Hello World on Kokkos (default) execution space %s\n",
-          typeid (Kokkos::DefaultExecutionSpace).name ());
+  std::size_t worker_id = hpx::get_worker_thread_num();
+  std::size_t locality_id = hpx::get_locality_id();
+
+  printf ("HPX Thread %i on Locality %i\n\n", worker_id, locality_id);
 
   Kokkos::parallel_for ("HelloWorld",Kokkos::RangePolicy<Kokkos::Cuda>(0, 14), hello_world ());
   Kokkos::fence();
@@ -29,6 +31,6 @@ int main (int argc, char* argv[]) {
   Kokkos::parallel_for ("HelloWorld",Kokkos::RangePolicy<Kokkos::Serial>(0,14), hello_world ());
   Kokkos::fence();
 
-  Kokkos::finalize ();
+  Kokkos::finalize (); 
 }
 
