@@ -16,7 +16,7 @@ struct hello_world {
 
 template <typename Viewtype>
 void printSomeContents(Viewtype& printView){
-  Kokkos::parallel_for("print contents",
+  Kokkos::parallel_for("print some contents",
       Kokkos::MDRangePolicy<typename Viewtype::execution_space, Kokkos::Rank<2>>(
           {0, 0}, {printView.extent(0), printView.extent(1)}),
       KOKKOS_LAMBDA(int j, int k) {
@@ -28,7 +28,6 @@ void printSomeContents(Viewtype& printView){
 
 Kokkos::View<double**, Kokkos::Experimental::HPX::array_layout, Kokkos::Cuda::memory_space> 
   initializeAndMirrorToDevice(Kokkos::View<double**, Kokkos::HostSpace>& testView){
-    printf("%d hpx threads \n ", hpx::get_os_thread_count());
     Kokkos::parallel_for("init",
         Kokkos::MDRangePolicy<Kokkos::DefaultHostExecutionSpace, Kokkos::Rank<2>>(
             {0, 0}, {testView.extent(0), testView.extent(1)}),
@@ -41,8 +40,7 @@ Kokkos::View<double**, Kokkos::Experimental::HPX::array_layout, Kokkos::Cuda::me
 
     auto deviceMirror = Kokkos::create_mirror_view(typename Kokkos::DefaultExecutionSpace::memory_space(), testView);
 
-    Kokkos::deep_copy(testView, deviceMirror);
-    printf("ran minimal example \n ");
+    Kokkos::deep_copy(deviceMirror, testView);
     Kokkos::fence();
     return deviceMirror;
 }
@@ -55,9 +53,6 @@ double getSumOfViewEntries(Viewtype& reduceView){
     // Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
         {0, 0}, {reduceView.extent(0), reduceView.extent(1)}),
     KOKKOS_LAMBDA(int j, int k,  double& sum) {
-      if((j*k)%1000 == 1){
-        printf("%d, %d, %d ; ", j, k, reduceView(j, k));
-      }
       sum += reduceView(j, k);
     }, reductionResult);
 // Kokkos::fence();
@@ -66,7 +61,6 @@ double getSumOfViewEntries(Viewtype& reduceView){
 
 Kokkos::View<double**, Kokkos::Cuda::array_layout, Kokkos::HostSpace> initializeAndMirrorToHost
       (Kokkos::View<double**, Kokkos::DefaultExecutionSpace>& testView){
-  printf("%d hpx threads \n ", hpx::get_os_thread_count());
   Kokkos::parallel_for("init",
       Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
           {0, 0}, {testView.extent(0), testView.extent(1)}),
@@ -75,12 +69,10 @@ Kokkos::View<double**, Kokkos::Cuda::array_layout, Kokkos::HostSpace> initialize
       });
   Kokkos::fence();
   printSomeContents(testView);
-  printf("mirror view \n ", hpx::get_os_thread_count());
 
   auto hostMirror = Kokkos::create_mirror_view(testView);
 
-  Kokkos::deep_copy(testView, hostMirror);
-	printf("ran other minimal example \n ");
+  Kokkos::deep_copy(hostMirror, testView);
 	Kokkos::fence();
   return hostMirror;
 }
@@ -109,41 +101,45 @@ int main (int argc, char* argv[]) {
     Kokkos::parallel_for ("HelloWorld",Kokkos::RangePolicy<Kokkos::Serial>(0,14), hello_world ());
     Kokkos::fence();
 
+    // Mirror a Host view to device
     Kokkos::View<double**, Kokkos::HostSpace> testViewHost(
       Kokkos::ViewAllocateWithoutInitializing("test host"), 150, 560);
     auto deviceMirror = initializeAndMirrorToDevice(testViewHost);
-    Kokkos::fence();
-    // why the heck are all of these filled with zeros???
-    printf ("\n reduce on device\n");
-    printSomeContents(deviceMirror);
-    auto result = getSumOfViewEntries(deviceMirror);
-    Kokkos::fence();
-    printf ("\n reduce on host\n");
-    printSomeContents(testViewHost);
-    auto result2 = getSumOfViewEntries(testViewHost);
+
+    auto f = hpx::async([deviceMirror]() -> double {
+                    printf ("\n reduce on device\n"); 
+                    return getSumOfViewEntries(deviceMirror); 
+                  });
+    auto g = hpx::async([testViewHost]() -> double {
+                    printf ("\n reduce on host\n"); 
+                    return getSumOfViewEntries(testViewHost); 
+                  });
+
+    // printSomeContents(testViewHost);
+    // printSomeContents(deviceMirror);
     Kokkos::fence();
 
+    // Mirror a device view to host
     printf("create default execution space view \n ");
     Kokkos::View<double**, Kokkos::DefaultExecutionSpace> testViewDevice(
 		  Kokkos::ViewAllocateWithoutInitializing("state"), 150, 560);
     auto hostMirror = initializeAndMirrorToHost(testViewDevice);
-    Kokkos::fence();
-    // why the heck are all of these filled with zeros???
+
     printf ("\n devicetest\n");
-    printSomeContents(testViewDevice);
-    Kokkos::fence();
+    printSomeContents(testViewDevice); 
     printf ("\n hostmirror\n");
     printSomeContents(hostMirror);
     Kokkos::fence();
 
-    // auto f = hpx::async([testViewHost]() { return minimalExample(testViewHost); });
-    // // auto g = hpx::async([deviceMirror]() -> double { return getSumOfViewEntries(deviceMirror); });
-    // auto g = hpx::async([]() -> void { return otherMinimalExample(); });
-
+                  
     // auto when = hpx::when_all(f, g);
+    // terminate called after throwing an instance of 'hpx::detail::exception_with_info<hpx::exception>'
+    //  what():  this future has no valid shared state: HPX(no_state)
     // when.wait();
-    
-    printf("Results: %lf %lf\n", result, result2);// g.get());
+    f.wait();
+    g.wait();
+
+    printf("Results: %lf %lf should be the same\n", g.get(), f.get());
 
     Kokkos::fence();
   }
