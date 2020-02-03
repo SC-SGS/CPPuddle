@@ -12,171 +12,285 @@
 class [[nodiscard]] scoped_timer
 {
 public:
-    scoped_timer(std::string const& label)
-      : label(label)
-      , timer() {}
-    ~scoped_timer() {
-        std::ostringstream s;
-        s << label << ": " << timer.elapsed() << " seconds" << std::endl;
-        std::cerr << s.str();
-    }
+  scoped_timer(std::string const &label)
+      : label(label), timer() {}
+  ~scoped_timer()
+  {
+    std::ostringstream s;
+    s << label << ": " << timer.elapsed() << " seconds" << std::endl;
+    std::cerr << s.str();
+  }
 
 private:
-    std::string label;
-    hpx::util::high_resolution_timer timer;
+  std::string label;
+  hpx::util::high_resolution_timer timer;
 };
 
-
-struct hello_world {
+struct hello_world
+{
   KOKKOS_INLINE_FUNCTION
-  void operator() (const int i) const {
-    printf ("Hello from i = %i\n", i);
+  void operator()(const int i) const
+  {
+    printf("Hello from i = %i\n", i);
   }
 };
 
-
 template <typename Viewtype>
-void printSomeContents(Viewtype& printView){
+void printSomeContents(Viewtype &printView)
+{
   Kokkos::parallel_for("print some contents",
-      Kokkos::MDRangePolicy<typename Viewtype::execution_space, Kokkos::Rank<2>>(
-          {0, 0}, {printView.extent(0), printView.extent(1)}),
-      KOKKOS_LAMBDA(int j, int k) {
-        if((j*k)%1000 == 1){
-          printf("%d,%d , %f; ", j, k, printView(j, k));
-        }
-      });
+                       Kokkos::MDRangePolicy<typename Viewtype::execution_space, Kokkos::Rank<2>>(
+                           {0, 0}, {printView.extent(0), printView.extent(1)}),
+                       KOKKOS_LAMBDA(int j, int k) {
+                         if ((j * k) % 1000 == 1)
+                         {
+                           printf("%d,%d , %f; ", j, k, printView(j, k));
+                         }
+                       });
 }
 
-Kokkos::View<double**, Kokkos::Experimental::HPX::array_layout, Kokkos::Cuda::memory_space> 
-  initializeAndMirrorToDevice(Kokkos::View<double**, Kokkos::HostSpace>& testView){
-    Kokkos::parallel_for("init",
-        Kokkos::MDRangePolicy<Kokkos::DefaultHostExecutionSpace, Kokkos::Rank<2>>(
-            {0, 0}, {testView.extent(0), testView.extent(1)}),
-        KOKKOS_LAMBDA(int j, int k) {
-			    volatile double a = std::pow(j*k, 2);
-          testView(j, k) = a;
-        });
-	  Kokkos::fence();
-    printSomeContents(testView);
+Kokkos::View<double **, Kokkos::Experimental::HPX::array_layout, Kokkos::Cuda::memory_space>
+initializeAndMirrorToDevice(Kokkos::View<double **, Kokkos::HostSpace> &testView)
+{
+  Kokkos::parallel_for("init",
+                       Kokkos::MDRangePolicy<Kokkos::DefaultHostExecutionSpace, Kokkos::Rank<2>>(
+                           {0, 0}, {testView.extent(0), testView.extent(1)}),
+                       KOKKOS_LAMBDA(int j, int k) {
+                         volatile double a = std::pow(j * k, 2);
+                         testView(j, k) = a;
+                       });
+  Kokkos::fence();
+  printSomeContents(testView);
 
-    auto deviceMirror = Kokkos::create_mirror_view(typename Kokkos::DefaultExecutionSpace::memory_space(), testView);
+  auto deviceMirror = Kokkos::create_mirror_view(typename Kokkos::DefaultExecutionSpace::memory_space(), testView);
 
-    Kokkos::deep_copy(deviceMirror, testView);
-    Kokkos::fence();
-    return deviceMirror;
+  Kokkos::deep_copy(deviceMirror, testView);
+  Kokkos::fence();
+  return deviceMirror;
 }
 
 template <typename Viewtype>
-double getSumOfViewEntries(Viewtype& reduceView){
+double getSumOfViewEntries(Viewtype &reduceView)
+{
   double reductionResult = 0;
   Kokkos::parallel_reduce("reduce all",
-    Kokkos::MDRangePolicy<typename Viewtype::execution_space, Kokkos::Rank<2>>(
-    // Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
-        {0, 0}, {reduceView.extent(0), reduceView.extent(1)}),
-    KOKKOS_LAMBDA(int j, int k,  double& sum) {
-      sum += reduceView(j, k);
-    }, reductionResult);
-// Kokkos::fence();
+                          Kokkos::MDRangePolicy<typename Viewtype::execution_space, Kokkos::Rank<2>>(
+                              // Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                              {0, 0}, {reduceView.extent(0), reduceView.extent(1)}),
+                          KOKKOS_LAMBDA(int j, int k, double &sum) {
+                            sum += reduceView(j, k);
+                          },
+                          reductionResult);
+  // Kokkos::fence();
   return reductionResult;
 }
 
-Kokkos::View<double**, Kokkos::Cuda::array_layout, Kokkos::HostSpace> initializeAndMirrorToHost
-      (Kokkos::View<double**, Kokkos::DefaultExecutionSpace>& testView){
+Kokkos::View<double **, Kokkos::Cuda::array_layout, Kokkos::HostSpace> initializeAndMirrorToHost(Kokkos::View<double **, Kokkos::DefaultExecutionSpace> &testView)
+{
   Kokkos::parallel_for("init",
-      Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
-          {0, 0}, {testView.extent(0), testView.extent(1)}),
-      KOKKOS_LAMBDA(int j, int k) {
-          testView(j, k) = j*k;
-      });
+                       Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                           {0, 0}, {testView.extent(0), testView.extent(1)}),
+                       KOKKOS_LAMBDA(int j, int k) {
+                         testView(j, k) = j * k;
+                       });
   Kokkos::fence();
   printSomeContents(testView);
 
   auto hostMirror = Kokkos::create_mirror_view(testView);
 
   Kokkos::deep_copy(hostMirror, testView);
-	Kokkos::fence();
+  Kokkos::fence();
   return hostMirror;
 }
 
 template <typename Viewtype, typename Policytype>
-void kernel_add(Viewtype& first, Viewtype& second, Viewtype& output, Policytype& policy){
+void kernel_add(Viewtype &first, Viewtype &second, Viewtype &output, Policytype &policy)
+{
   Kokkos::parallel_for(
-    "kernel add",
-    policy,
-    KOKKOS_LAMBDA(int j, int k) {
-        output(j, k) = first(j,k) + second(j,k);
-    });
+      "kernel add",
+      policy,
+      KOKKOS_LAMBDA(int j, int k) {
+        output(j, k) = first(j, k) + second(j, k);
+      });
 }
 
-void cuda_small_kernel_test(){
-  {  
+struct CudaStreamView
+{
+  cudaStream_t stream_;
+  Kokkos::Cuda cuda_;
+  float *p_, *q_, *r_;
+  Kokkos::View<float **, Kokkos::CudaSpace> view_p, view_q, view_r;
+  decltype(Kokkos::create_mirror_view(view_p)) host_p, host_q, host_r;
+  // //TODO deduce this type; problem: no default constructor
+  // Kokkos::MDRangePolicy<Kokkos::DefaultExecutionSpace, Kokkos::Schedule<Kokkos::Static>, void,
+  //                       Kokkos::Cuda::size_type, Kokkos::Rank<2U, Kokkos::Iterate::Default,
+  //                                                             Kokkos::Iterate::Default>,
+  //                       Kokkos::LaunchBounds<0U, 0U>,
+  //                       Kokkos::Experimental::WorkItemProperty::ImplWorkItemProperty<1UL>>
+  //                       iterate_p_policy;
+
+  CudaStreamView(const std::size_t j, const std::size_t k)
+  {
+    // set up cuda stream
+    cudaStreamCreate(&stream_);
+    cuda_ = Kokkos::Cuda(stream_);
+
+    // create and initialize device views and their HostMirrors
+    // cf https://github.com/kokkos/kokkos/blob/master/core/unit_test/cuda/TestCuda_InterOp_Streams.cpp#L137
+
+    const std::size_t N = j * k;
+
+    cudaMalloc(&p_, static_cast<std::size_t>(sizeof(float) * N));
+    cudaMalloc(&q_, static_cast<std::size_t>(sizeof(float) * N));
+    cudaMalloc(&r_, static_cast<std::size_t>(sizeof(float) * N));
+
+    view_p = Kokkos::View<float **, Kokkos::CudaSpace>(p_, j, k);
+    view_q = Kokkos::View<float **, Kokkos::CudaSpace>(q_, j, k);
+    view_r = Kokkos::View<float **, Kokkos::CudaSpace>(r_, j, k);
+    Kokkos::deep_copy(cuda_, view_p, 5.);
+    Kokkos::deep_copy(cuda_, view_q, 6.);
+    Kokkos::deep_copy(cuda_, view_r, 7.);
+
+    cuda_.fence();
+
+    host_p = Kokkos::create_mirror_view(view_p);
+    host_q = Kokkos::create_mirror_view(view_q);
+    host_r = Kokkos::create_mirror_view(view_r);
+    Kokkos::deep_copy(host_p, view_p);
+    Kokkos::deep_copy(host_q, view_q);
+    Kokkos::deep_copy(host_r, view_r);
+
+    // // create policy for iterating Views
+    // // cf https://github.com/kokkos/kokkos/issues/1723#issuecomment-464281156
+    // iterate_p_policy = Kokkos::Experimental::require( Kokkos::MDRangePolicy<Kokkos::Rank<2>>(cuda_,
+    //       {0, 0}, {view_p.extent(0), view_p.extent(1)}), Kokkos::Experimental::WorkItemProperty::HintLightWeight );
+
+    cuda_.fence();
+  }
+
+  ~CudaStreamView()
+  {
+    cudaFree(p_);
+    cudaFree(q_);
+    cudaFree(r_);
+  }
+};
+
+void cuda_small_kernel_test()
+{
+  {
     auto totalTimer = scoped_timer("total small kernels");
 
     // set up cuda streams
-    cudaStream_t stream1,stream2;
-    cudaStreamCreate(&stream1);
-    cudaStreamCreate(&stream2);
+    const int numStreams = 5;
 
-    Kokkos::Cuda cuda1(stream1);
-    Kokkos::Cuda cuda2(stream2);
+    const std::size_t j = 1000;
+    const std::size_t k = 1000;
 
-    // create device views and their HostMirrors
-    // cf https://github.com/kokkos/kokkos/blob/master/core/unit_test/cuda/TestCuda_InterOp_Streams.cpp#L137
+    CudaStreamView cuStreamView(j, k);
+    CudaStreamView cuStreamView2(j, k);
+    CudaStreamView cuStreamView3(j, k);
+    CudaStreamView cuStreamView4(j, k);
+    CudaStreamView cuStreamView5(j, k);
 
-    const std::size_t j = 100;
-    const std::size_t k = 100;
-    const std::size_t N = j*k;
+    const std::array<CudaStreamView, numStreams> CuViews{cuStreamView, cuStreamView2, cuStreamView3, cuStreamView4, cuStreamView5};
 
-    float* p, * q, * r;
-    cudaMalloc(&p, static_cast<std::size_t>(sizeof(float)*N));
-    cudaMalloc(&q, static_cast<std::size_t>(sizeof(float)*N));
-    cudaMalloc(&r, static_cast<std::size_t>(sizeof(float)*N));
-
-    Kokkos::View<float**,Kokkos::CudaSpace> view_p(p,j,k);
-    Kokkos::View<float**,Kokkos::CudaSpace> view_q(q,j,k);
-    Kokkos::View<float**,Kokkos::CudaSpace> view_r(r,j,k);
-    Kokkos::deep_copy(cuda1,view_p,5.);
-    Kokkos::deep_copy(cuda1,view_q,6.);
-    Kokkos::deep_copy(cuda1,view_r,7.);
-
-    auto host_p = Kokkos::create_mirror_view(view_p);
-    auto host_q = Kokkos::create_mirror_view(view_q);
-    auto host_r = Kokkos::create_mirror_view(view_r);
-
-    // create policies for iterating Views
-    // cf https://github.com/kokkos/kokkos/issues/1723#issuecomment-464281156
-
-    auto iterate_p_policy_1 = Kokkos::Experimental::require( Kokkos::MDRangePolicy<Kokkos::Rank<view_p.rank>>(cuda1, 
-            {0, 0}, {view_p.extent(0), view_p.extent(1)}), Kokkos::Experimental::WorkItemProperty::HintLightWeight );
-
-    // // launch data-independent kernels
-    // {
-    //   auto sTimer = scoped_timer("kernel nodata");
-    //   for (int i = 0; i < 10000; ++i){
-    //     Kokkos::parallel_for("print some numbers",
-    //       iterate_p_policy,
-    //       KOKKOS_LAMBDA(int j, int k) {
-    //         if((j*k)%1000 == 1){
-    //           printf("%d,%d; ", j, k);
-    //         }
-    //       }
-    //     );
-    //   }
-    // }
+    Kokkos::fence();
 
     // launch data-dependent kernels
     {
-      auto sTimer = scoped_timer("kernel add");
-      for (int i = 0; i < 10000; ++i){
-        kernel_add(view_p, view_q, view_r, iterate_p_policy_1);
-        kernel_add(view_p, view_r, view_q, iterate_p_policy_1);
-        Kokkos::deep_copy(host_q, view_q);
-        Kokkos::deep_copy(host_r, view_r);
+      auto sTimer = scoped_timer("kernel add one stream");
+      auto iterate_p_policy = Kokkos::Experimental::require(Kokkos::MDRangePolicy<Kokkos::Rank<cuStreamView.view_p.rank>>(cuStreamView.cuda_,
+                                                                                                                          {0, 0}, {cuStreamView.view_p.extent(0), cuStreamView.view_p.extent(1)}),
+                                                            Kokkos::Experimental::WorkItemProperty::HintLightWeight);
+      for (int i = 0; i < 10000; ++i)
+      {
+        kernel_add(cuStreamView.view_p, cuStreamView.view_q, cuStreamView.view_r, iterate_p_policy);
+        kernel_add(cuStreamView.view_p, cuStreamView.view_r, cuStreamView.view_q, iterate_p_policy);
       }
+      Kokkos::fence();
+    }
+    {
+      auto sTimer = scoped_timer("kernel add one stream deep_copy");
+      auto iterate_p_policy = Kokkos::Experimental::require(Kokkos::MDRangePolicy<Kokkos::Rank<cuStreamView.view_p.rank>>(cuStreamView.cuda_,
+                                                                                                                          {0, 0}, {cuStreamView.view_p.extent(0), cuStreamView.view_p.extent(1)}),
+                                                            Kokkos::Experimental::WorkItemProperty::HintLightWeight);
+      for (int i = 0; i < 10000; ++i)
+      {
+        kernel_add(cuStreamView.view_p, cuStreamView.view_q, cuStreamView.view_r, iterate_p_policy);
+        Kokkos::deep_copy(cuStreamView.cuda_, cuStreamView.host_r, cuStreamView.view_r);
+        kernel_add(cuStreamView.view_p, cuStreamView.view_r, cuStreamView.view_q, iterate_p_policy);
+      }
+      Kokkos::fence();
+    }
+    {
+      auto sTimer = scoped_timer("kernel add Kokkos fence");
+      for (int i = 0; i < 10000; ++i)
+      {
+        for (const auto &csv : CuViews)
+        {
+          auto iterate_p_policy = Kokkos::Experimental::require(Kokkos::MDRangePolicy<Kokkos::Rank<cuStreamView.view_p.rank>>(csv.cuda_,
+                                                                                                                              {0, 0}, {csv.view_p.extent(0), csv.view_p.extent(1)}),
+                                                                Kokkos::Experimental::WorkItemProperty::HintLightWeight);
+          kernel_add(csv.view_p, csv.view_q, csv.view_r, iterate_p_policy);
+          Kokkos::fence();
+          kernel_add(csv.view_p, csv.view_r, csv.view_q, iterate_p_policy);
+          Kokkos::fence();
+        }
+      }
+      Kokkos::fence();
+    }
+    {
+      auto sTimer = scoped_timer("kernel add no fence");
+      for (int i = 0; i < 10000; ++i)
+      {
+        for (const auto &csv : CuViews)
+        {
+          auto iterate_p_policy = Kokkos::Experimental::require(Kokkos::MDRangePolicy<Kokkos::Rank<cuStreamView.view_p.rank>>(csv.cuda_,
+                                                                                                                              {0, 0}, {csv.view_p.extent(0), csv.view_p.extent(1)}),
+                                                                Kokkos::Experimental::WorkItemProperty::HintLightWeight);
+          kernel_add(csv.view_p, csv.view_q, csv.view_r, iterate_p_policy);
+          kernel_add(csv.view_p, csv.view_r, csv.view_q, iterate_p_policy);
+        }
+      }
+      Kokkos::fence();
+    }
+    {
+      auto sTimer = scoped_timer("kernel add deep_copy");
+      for (int i = 0; i < 10000; ++i)
+      {
+        for (const auto &csv : CuViews)
+        {
+          auto iterate_p_policy = Kokkos::Experimental::require(Kokkos::MDRangePolicy<Kokkos::Rank<cuStreamView.view_p.rank>>(csv.cuda_,
+                                                                                                                              {0, 0}, {csv.view_p.extent(0), csv.view_p.extent(1)}),
+                                                                Kokkos::Experimental::WorkItemProperty::HintLightWeight);
+          kernel_add(csv.view_p, csv.view_q, csv.view_r, iterate_p_policy);
+          Kokkos::deep_copy(csv.host_r, csv.view_r);
+          kernel_add(csv.view_p, csv.view_r, csv.view_q, iterate_p_policy);
+        }
+      }
+      Kokkos::fence();
+    }
+    {
+      auto sTimer = scoped_timer("kernel add deep_copy on stream");
+      for (int i = 0; i < 10000; ++i)
+      {
+        for (const auto &csv : CuViews)
+        {
+          auto iterate_p_policy = Kokkos::Experimental::require(Kokkos::MDRangePolicy<Kokkos::Rank<cuStreamView.view_p.rank>>(csv.cuda_,
+                                                                                                                              {0, 0}, {csv.view_p.extent(0), csv.view_p.extent(1)}),
+                                                                Kokkos::Experimental::WorkItemProperty::HintLightWeight);
+          kernel_add(csv.view_p, csv.view_q, csv.view_r, iterate_p_policy);
+          Kokkos::deep_copy(csv.cuda_, csv.host_r, csv.view_r);
+          kernel_add(csv.view_p, csv.view_r, csv.view_q, iterate_p_policy);
+        }
+      }
+      Kokkos::fence();
     }
 
-    cuda1.fence();  
-    printSomeContents(host_r);
+    printSomeContents(cuStreamView.host_r);
+
+    Kokkos::fence();
   }
 }
 
