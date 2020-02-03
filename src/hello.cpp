@@ -183,9 +183,10 @@ void cuda_small_kernel_test()
 
     // set up cuda streams
     const int numStreams = 5;
+    const int numIterations = 100;
 
-    const std::size_t j = 1000;
-    const std::size_t k = 1000;
+    const std::size_t j = 10000;
+    const std::size_t k = 10000;
 
     CudaStreamView cuStreamView(j, k);
     CudaStreamView cuStreamView2(j, k);
@@ -203,7 +204,7 @@ void cuda_small_kernel_test()
       auto iterate_p_policy = Kokkos::Experimental::require(Kokkos::MDRangePolicy<Kokkos::Rank<cuStreamView.view_p.rank>>(cuStreamView.cuda_,
                                                                                                                           {0, 0}, {cuStreamView.view_p.extent(0), cuStreamView.view_p.extent(1)}),
                                                             Kokkos::Experimental::WorkItemProperty::HintLightWeight);
-      for (int i = 0; i < 10000; ++i)
+      for (int i = 0; i < numIterations; ++i)
       {
         kernel_add(cuStreamView.view_p, cuStreamView.view_q, cuStreamView.view_r, iterate_p_policy);
         kernel_add(cuStreamView.view_p, cuStreamView.view_r, cuStreamView.view_q, iterate_p_policy);
@@ -215,7 +216,7 @@ void cuda_small_kernel_test()
       auto iterate_p_policy = Kokkos::Experimental::require(Kokkos::MDRangePolicy<Kokkos::Rank<cuStreamView.view_p.rank>>(cuStreamView.cuda_,
                                                                                                                           {0, 0}, {cuStreamView.view_p.extent(0), cuStreamView.view_p.extent(1)}),
                                                             Kokkos::Experimental::WorkItemProperty::HintLightWeight);
-      for (int i = 0; i < 10000; ++i)
+      for (int i = 0; i < numIterations; ++i)
       {
         kernel_add(cuStreamView.view_p, cuStreamView.view_q, cuStreamView.view_r, iterate_p_policy);
         Kokkos::deep_copy(cuStreamView.cuda_, cuStreamView.host_r, cuStreamView.view_r);
@@ -225,7 +226,7 @@ void cuda_small_kernel_test()
     }
     {
       auto sTimer = scoped_timer("kernel add Kokkos fence");
-      for (int i = 0; i < 10000; ++i)
+      for (int i = 0; i < numIterations; ++i)
       {
         for (const auto &csv : CuViews)
         {
@@ -242,7 +243,7 @@ void cuda_small_kernel_test()
     }
     {
       auto sTimer = scoped_timer("kernel add no fence");
-      for (int i = 0; i < 10000; ++i)
+      for (int i = 0; i < numIterations; ++i)
       {
         for (const auto &csv : CuViews)
         {
@@ -257,7 +258,7 @@ void cuda_small_kernel_test()
     }
     {
       auto sTimer = scoped_timer("kernel add deep_copy");
-      for (int i = 0; i < 10000; ++i)
+      for (int i = 0; i < numIterations; ++i)
       {
         for (const auto &csv : CuViews)
         {
@@ -273,7 +274,7 @@ void cuda_small_kernel_test()
     }
     {
       auto sTimer = scoped_timer("kernel add deep_copy on stream");
-      for (int i = 0; i < 10000; ++i)
+      for (int i = 0; i < numIterations; ++i)
       {
         for (const auto &csv : CuViews)
         {
