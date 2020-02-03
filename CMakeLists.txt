@@ -32,7 +32,7 @@ execute_process(COMMAND "mkdir" "-p" "hpx-build/build"
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies")
 
 # Run Hpx CMakE
-execute_process(COMMAND "cmake" "-DHPX_WITH_CUDA=ON" 
+execute_process(COMMAND "cmake" "-DHPX_WITH_CUDA=ON" "-DHPX_WITH_CUDA_ARCH=sm_61" "-DHPX_WITH_NETWORKING=OFF" "-DHPX_WITH_TESTs=OFF"
   "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build" "-DHPX_WITH_EXAMPLES=OFF"
   "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx"
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/build")
@@ -63,7 +63,7 @@ execute_process(COMMAND "mkdir" "-p" "kokkos-master-build/install"
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies")
 
 # Run Kokkos CMakE
-execute_process(COMMAND "cmake" "-DKOKKOS_ENABLE_CUDA=1" "-DKOKKOS_ARCH=Pascal61"
+execute_process(COMMAND "cmake" "-DKOKKOS_ENABLE_CUDA=1" "-DKOKKOS_ENABLE_CUDA_LAMBDA=1" "-DKOKKOS_ARCH=Pascal61"
 	"-DKOKKOS_ENABLE_SERIAL=1" "-DCMAKE_CXX_FLAGS=-isystem\ ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/include"
 	"-DKOKKOS_ENABLE_HPX=1" "-DKOKKOS_HPX_DIR=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build"
   "-DHPX_DIR=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/build/lib/cmake/HPX" "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-master"
@@ -83,7 +83,7 @@ set(CMAKE_CXX_COMPILER ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-
 set(KOKKOS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-master-build/install)
 
 enable_language(CUDA)
-add_compile_options(-Xcudafe --diag_suppress=esa_on_defaulted_function_ignored) # surpresses annotation warning, see https://github.com/kokkos/kokkos/issues/1473 
+add_compile_options(-Xcudafe --diag_suppress=esa_on_defaulted_function_ignored --expt-extended-lambda) # surpresses annotation warning, see https://github.com/kokkos/kokkos/issues/1473 
 
 find_package(OpenMP REQUIRED)
 if(OpenMP_CXX_FOUND)
