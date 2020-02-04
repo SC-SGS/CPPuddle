@@ -49,60 +49,6 @@ void printSomeContents(Viewtype &printView)
                        });
 }
 
-Kokkos::View<double **, Kokkos::Experimental::HPX::array_layout, Kokkos::Cuda::memory_space>
-initializeAndMirrorToDevice(Kokkos::View<double **, Kokkos::HostSpace> &testView)
-{
-  Kokkos::parallel_for("init",
-                       Kokkos::MDRangePolicy<Kokkos::DefaultHostExecutionSpace, Kokkos::Rank<2>>(
-                           {0, 0}, {testView.extent(0), testView.extent(1)}),
-                       KOKKOS_LAMBDA(int j, int k) {
-                         volatile double a = std::pow(j * k, 2);
-                         testView(j, k) = a;
-                       });
-  Kokkos::fence();
-  printSomeContents(testView);
-
-  auto deviceMirror = Kokkos::create_mirror_view(typename Kokkos::DefaultExecutionSpace::memory_space(), testView);
-
-  Kokkos::deep_copy(deviceMirror, testView);
-  Kokkos::fence();
-  return deviceMirror;
-}
-
-template <typename Viewtype>
-double getSumOfViewEntries(Viewtype &reduceView)
-{
-  double reductionResult = 0;
-  Kokkos::parallel_reduce("reduce all",
-                          Kokkos::MDRangePolicy<typename Viewtype::execution_space, Kokkos::Rank<2>>(
-                              // Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
-                              {0, 0}, {reduceView.extent(0), reduceView.extent(1)}),
-                          KOKKOS_LAMBDA(int j, int k, double &sum) {
-                            sum += reduceView(j, k);
-                          },
-                          reductionResult);
-  // Kokkos::fence();
-  return reductionResult;
-}
-
-Kokkos::View<double **, Kokkos::Cuda::array_layout, Kokkos::HostSpace> initializeAndMirrorToHost(Kokkos::View<double **, Kokkos::DefaultExecutionSpace> &testView)
-{
-  Kokkos::parallel_for("init",
-                       Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
-                           {0, 0}, {testView.extent(0), testView.extent(1)}),
-                       KOKKOS_LAMBDA(int j, int k) {
-                         testView(j, k) = j * k;
-                       });
-  Kokkos::fence();
-  printSomeContents(testView);
-
-  auto hostMirror = Kokkos::create_mirror_view(testView);
-
-  Kokkos::deep_copy(hostMirror, testView);
-  Kokkos::fence();
-  return hostMirror;
-}
-
 template <typename Viewtype, typename Policytype>
 void kernel_add(Viewtype &first, Viewtype &second, Viewtype &output, Policytype &policy)
 {
@@ -110,6 +56,10 @@ void kernel_add(Viewtype &first, Viewtype &second, Viewtype &output, Policytype 
       "kernel add",
       policy,
       KOKKOS_LAMBDA(int j, int k) {
+        // useless loop to make the computation last longer in the profiler
+        for (volatile int i = 0; i < 10000; ){
+          ++i;
+        }
         output(j, k) = first(j, k) + second(j, k);
       });
 }
@@ -182,29 +132,19 @@ void cuda_small_kernel_test()
   {
     auto totalTimer = scoped_timer("total small kernels");
 
-    // set up cuda streams
-    const int numStreams = 5;
-    const int numIterations = 100;
+    const int numIterations = 40;
 
-    const std::size_t j = 10000;
-    const std::size_t k = 10000;
+    const std::size_t j = 50;
+    const std::size_t k = 10;
 
     CudaStreamView cuStreamView(j, k);
-    CudaStreamView cuStreamView2(j, k);
-    CudaStreamView cuStreamView3(j, k);
-    CudaStreamView cuStreamView4(j, k);
-    CudaStreamView cuStreamView5(j, k);
-
-    const std::array<CudaStreamView, numStreams> CuViews{cuStreamView, cuStreamView2, cuStreamView3, cuStreamView4, cuStreamView5};
-
-    Kokkos::fence();
+    auto & csv = cuStreamView;
 
     // launch data-dependent kernels
     {
       auto sTimer = scoped_timer("kernel add no fence");
       for (int i = 0; i < numIterations; ++i)
       {
-        for (const auto &csv : CuViews)
         {
           auto iterate_p_policy = Kokkos::Experimental::require(Kokkos::MDRangePolicy<Kokkos::Rank<cuStreamView.view_p.rank>>(csv.cuda_,
                                                                                                                               {0, 0}, {csv.view_p.extent(0), csv.view_p.extent(1)}),
@@ -213,14 +153,12 @@ void cuda_small_kernel_test()
           kernel_add(csv.view_p, csv.view_r, csv.view_q, iterate_p_policy);
         }
       }
-      Kokkos::fence();
+      csv.cuda_.fence();
     }
-    //TODO start this from HPX tasks
     {
       auto sTimer = scoped_timer("kernel add deep_copy on stream");
       for (int i = 0; i < numIterations; ++i)
       {
-        for (const auto &csv : CuViews)
         {
           auto iterate_p_policy = Kokkos::Experimental::require(Kokkos::MDRangePolicy<Kokkos::Rank<cuStreamView.view_p.rank>>(csv.cuda_,
                                                                                                                               {0, 0}, {csv.view_p.extent(0), csv.view_p.extent(1)}),
@@ -230,82 +168,54 @@ void cuda_small_kernel_test()
           kernel_add(csv.view_p, csv.view_r, csv.view_q, iterate_p_policy);
         }
       }
-      Kokkos::fence();
+      csv.cuda_.fence();
     }
 
     printSomeContents(cuStreamView.host_r);
-
-    Kokkos::fence();
   }
 }
 
 // #pragma nv_exec_check_disable
-int main (int argc, char* argv[]) {
-  Kokkos::initialize (argc, argv);
+int main(int argc, char *argv[])
+{
+  Kokkos::initialize(argc, argv);
 
   Kokkos::print_configuration(std::cout);
 
   // cuda small kernel test, to emulate octotiger requirements
-  // TODO HPX-ify
   {
-    cuda_small_kernel_test();
-    Kokkos::fence();
-  }
-  // Kokkos hello world example
-  {
-    std::size_t worker_id = hpx::get_worker_thread_num();
-    std::size_t locality_id = hpx::get_locality_id();
-
-    printf ("HPX Thread %i on Locality %i\n\n", worker_id, locality_id);
-
-    Kokkos::parallel_for ("HelloWorld",Kokkos::RangePolicy<Kokkos::Cuda>(0, 14), hello_world ());
+    auto f = hpx::async(cuda_small_kernel_test);
+    auto g = hpx::async(cuda_small_kernel_test);
+    auto h = hpx::async(cuda_small_kernel_test);
+    auto i = hpx::async(cuda_small_kernel_test);
+    auto j = hpx::async(cuda_small_kernel_test);
+    auto k = hpx::async(cuda_small_kernel_test);
+    auto l = hpx::async(cuda_small_kernel_test);
     Kokkos::fence();
 
-    printf ("Hello World on Kokkos execution space %s\n",
-            typeid (Kokkos::Experimental::HPX).name ());
-    Kokkos::parallel_for ("HelloWorld",Kokkos::RangePolicy<Kokkos::Experimental::HPX>(0,14), hello_world ());
-    Kokkos::fence();
-
-    printf ("Hello World on Kokkos execution space %s\n",
-            typeid (Kokkos::Serial).name ());
-    Kokkos::parallel_for ("HelloWorld",Kokkos::RangePolicy<Kokkos::Serial>(0,14), hello_world ());
-    Kokkos::fence();
-  }
-  // mirroring views and wrapping calls in HPX futures
-  {
-    // Mirror a Host view to device
-    Kokkos::View<double**, Kokkos::HostSpace> testViewHost(
-      Kokkos::ViewAllocateWithoutInitializing("test host"), 150, 560);
-    auto deviceMirror = initializeAndMirrorToDevice(testViewHost);
-
-    auto f = hpx::async([deviceMirror]() -> double {
-                    printf ("\n reduce on device\n"); 
-                    return getSumOfViewEntries(deviceMirror); 
-                  });
-    auto g = hpx::async([testViewHost]() -> double {
-                    printf ("\n reduce on host\n"); 
-                    return getSumOfViewEntries(testViewHost); 
-                  });
-
-    Kokkos::fence();
-
-    // Mirror a device view to host
-    printf("create default execution space view \n ");
-    Kokkos::View<double**, Kokkos::DefaultExecutionSpace> testViewDevice(
-		  Kokkos::ViewAllocateWithoutInitializing("state"), 150, 560);
-    auto hostMirror = initializeAndMirrorToHost(testViewDevice);
-    Kokkos::fence();
-                  
-    auto when = hpx::when_all(f, g);
+    auto when = hpx::when_all(f, g, h, i, j, k, l);
     when.wait();
-    // terminate called after throwing an instance of 'hpx::detail::exception_with_info<hpx::exception>'
-    //  what():  this future has no valid shared state: HPX(no_state) =>why? these here seem to work:
-    // f.wait();
-    // g.wait();
-
-    printf("Reduction results: %lf %lf \n", g.get(), f.get());
-
-    Kokkos::fence();
   }
-  Kokkos::finalize(); 
+
+  // // Kokkos hello world example
+  // {
+  //   std::size_t worker_id = hpx::get_worker_thread_num();
+  //   std::size_t locality_id = hpx::get_locality_id();
+
+  //   printf("HPX Thread %i on Locality %i\n\n", worker_id, locality_id);
+
+  //   Kokkos::parallel_for("HelloWorld", Kokkos::RangePolicy<Kokkos::Cuda>(0, 14), hello_world());
+  //   Kokkos::fence();
+
+  //   printf("Hello World on Kokkos execution space %s\n",
+  //          typeid(Kokkos::Experimental::HPX).name());
+  //   Kokkos::parallel_for("HelloWorld", Kokkos::RangePolicy<Kokkos::Experimental::HPX>(0, 14), hello_world());
+  //   Kokkos::fence();
+
+  //   printf("Hello World on Kokkos execution space %s\n",
+  //          typeid(Kokkos::Serial).name());
+  //   Kokkos::parallel_for("HelloWorld", Kokkos::RangePolicy<Kokkos::Serial>(0, 14), hello_world());
+  //   Kokkos::fence();
+  // }
+  Kokkos::finalize();
 }
