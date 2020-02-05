@@ -119,3 +119,6 @@ add_compile_options(-std=c++14 -I${BOOST_ROOT}/include -L${BOOST_ROOT}/lib)
 link_libraries(kokkos hpx dl boost_system boost_program_options boost_thread boost_regex boost_chrono boost_atomic boost_filesystem)
 
 add_executable(hello ${SOURCES})
+
+add_compile_options(-std=c++14 -I${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-hpx-interop/include)
+add_executable(interop ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-hpx-interop/src/kokkos_hpx.cpp)

@@ -7,3 +7,6 @@
 [submodule "external_dependencies/kokkos-master"]
 	path = external_dependencies/kokkos-master
 	url = https://github.com/kokkos/kokkos
+[submodule "external_dependencies/kokkos-hpx-interop"]
+	path = external_dependencies/kokkos-hpx-interop
+	url = git@github.com:freifrauvonbleifrei/kokkos-hpx-interop.git
