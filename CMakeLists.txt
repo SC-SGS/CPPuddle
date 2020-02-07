@@ -13,6 +13,11 @@ if (N EQUAL 0)
 endif()
 
 project(hpx_kokkos_example)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 #================================================================================================================================================
 # Setup HPX
 #================================================================================================================================================
@@ -34,7 +39,7 @@ execute_process(COMMAND "mkdir" "-p" "hpx-build/build"
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies")
 
 # Run Hpx CMakE
-execute_process(COMMAND "cmake" "-DHPX_WITH_CUDA=ON" "-DBOOST_ROOT=${BOOST_ROOT}" 
+execute_process(COMMAND "cmake" "-DCMAKE_CXX_STANDARD=17" "-DHPX_WITH_CUDA=ON" "-DBOOST_ROOT=${BOOST_ROOT}" 
   	"-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build" "-DHPX_WITH_EXAMPLES=OFF"
   	"${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx" "-DHWLOC_ROOT=/apps/daint/UES/biddisco/gcc/7.3.0/hwloc/2.0.4"
   	"-DHPX_WITH_MALLOC=JEMALLOC"
@@ -68,7 +73,7 @@ endif()
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies")
 
 # Run Kokkos CMakE
-	execute_process(COMMAND "cmake" "-DKOKKOS_ENABLE_CUDA=1" "-DKOKKOS_ENABLE_CUDA_LAMBDA=1" "-DKOKKOS_ARCH=Pascal60"
+	execute_process(COMMAND "cmake" "-DCMAKE_CXX_STANDARD=17" "-DKOKKOS_ENABLE_CUDA=1" "-DKOKKOS_ENABLE_CUDA_LAMBDA=1" "-DKOKKOS_ARCH=Pascal60"
 				"-DJEMALLOC_ROOT=/apps/daint/UES/biddisco/gcc/7.3.0/jemalloc/5.2.1"
 				"-DKokkos_ENABLE_SERIAL=1" "-DCMAKE_CXX_FLAGS=-isystem\ ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/include"
 				"-DKokkos_ENABLE_HPX=1" "-DKokkos_HPX_DIR=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/build/lib/cmake/HPX"
@@ -89,7 +94,8 @@ set(CMAKE_CXX_COMPILER ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-
 set(KOKKOS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-master-build/install)
 
 enable_language(CUDA)
-add_compile_options(-Xcudafe --diag_suppress=esa_on_defaulted_function_ignored --expt-extended-lambda) # surpresses annotation warning, see https://github.com/kokkos/kokkos/issues/1473 
+# not sure what is introducing the std=c++11 flag for the kokkos project
+add_compile_options(-Xcudafe --diag_suppress=esa_on_defaulted_function_ignored --expt-extended-lambda) # suppresses annotation warning, see https://github.com/kokkos/kokkos/issues/1473 
 
 find_package(OpenMP REQUIRED)
 if(OpenMP_CXX_FOUND)
@@ -108,17 +114,17 @@ link_directories(${KOKKOS_DIR}/lib64 ${KOKKOS_DIR}/lib)
 link_directories(${BOOST_ROOT}/lib /usr/lib64)
 
 # Headers of the current application
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include, ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-hpx-interop/include)
 
 # Sources of the current application
 set(SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/hello.cpp)
 
-# We need C++11 for our example
-add_compile_options(-std=c++14 -I${BOOST_ROOT}/include -L${BOOST_ROOT}/lib) 
+# We need C++17 for our example
+add_compile_options(-std=c++17 -I${BOOST_ROOT}/include -L${BOOST_ROOT}/lib) 
 
 link_libraries(kokkos hpx dl boost_system boost_program_options boost_thread boost_regex boost_chrono boost_atomic boost_filesystem)
 
 add_executable(hello ${SOURCES})
 
-add_compile_options(-std=c++14 -I${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-hpx-interop/include)
+add_compile_options(-I${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-hpx-interop/include)
 add_executable(interop ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-hpx-interop/src/kokkos_hpx.cpp)
