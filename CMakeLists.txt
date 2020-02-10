@@ -111,3 +111,6 @@ set(SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/hello.cpp)
 add_compile_options(-std=c++14) 
 
 add_executable(hello ${SOURCES})
+
+add_compile_options(-std=c++14 -I${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-hpx-interop/include)
+add_executable(interop ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-hpx-interop/src/kokkos_hpx.cpp)
