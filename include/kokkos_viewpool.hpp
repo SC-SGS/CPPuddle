@@ -52,25 +52,28 @@ struct view_bundle
               typename MemorySpaceTo = Kokkos::Cuda::memory_space,
               typename MemorySpaceFrom = Kokkos::CudaHostPinnedSpace::memory_space>
     void sync_deep_copy(Executor executor, MemorySpaceTo memory_space_to, MemorySpaceFrom memory_space_from);
-    
+
     /**
      * get an MDRangePolicy suitable for iterating the views
      * 
      * @param executor a kokkos ExecutionSpace, e.g. hpx::kokkos::make_execution_space<Kokkos::Cuda>()
      */
     template <typename Executor>
-    auto get_iteration_policy(Executor executor){
-
+    auto get_iteration_policy(Executor executor)
+    {
         constexpr auto rank = Kokkos::ViewTraits<DataType>::rank;
-        const Kokkos::Array<int64_t,rank> zeros{ };
-        Kokkos::Array<int64_t,rank> strides;
-        for (int i = 0; i < rank; ++i){
-            strides[i] = device_view_.stride(i);
+        const Kokkos::Array<int64_t, rank> zeros{};
+        Kokkos::Array<int64_t, rank> extents;
+        for (int i = 0; i < rank; ++i)
+        {
+            extents[i] = device_view_.extent(i); // returns wrong result!
         }
 
-        //TODO what exactly does HintLightWeight do?
-        return Kokkos::Experimental::require( Kokkos::MDRangePolicy<decltype(executor), Kokkos::Rank<rank>>(executor,
-            zeros, strides), Kokkos::Experimental::WorkItemProperty::HintLightWeight );
+        // //TODO what exactly does HintLightWeight do?
+        // return Kokkos::Experimental::require(Kokkos::MDRangePolicy<decltype(executor), Kokkos::Rank<rank>>(executor,
+        //                                                                                                    zeros, extents),
+        //                                      Kokkos::Experimental::WorkItemProperty::HintLightWeight);
+        return Kokkos::MDRangePolicy<decltype(executor), Kokkos::Rank<rank>>(executor, zeros, extents);
     }
 
     Kokkos::View<DataType, Kokkos::CudaSpace> device_view_;

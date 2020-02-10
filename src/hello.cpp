@@ -181,6 +181,11 @@ void cuda_small_kernel_test()
 
 void stream_executor_test()
 {
+  auto totalTimer = scoped_timer("total stream executor");
+
+  const int numIterations = 40;
+
+  // auto & viewpool = hpx::kokkos::view_pool::getInstance();
   static thread_local hpx::kokkos::view_pool viewpool{};
 
   const std::size_t j = 50;
@@ -196,33 +201,43 @@ void stream_executor_test()
 
     auto copy_finished = hpx::kokkos::parallel_for_async(
         "pinned host init",
-        Kokkos::MDRangePolicy<Kokkos::DefaultHostExecutionSpace, Kokkos::Rank<2>>(
-                           {0, 0}, {a.extent(0), a.extent(1)}),
+        bundle.get_iteration_policy(Kokkos::DefaultHostExecutionSpace()),
         KOKKOS_LAMBDA(int n, int o) {
           a(n, o) = d;
           bundle.host_view_(n, o) = a(n, o);
         });
 
     auto stream_space = hpx::kokkos::make_execution_space<>();
-    auto a_policy_stream = Kokkos::MDRangePolicy<decltype(stream_space), Kokkos::Rank<2>>(stream_space, {0, 0}, {a.extent(0), a.extent(1)});
+    auto policy_stream = bundle.get_iteration_policy(stream_space);
+    auto policy_stream_manually = Kokkos::MDRangePolicy<decltype(stream_space), Kokkos::Rank<2>>(stream_space, {0, 0}, {a.extent(0), a.extent(1)});
+
+    static_assert(std::is_same<decltype(policy_stream_manually),
+                               decltype(policy_stream)>::value);
 
     copy_finished.wait();
 
-    hpx::kokkos::deep_copy_async(stream_space, bundle.device_view_, bundle.host_view_);
+    {
+      auto totalTimer = scoped_timer("async device");
+      hpx::future<void> f;
+      for (int i = 0; i < numIterations; ++i){
+        hpx::kokkos::deep_copy_async(stream_space, bundle.device_view_, bundle.host_view_);
 
-    kernel_add(bundle.device_view_, bundle.device_view_, bundle.device_view_, a_policy_stream);
+        kernel_add(bundle.device_view_, bundle.device_view_, bundle.device_view_, policy_stream);
 
-    auto f = hpx::kokkos::deep_copy_async(stream_space, bundle.host_view_, bundle.device_view_);
-    f.wait();
+        f = hpx::kokkos::deep_copy_async(stream_space, bundle.host_view_, bundle.device_view_);
+        f.wait();
+      }
+    }
 
     hpx::kokkos::parallel_for_async(
         "pinned host copy back",
-        Kokkos::MDRangePolicy<Kokkos::DefaultHostExecutionSpace, Kokkos::Rank<2>>(
-                           {0, 0}, {a.extent(0), a.extent(1)}),
+        bundle.get_iteration_policy(Kokkos::DefaultHostExecutionSpace()),
         KOKKOS_LAMBDA(int n, int o) {
           a(n, o) = bundle.host_view_(n, o);
-        }).wait();
+        })
+        .wait();
   }
+  printSomeContents(a);
 }
 
 // #pragma nv_exec_check_disable
