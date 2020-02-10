@@ -46,12 +46,32 @@ struct view_bundle
     /**
      * synchronous blocking deep_copy (on the executor's stream)
      * 
-     * ...same as current Kokkos implementhpx::kokkos::ation
+     * ...same as current Kokkos implementation
      */
     template <typename Executor,
               typename MemorySpaceTo = Kokkos::Cuda::memory_space,
               typename MemorySpaceFrom = Kokkos::CudaHostPinnedSpace::memory_space>
     void sync_deep_copy(Executor executor, MemorySpaceTo memory_space_to, MemorySpaceFrom memory_space_from);
+    
+    /**
+     * get an MDRangePolicy suitable for iterating the views
+     * 
+     * @param executor a kokkos ExecutionSpace, e.g. hpx::kokkos::make_execution_space<Kokkos::Cuda>()
+     */
+    template <typename Executor>
+    auto get_iteration_policy(Executor executor){
+
+        constexpr auto rank = Kokkos::ViewTraits<DataType>::rank;
+        const Kokkos::Array<int64_t,rank> zeros{ };
+        Kokkos::Array<int64_t,rank> strides;
+        for (int i = 0; i < rank; ++i){
+            strides[i] = device_view_.stride(i);
+        }
+
+        //TODO what exactly does HintLightWeight do?
+        return Kokkos::Experimental::require( Kokkos::MDRangePolicy<decltype(executor), Kokkos::Rank<rank>>(executor,
+            zeros, strides), Kokkos::Experimental::WorkItemProperty::HintLightWeight );
+    }
 
     Kokkos::View<DataType, Kokkos::CudaSpace> device_view_;
     decltype(Kokkos::create_mirror_view(Kokkos::CudaHostPinnedSpace(), device_view_)) host_view_;
