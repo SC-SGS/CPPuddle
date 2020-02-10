@@ -2,6 +2,9 @@
 #include <hpx/include/async.hpp>
 #include <hpx/include/lcos.hpp>
 
+#include <kokkos_viewpool.hpp>
+#include <hpx/kokkos.hpp>
+
 #include <Kokkos_Core.hpp>
 #include <cstdio>
 #include <typeinfo>
@@ -57,7 +60,8 @@ void kernel_add(Viewtype &first, Viewtype &second, Viewtype &output, Policytype 
       policy,
       KOKKOS_LAMBDA(int j, int k) {
         // useless loop to make the computation last longer in the profiler
-        for (volatile int i = 0; i < 10000; ){
+        for (volatile int i = 0; i < 10000;)
+        {
           ++i;
         }
         output(j, k) = first(j, k) + second(j, k);
@@ -71,7 +75,7 @@ struct CudaStreamView
   float *p_, *q_, *r_;
   Kokkos::View<float **, Kokkos::CudaSpace> view_p, view_q, view_r;
   decltype(Kokkos::create_mirror_view(Kokkos::CudaHostPinnedSpace(), view_p)) host_p, host_q, host_r;
-  
+
   // //TODO deduce this type; problem: no default constructor
   // Kokkos::MDRangePolicy<Kokkos::DefaultExecutionSpace, Kokkos::Schedule<Kokkos::Static>, void,
   //                       Kokkos::Cuda::size_type, Kokkos::Rank<2U, Kokkos::Iterate::Default,
@@ -138,7 +142,7 @@ void cuda_small_kernel_test()
     const std::size_t k = 10;
 
     CudaStreamView cuStreamView(j, k);
-    auto & csv = cuStreamView;
+    auto &csv = cuStreamView;
 
     // launch data-dependent kernels
     {
@@ -175,10 +179,56 @@ void cuda_small_kernel_test()
   }
 }
 
+void stream_executor_test()
+{
+  static thread_local hpx::kokkos::view_pool viewpool{};
+
+  const std::size_t j = 50;
+  const std::size_t k = 10;
+
+  static double d = 0;
+  ++d;
+
+  Kokkos::View<double[j][k], Kokkos::DefaultHostExecutionSpace> a("a");
+  {
+    hpx::kokkos::bundle_guard<double[j][k]> bundleguard(viewpool);
+    auto bundle = bundleguard.get();
+
+    auto copy_finished = hpx::kokkos::parallel_for_async(
+        "pinned host init",
+        Kokkos::MDRangePolicy<Kokkos::DefaultHostExecutionSpace, Kokkos::Rank<2>>(
+                           {0, 0}, {a.extent(0), a.extent(1)}),
+        KOKKOS_LAMBDA(int n, int o) {
+          a(n, o) = d;
+          bundle.host_view_(n, o) = a(n, o);
+        });
+
+    auto stream_space = hpx::kokkos::make_execution_space<>();
+    auto a_policy_stream = Kokkos::MDRangePolicy<decltype(stream_space), Kokkos::Rank<2>>(stream_space, {0, 0}, {a.extent(0), a.extent(1)});
+
+    copy_finished.wait();
+
+    hpx::kokkos::deep_copy_async(stream_space, bundle.device_view_, bundle.host_view_);
+
+    kernel_add(bundle.device_view_, bundle.device_view_, bundle.device_view_, a_policy_stream);
+
+    auto f = hpx::kokkos::deep_copy_async(stream_space, bundle.host_view_, bundle.device_view_);
+    f.wait();
+
+    hpx::kokkos::parallel_for_async(
+        "pinned host copy back",
+        Kokkos::MDRangePolicy<Kokkos::DefaultHostExecutionSpace, Kokkos::Rank<2>>(
+                           {0, 0}, {a.extent(0), a.extent(1)}),
+        KOKKOS_LAMBDA(int n, int o) {
+          a(n, o) = bundle.host_view_(n, o);
+        }).wait();
+  }
+}
+
 // #pragma nv_exec_check_disable
 int main(int argc, char *argv[])
 {
-  Kokkos::initialize(argc, argv);
+  hpx::kokkos::ScopeGuard scopeGuard(argc, argv);
 
   Kokkos::print_configuration(std::cout);
 
@@ -191,6 +241,20 @@ int main(int argc, char *argv[])
     auto j = hpx::async(cuda_small_kernel_test);
     auto k = hpx::async(cuda_small_kernel_test);
     auto l = hpx::async(cuda_small_kernel_test);
+    Kokkos::fence();
+
+    auto when = hpx::when_all(f, g, h, i, j, k, l);
+    when.wait();
+  }
+  // test for the cuda stream executor and view management
+  {
+    auto f = hpx::async(stream_executor_test);
+    auto g = hpx::async(stream_executor_test);
+    auto h = hpx::async(stream_executor_test);
+    auto i = hpx::async(stream_executor_test);
+    auto j = hpx::async(stream_executor_test);
+    auto k = hpx::async(stream_executor_test);
+    auto l = hpx::async(stream_executor_test);
     Kokkos::fence();
 
     auto when = hpx::when_all(f, g, h, i, j, k, l);
@@ -217,5 +281,4 @@ int main(int argc, char *argv[])
   //   Kokkos::parallel_for("HelloWorld", Kokkos::RangePolicy<Kokkos::Serial>(0, 14), hello_world());
   //   Kokkos::fence();
   // }
-  Kokkos::finalize();
 }
