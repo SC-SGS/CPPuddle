@@ -3,7 +3,7 @@
 	url = git@github.com:msimberg/kokkos.git
 [submodule "external_dependencies/hpx"]
 	path = external_dependencies/hpx
-	url = https://github.com/STEllAR-GROUP/hpx.git
+	url = https://github.com/msimberg/hpx.git
 [submodule "external_dependencies/kokkos-hpx-interop"]
         path = external_dependencies/kokkos-hpx-interop
         url = git@github.com:msimberg/kokkos-hpx-interop.git
