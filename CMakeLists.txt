@@ -14,9 +14,10 @@ endif()
 
 project(hpx_kokkos_example)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(SKIP_HPX_KOKKOS_BUILD TRUE)
 
 #================================================================================================================================================
 # Setup HPX
@@ -35,11 +36,12 @@ endif()
 
 #message(FATAL_ERROR ${BOOST_ROOT})
 
+if(NOT SKIP_HPX_KOKKOS_BUILD)
 execute_process(COMMAND "mkdir" "-p" "hpx-build/build" 
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies")
 
 # Run Hpx CMakE
-execute_process(COMMAND "cmake" "-DCMAKE_CXX_STANDARD=17" "-DHPX_WITH_CUDA=ON" "-DBOOST_ROOT=${BOOST_ROOT}" 
+execute_process(COMMAND "cmake" "-DCMAKE_CXX_STANDARD=14" "-DHPX_WITH_CUDA=ON" "-DBOOST_ROOT=${BOOST_ROOT}"
   	"-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build" "-DHPX_WITH_EXAMPLES=OFF"
   	"${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx" "-DHWLOC_ROOT=/apps/daint/UES/biddisco/gcc/7.3.0/hwloc/2.0.4"
   	"-DHPX_WITH_MALLOC=JEMALLOC"
@@ -50,13 +52,16 @@ execute_process(COMMAND "cmake" "--build" "${CMAKE_CURRENT_SOURCE_DIR}/external_
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/build")
 execute_process(COMMAND "cmake" "--build" "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/build" "--target" "install"
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/build")
+endif()
 
-set(HPX_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build)
+set(HPX_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build)
 
-include_directories(${HPX_DIR}/include)
+include_directories(${HPX_BASE_DIR}/include)
 
-link_directories(${HPX_DIR}/lib ${HPX_DIR}/lib64)
+link_directories(${HPX_BASE_DIR}/lib ${HPX_BASE_DIR}/lib64)
 
+set(HPX_DIR ${HPX_BASE_DIR}/lib64/cmake/HPX/)
+find_package(HPX REQUIRED)
 
 #================================================================================================================================================
 # Setup Kokkos
@@ -72,8 +77,9 @@ endif()
 	execute_process(COMMAND "mkdir" "-p" "kokkos-master-build/install" 
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies")
 
+if(NOT SKIP_HPX_KOKKOS_BUILD)
 # Run Kokkos CMakE
-	execute_process(COMMAND "cmake" "-DCMAKE_CXX_STANDARD=17" "-DKOKKOS_ENABLE_CUDA=1" "-DKOKKOS_ENABLE_CUDA_LAMBDA=1" "-DKOKKOS_ARCH=Pascal60"
+	execute_process(COMMAND "cmake" "-DCMAKE_CXX_STANDARD=14" "-DKOKKOS_ENABLE_CUDA=1" "-DKOKKOS_ENABLE_CUDA_LAMBDA=1" "-DKOKKOS_ARCH=Pascal60"
 				"-DJEMALLOC_ROOT=/apps/daint/UES/biddisco/gcc/7.3.0/jemalloc/5.2.1"
 				"-DKokkos_ENABLE_SERIAL=1" "-DCMAKE_CXX_FLAGS=-isystem\ ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/include"
 				"-DKokkos_ENABLE_HPX=1" "-DKokkos_HPX_DIR=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/build/lib/cmake/HPX"
@@ -86,7 +92,7 @@ execute_process(COMMAND "make" "-j${N}" "VERBOSE=1"
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-master-build")
 execute_process(COMMAND "make" "install"
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-master-build")
-
+endif()
 #set(KOKKOS_DIR /home/daissgr/workshop/kokkos-master-spielwiese/kokkos-master2/build/install)
 #set(CMAKE_CXX_COMPILER /home/daissgr/workshop/kokkos-master-spielwiese/kokkos-master2/bin/nvcc_wrapper)
 
@@ -119,12 +125,12 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include, ${CMAKE_CURRENT_SOURCE_
 # Sources of the current application
 set(SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/hello.cpp)
 
-# We need C++17 for our example
-add_compile_options(-std=c++17 -I${BOOST_ROOT}/include -L${BOOST_ROOT}/lib) 
+# We need C++14 for our example
+add_compile_options(-std=c++14 -I${BOOST_ROOT}/include -L${BOOST_ROOT}/lib) 
 
 link_libraries(kokkos hpx dl boost_system boost_program_options boost_thread boost_regex boost_chrono boost_atomic boost_filesystem)
 
-add_executable(hello ${SOURCES})
+add_hpx_executable(hello SOURCES ${SOURCES})
 
 add_compile_options(-I${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-hpx-interop/include)
-add_executable(interop ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-hpx-interop/src/kokkos_hpx.cpp)
+add_hpx_executable(interop SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-hpx-interop/src/kokkos_hpx.cpp)
