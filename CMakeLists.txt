@@ -17,7 +17,7 @@ project(hpx_kokkos_example)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(SKIP_HPX_KOKKOS_BUILD FALSE)
+set(SKIP_HPX_KOKKOS_BUILD False)
 
 #================================================================================================================================================
 # Setup HPX
@@ -42,10 +42,8 @@ execute_process(COMMAND "mkdir" "-p" "hpx-build/build"
 
 # Run Hpx CMakE
 execute_process(COMMAND "cmake" "-DCMAKE_CXX_STANDARD=14" "-DHPX_WITH_CUDA=ON" 
-  	"-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build" "-DHPX_WITH_EXAMPLES=OFF"
-  	"${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx" "-DHWLOC_ROOT=/apps/daint/UES/biddisco/gcc/7.3.0/hwloc/2.0.4"
-  	"-DHPX_WITH_MALLOC=JEMALLOC"
-  	"-DJEMALLOC_ROOT=/apps/daint/UES/biddisco/gcc/7.3.0/jemalloc/5.2.1"
+  	"-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-install" "-DHPX_WITH_EXAMPLES=OFF"
+  	"${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx" 
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/build")
 # Run make
 execute_process(COMMAND "cmake" "--build" "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/build" "--" "-j${N}"
@@ -54,14 +52,11 @@ execute_process(COMMAND "cmake" "--build" "${CMAKE_CURRENT_SOURCE_DIR}/external_
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build/build")
 endif()
 
-set(HPX_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build)
-
-include_directories(${HPX_BASE_DIR}/include)
-
-link_directories(${HPX_BASE_DIR}/lib ${HPX_BASE_DIR}/lib)
+set(HPX_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-install)
 
 set(HPX_DIR ${HPX_BASE_DIR}/lib/cmake/HPX/)
 find_package(HPX REQUIRED)
+message(INFO "HPX done:")
 
 #================================================================================================================================================
 # Setup Kokkos
@@ -112,6 +107,7 @@ include_directories(${KOKKOS_DIR}/include)
 
 link_directories(${KOKKOS_DIR}/lib ${KOKKOS_DIR}/lib)
 
+message(INFO "HPX done:")
 
 #================================================================================================================================================
 # Setup application
