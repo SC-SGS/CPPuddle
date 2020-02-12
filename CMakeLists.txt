@@ -17,7 +17,7 @@ project(hpx_kokkos_example)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(SKIP_HPX_KOKKOS_BUILD TRUE)
+set(SKIP_HPX_KOKKOS_BUILD FALSE)
 
 #================================================================================================================================================
 # Setup HPX
@@ -41,7 +41,7 @@ execute_process(COMMAND "mkdir" "-p" "hpx-build/build"
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies")
 
 # Run Hpx CMakE
-execute_process(COMMAND "cmake" "-DCMAKE_CXX_STANDARD=14" "-DHPX_WITH_CUDA=ON" "-DBOOST_ROOT=${BOOST_ROOT}"
+execute_process(COMMAND "cmake" "-DCMAKE_CXX_STANDARD=14" "-DHPX_WITH_CUDA=ON" 
   	"-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build" "-DHPX_WITH_EXAMPLES=OFF"
   	"${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx" "-DHWLOC_ROOT=/apps/daint/UES/biddisco/gcc/7.3.0/hwloc/2.0.4"
   	"-DHPX_WITH_MALLOC=JEMALLOC"
@@ -58,9 +58,9 @@ set(HPX_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-build)
 
 include_directories(${HPX_BASE_DIR}/include)
 
-link_directories(${HPX_BASE_DIR}/lib ${HPX_BASE_DIR}/lib64)
+link_directories(${HPX_BASE_DIR}/lib ${HPX_BASE_DIR}/lib)
 
-set(HPX_DIR ${HPX_BASE_DIR}/lib64/cmake/HPX/)
+set(HPX_DIR ${HPX_BASE_DIR}/lib/cmake/HPX/)
 find_package(HPX REQUIRED)
 
 #================================================================================================================================================
@@ -110,14 +110,14 @@ endif()
 
 include_directories(${KOKKOS_DIR}/include)
 
-link_directories(${KOKKOS_DIR}/lib64 ${KOKKOS_DIR}/lib)
+link_directories(${KOKKOS_DIR}/lib ${KOKKOS_DIR}/lib)
 
 
 #================================================================================================================================================
 # Setup application
 #================================================================================================================================================
 
-link_directories(${BOOST_ROOT}/lib /usr/lib64)
+link_directories(/usr/lib)
 
 # Headers of the current application
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include, ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-hpx-interop/include)
@@ -126,7 +126,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include, ${CMAKE_CURRENT_SOURCE_
 set(SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/hello.cpp)
 
 # We need C++14 for our example
-add_compile_options(-std=c++14 -I${BOOST_ROOT}/include -L${BOOST_ROOT}/lib) 
+add_compile_options(-std=c++14) 
 
 link_libraries(kokkos hpx dl boost_system boost_program_options boost_thread boost_regex boost_chrono boost_atomic boost_filesystem)
 
