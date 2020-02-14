@@ -1,9 +1,4 @@
-// TODO Insert Allocator
-
-// TODO Insert singleton memory mananger -> Wird der überhaupt benötigt?
-// Vermutlich hauptsächlich um callbacks zu verwalten und die Synchronisierung zu machen
 #include <iostream>
-
 
 class buffer_recycler {
   // Public interface
@@ -78,7 +73,7 @@ class buffer_recycler {
         }
 
         /// Tries to recycle or create a buffer of type T and size number_elements. 
-        static void get(size_t number_elements) {
+        static void get(size_t number_of_elements) {
           if (!instance) {
             instance = new buffer_manager();
             buffer_recycler::add_total_cleanup_callback(clean);
@@ -87,11 +82,28 @@ class buffer_recycler {
           // TODO Check for unused buffers we can recycle:
 
           // No unsued buffer found -> Create new one
-          instance->buffer_list.push_back(new T[number_elements]);
+          instance->buffer_list.push_back(new T[number_of_elements]);
 
           // TODO Return new buffer
         }
 
+      private:
+        std::list<T*> buffer_list;
+        static buffer_manager<T> *instance; 
+
+        buffer_manager(void) {
+          std::cout << "Buffer mananger constructor for buffers of type " << typeid(T).name() << "!" << std::endl;
+        }
+        ~buffer_manager(void) {
+          for (T *buffer : buffer_list) {
+            delete [] buffer;
+          }
+          std::cout << "Buffer mananger destructor for buffers of type " << typeid(T).name() 
+                    << "! Deleted " << buffer_list.size()  << " buffers! " << std::endl;
+          buffer_list.clear();
+        }
+
+      public: // Putting deleted constructors in public gives more useful error messages
         // Bunch of constructors we don't need
         buffer_manager<T>(buffer_manager<T> &other) = delete;
         buffer_manager<T>(buffer_manager<T> const &other) = delete;
@@ -101,23 +113,14 @@ class buffer_recycler {
         buffer_manager<T>(buffer_manager<T> const &&other) = delete;
         buffer_manager<T> operator=(buffer_manager<T> const &&other) = delete;
         buffer_manager<T> operator=(buffer_manager<T> &&other) = delete;
-
-      // TODO Delete other constructors
-      private:
-        std::list<T*> buffer_list;
-        static buffer_manager<T> *instance; 
-
-        buffer_manager(void) {
-          std::cout << "Buffer mananger constructor for " << typeid(T).name() << std::endl;
-        }
-        ~buffer_manager(void) {
-          std::cout << "Buffer mananger destructor for " << typeid(T).name() << std::endl;
-          for (T *buffer : buffer_list) {
-            delete [] buffer;
-          }
-          buffer_list.clear();
-        }
     };
+
+    /// This class just makes sure the singleton is destroyed automatically UNLESS it has already been explictly destroyed
+    /** A user might want to explictly destroy all buffers, for example before a Kokkos cleanup.
+     * However, we also want to clean up all buffers when the static variables of the program are destroyed. 
+     * Having a static instance of this in the buffer_recycler ensures the latter part whilst still maintaining
+     * the possibiltiy for manual cleanup using buffer_recycler::clean_all
+     */
     class memory_manager_destroyer {
       public:
         memory_manager_destroyer(buffer_recycler *instance = nullptr) {
@@ -134,6 +137,7 @@ class buffer_recycler {
       private:
         buffer_recycler *singleton;
     };
+    /// Static instance of the destroyer - gets destroyed at the end of the program and kills any remaining buffer_recycler with it
     static memory_manager_destroyer destroyer;
 
   public: // Putting deleted constructors in public gives more useful error messages
