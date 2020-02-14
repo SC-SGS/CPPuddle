@@ -4,12 +4,12 @@ class buffer_recycler {
   // Public interface
   public:
     template <class T>
-    static void get(size_t number_elements) {
+    static T* get(size_t number_elements) {
       if (!instance) {
         instance = new buffer_recycler();
         destroyer.set_singleton(instance);
       }
-      buffer_manager<T>::get(number_elements);
+      return buffer_manager<T>::get(number_elements);
     }
     static void clean_all(void) {
       if (instance) {
@@ -19,6 +19,7 @@ class buffer_recycler {
       }
     }
     static void clean_unused_buffers(void) {
+      throw "TODO - partial cleanup not yet implemented";
       if (instance) {
         for (auto clean_function : instance->total_cleanup_callbacks)
           clean_function();
@@ -73,7 +74,7 @@ class buffer_recycler {
         }
 
         /// Tries to recycle or create a buffer of type T and size number_elements. 
-        static void get(size_t number_of_elements) {
+        static T* get(size_t number_of_elements) {
           if (!instance) {
             instance = new buffer_manager();
             buffer_recycler::add_total_cleanup_callback(clean);
@@ -81,10 +82,9 @@ class buffer_recycler {
           }
           // TODO Check for unused buffers we can recycle:
 
-          // No unsued buffer found -> Create new one
+          // No unsued buffer found -> Create new one and return it
           instance->buffer_list.push_back(new T[number_of_elements]);
-
-          // TODO Return new buffer
+          return instance->buffer_list.back();
         }
 
       private:
@@ -159,3 +159,28 @@ buffer_recycler::memory_manager_destroyer buffer_recycler::destroyer;
 
 template<class T>
 buffer_recycler::buffer_manager<T>* buffer_recycler::buffer_manager<T>::instance = nullptr; 
+
+template <class T>
+struct recycle_allocator {
+  using value_type = T;
+  recycle_allocator() noexcept {}
+  template <class U>
+  recycle_allocator(recycle_allocator<U> const&) noexcept {
+  }
+  T* allocate(std::size_t n) {
+    T* data = buffer_recycler::get<T>(n);
+    return data;
+  }
+  void deallocate(T *p, std::size_t n) {
+    std::cout << "calling deallocate" << std::endl;
+  }
+};
+
+template <class T, class U>
+constexpr bool operator==(recycle_allocator<T> const&, recycle_allocator<U> const&) noexcept {
+  return true;
+}
+template <class T, class U>
+constexpr bool operator!=(recycle_allocator<T> const&, recycle_allocator<U> const&) noexcept {
+  return false;
+}

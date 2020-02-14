@@ -22,8 +22,9 @@ int main(int argc, char *argv[])
   buffer_recycler::get<int>(1000);
   buffer_recycler::get<int>(1000);
   std::cout << std::endl;
-  // Create Vectors with the new allocator
 
   buffer_recycler::clean_all();
-  buffer_recycler::get<int>(1000);
+
+  // Create Vectors with the new allocator
+  std::vector<float, recycle_allocator<float>> test(200);
 }
