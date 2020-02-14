@@ -15,10 +15,15 @@ int main(int argc, char *argv[])
 {
   buffer_recycler::get<double>(1000);
   buffer_recycler::get<double>(1000);
+  buffer_recycler::get<float>(1000);
+  buffer_recycler::get<float>(1000);
+  buffer_recycler::get<int>(1000);
+  buffer_recycler::get<int>(1000);
   buffer_recycler::get<int>(1000);
   buffer_recycler::get<int>(1000);
   std::cout << std::endl;
   // Create Vectors with the new allocator
 
-  buffer_recycler::clean();
+  buffer_recycler::clean_all();
+  buffer_recycler::get<int>(1000);
 }

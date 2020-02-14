@@ -6,42 +6,29 @@
 
 
 class buffer_recycler {
-  // public interface
+  // Public interface
   public:
     template <class T>
     static void get(size_t number_elements) {
-      if (!instance)
+      if (!instance) {
         instance = new buffer_recycler();
-        buffer_manager<T>::get(number_elements);
+        destroyer.set_singleton(instance);
+      }
+      buffer_manager<T>::get(number_elements);
     }
-    static void clean(void) {
+    static void clean_all(void) {
+      if (instance) {
+        delete instance;
+        instance = nullptr;
+        destroyer.set_singleton(nullptr);
+      }
+    }
+    static void clean_unused_buffers(void) {
       if (instance) {
         for (auto clean_function : instance->total_cleanup_callbacks)
           clean_function();
-        delete instance;
       }
     }
-
-    // TODO I'd like to only be able to call these from the buffer_managers, not from anywhere else
-    static void add_total_cleanup_callback(std::function<void()> func) {
-      if (instance)
-        instance->total_cleanup_callbacks.push_back(func);
-    }
-    // TODO I'd like to only be able to call these from the buffer_managers, not from anywhere else
-    static void add_partial_cleanup_callback(std::function<void()> func) {
-      if (instance)
-        instance->partial_cleanup_callbacks.push_back(func);
-    }
-
-    // Bunch of constructors we don't need
-    buffer_recycler(buffer_recycler &other) = delete;
-    buffer_recycler(buffer_recycler const &other) = delete;
-    buffer_recycler operator=(buffer_recycler const &other) = delete;
-    buffer_recycler operator=(buffer_recycler &other) = delete;
-    buffer_recycler(buffer_recycler &&other) = delete;
-    buffer_recycler(buffer_recycler const &&other) = delete;
-    buffer_recycler operator=(buffer_recycler const &&other) = delete;
-    buffer_recycler operator=(buffer_recycler &&other) = delete;
 
   // Member variables and methods
   private: 
@@ -56,8 +43,21 @@ class buffer_recycler {
       std::cout << "Buffer recycler constructor!" << std::endl;
     }
     ~buffer_recycler(void) {
+      for (auto clean_function : total_cleanup_callbacks)
+        clean_function();
       std::cout << "Buffer recycler destructor!" << std::endl;
     }
+
+    static void add_total_cleanup_callback(std::function<void()> func) {
+        // This methods assumes instance is initialized since it is a private method and all static public methods have guards
+        instance->total_cleanup_callbacks.push_back(func);
+    }
+
+    static void add_partial_cleanup_callback(std::function<void()> func) {
+        // This methods assumes instance is initialized since it is a private method and all static public methods have guards
+        instance->partial_cleanup_callbacks.push_back(func);
+    }
+
 
   // Subclasses
   private: 
@@ -69,6 +69,7 @@ class buffer_recycler {
           if (!instance)
             return;
           delete instance;
+          instance = nullptr;
         }
         static void clean_unused_buffers_only(void) {
           if (!instance)
@@ -117,10 +118,40 @@ class buffer_recycler {
           buffer_list.clear();
         }
     };
+    class memory_manager_destroyer {
+      public:
+        memory_manager_destroyer(buffer_recycler *instance = nullptr) {
+          singleton = instance;
+        }
+        ~memory_manager_destroyer() {
+          if (singleton != nullptr)
+            delete singleton;
+          singleton = nullptr;
+        }
+        void set_singleton(buffer_recycler *s) {
+          singleton = s;
+        }
+      private:
+        buffer_recycler *singleton;
+    };
+    static memory_manager_destroyer destroyer;
+
+  public: // Putting deleted constructors in public gives more useful error messages
+    // Bunch of constructors we don't need
+    buffer_recycler(buffer_recycler &other) = delete;
+    buffer_recycler(buffer_recycler const &other) = delete;
+    buffer_recycler operator=(buffer_recycler const &other) = delete;
+    buffer_recycler operator=(buffer_recycler &other) = delete;
+    buffer_recycler(buffer_recycler &&other) = delete;
+    buffer_recycler(buffer_recycler const &&other) = delete;
+    buffer_recycler operator=(buffer_recycler const &&other) = delete;
+    buffer_recycler operator=(buffer_recycler &&other) = delete;
+
 };
 
 // Instance defintions
 buffer_recycler* buffer_recycler::instance = nullptr;
+buffer_recycler::memory_manager_destroyer buffer_recycler::destroyer;
 
 template<class T>
 buffer_recycler::buffer_manager<T>* buffer_recycler::buffer_manager<T>::instance = nullptr; 
