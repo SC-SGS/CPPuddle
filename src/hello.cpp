@@ -275,25 +275,4 @@ int main(int argc, char *argv[])
     auto when = hpx::when_all(f, g, h, i, j, k, l);
     when.wait();
   }
-
-  // // Kokkos hello world example
-  // {
-  //   std::size_t worker_id = hpx::get_worker_thread_num();
-  //   std::size_t locality_id = hpx::get_locality_id();
-
-  //   printf("HPX Thread %i on Locality %i\n\n", worker_id, locality_id);
-
-  //   Kokkos::parallel_for("HelloWorld", Kokkos::RangePolicy<Kokkos::Cuda>(0, 14), hello_world());
-  //   Kokkos::fence();
-
-  //   printf("Hello World on Kokkos execution space %s\n",
-  //          typeid(Kokkos::Experimental::HPX).name());
-  //   Kokkos::parallel_for("HelloWorld", Kokkos::RangePolicy<Kokkos::Experimental::HPX>(0, 14), hello_world());
-  //   Kokkos::fence();
-
-  //   printf("Hello World on Kokkos execution space %s\n",
-  //          typeid(Kokkos::Serial).name());
-  //   Kokkos::parallel_for("HelloWorld", Kokkos::RangePolicy<Kokkos::Serial>(0, 14), hello_world());
-  //   Kokkos::fence();
-  // }
 }

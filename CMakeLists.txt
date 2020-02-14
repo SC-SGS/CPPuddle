@@ -17,7 +17,7 @@ project(hpx_kokkos_example)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(SKIP_HPX_KOKKOS_BUILD False)
+set(SKIP_HPX_KOKKOS_BUILD TRUE)
 
 #================================================================================================================================================
 # Setup HPX
@@ -127,6 +127,14 @@ add_compile_options(-std=c++14)
 link_libraries(kokkos hpx dl boost_system boost_program_options boost_thread boost_regex boost_chrono boost_atomic boost_filesystem)
 
 add_hpx_executable(hello SOURCES ${SOURCES})
+
+add_hpx_executable(
+	allocator_test
+	SOURCES
+		${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_test.cpp 
+	HEADERS 
+		${CMAKE_CURRENT_SOURCE_DIR}/include/buffer_manager.hpp
+)
 
 add_compile_options(-I${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-hpx-interop/include)
 add_hpx_executable(interop SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-hpx-interop/src/kokkos_hpx.cpp)
