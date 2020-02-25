@@ -28,9 +28,8 @@ class buffer_recycler {
       }
     }
     static void clean_unused_buffers(void) {
-      throw "TODO - partial cleanup not yet implemented";
       if (instance) {
-        for (auto clean_function : instance->total_cleanup_callbacks)
+        for (auto clean_function : instance->partial_cleanup_callbacks)
           clean_function();
       }
     }
@@ -79,7 +78,10 @@ class buffer_recycler {
         static void clean_unused_buffers_only(void) {
           if (!instance)
             return;
-          // Check buffers in a for loop and delete unused ones
+          for (auto buffer_tuple : instance->unused_buffer_list) {
+            delete [] std::get<0>(buffer_tuple);
+          }
+          instance->unused_buffer_list.clear();
         }
 
         /// Tries to recycle or create a buffer of type T and size number_elements. 
@@ -89,8 +91,7 @@ class buffer_recycler {
             buffer_recycler::add_total_cleanup_callback(clean);
             buffer_recycler::add_partial_cleanup_callback(clean_unused_buffers_only);
           }
-          // TODO Check for unused buffers we can recycle:
-
+          // Check for unused buffers we can recycle:
           for (auto iter = instance->unused_buffer_list.begin(); iter != instance->unused_buffer_list.end(); iter++) {
             if (std::get<1>(*iter) == number_of_elements) {
               instance->buffer_list.push_back(*iter);
@@ -101,9 +102,23 @@ class buffer_recycler {
           }
 
           // No unsued buffer found -> Create new one and return it
-          instance->buffer_list.push_back(std::make_tuple(new T[number_of_elements], number_of_elements));
-          std::cout << "Created new buffer" << std::endl;
-          return std::get<0>(instance->buffer_list.back());
+          try {
+            T *buffer = new T[number_of_elements];
+            instance->buffer_list.push_back(std::make_tuple(buffer, number_of_elements));
+            std::cout << "Created new buffer" << std::endl;
+            return std::get<0>(instance->buffer_list.back());
+          }
+          catch(std::bad_alloc &e) { 
+            // not enough memory left! Cleanup and attempt again:
+            buffer_recycler::clean_unused_buffers();
+
+            // If there still isn't enough memory left, the caller has to handle it 
+            // We've done all we can in here
+            T *buffer = new T[number_of_elements];
+            instance->buffer_list.push_back(std::make_tuple(buffer, number_of_elements));
+            std::cout << "Created new buffer" << std::endl;
+            return std::get<0>(instance->buffer_list.back());
+          }
         }
 
         static void mark_unused(T* memory_location, size_t number_of_elements) {
