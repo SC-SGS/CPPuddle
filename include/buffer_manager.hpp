@@ -11,6 +11,15 @@ class buffer_recycler {
       }
       return buffer_manager<T>::get(number_elements);
     }
+
+    template <class T>
+    static void mark_unused(T *p, size_t number_elements) {
+      if (!instance) {
+        instance = new buffer_recycler();
+        destroyer.set_singleton(instance);
+      }
+      return buffer_manager<T>::mark_unused(p,number_elements);
+    }
     static void clean_all(void) {
       if (instance) {
         delete instance;
@@ -82,37 +91,77 @@ class buffer_recycler {
           }
           // TODO Check for unused buffers we can recycle:
 
+          for (auto iter = instance->unused_buffer_list.begin(); iter != instance->unused_buffer_list.end(); iter++) {
+            if (std::get<1>(*iter) == number_of_elements) {
+              instance->buffer_list.push_back(*iter);
+              instance->unused_buffer_list.erase(iter);
+              std::cout << "Recycled buffer" << std::endl;
+              return std::get<0>(instance->buffer_list.back());
+            }
+          }
+
           // No unsued buffer found -> Create new one and return it
-          instance->buffer_list.push_back(new T[number_of_elements]);
-          return instance->buffer_list.back();
+          instance->buffer_list.push_back(std::make_tuple(new T[number_of_elements], number_of_elements));
+          std::cout << "Created new buffer" << std::endl;
+          return std::get<0>(instance->buffer_list.back());
+        }
+
+        static void mark_unused(T* memory_location, size_t number_of_elements) {
+          std::cout << "calling mark_unused" << std::endl;
+          // Search for used buffer
+          auto to_mark = std::make_tuple(memory_location, number_of_elements);
+          for (auto iter = instance->buffer_list.begin(); iter != instance->buffer_list.end(); iter++) {
+            if (*iter == to_mark) {
+              instance->unused_buffer_list.push_front(to_mark);
+              instance->buffer_list.erase(iter);
+              return;
+            }
+          }
+          const char *error_message =R""""(
+            Error! Deallocate was called on a memory location that is not known to the buffer_manager!\n
+            This should never happen!
+          )""""; 
+          throw std::logic_error(error_message);
         }
 
       private:
-        std::list<T*> buffer_list;
+        std::list<std::tuple<T*,size_t>> buffer_list; // used buffers
+        std::list<std::tuple<T*,size_t>> unused_buffer_list; // unused buffers
         static buffer_manager<T> *instance; 
 
         buffer_manager(void) {
           std::cout << "Buffer mananger constructor for buffers of type " << typeid(T).name() << "!" << std::endl;
         }
         ~buffer_manager(void) {
-          for (T *buffer : buffer_list) {
-            delete [] buffer;
+          for (auto buffer_tuple : unused_buffer_list) {
+            delete [] std::get<0>(buffer_tuple);
           }
+          for (auto buffer_tuple : buffer_list) {
+            delete [] std::get<0>(buffer_tuple);
+          }
+          if (buffer_list.size() > 0) {
+            const char *error_message =R""""(
+              WARNING: Some buffers are still marked as used upon the destruction of the buffer_manager!
+              Please check if you are using the buffer_recycler without the recycle_allocator.
+              If yes, you can probably fix this by manually marking buffers as unused!
+            )""""; 
+            //throw std::logic_error(error_message);
+            std::cerr << error_message << std::endl;
+          }
+
           std::cout << "Buffer mananger destructor for buffers of type " << typeid(T).name() 
-                    << "! Deleted " << buffer_list.size()  << " buffers! " << std::endl;
+                    << "!\n-->Deleted " << unused_buffer_list.size()  << " unused buffers! " << std::endl
+                    << "-->Deleted " << buffer_list.size()  << " still used buffers! " << std::endl;
+          unused_buffer_list.clear();
           buffer_list.clear();
         }
 
       public: // Putting deleted constructors in public gives more useful error messages
         // Bunch of constructors we don't need
-        buffer_manager<T>(buffer_manager<T> &other) = delete;
         buffer_manager<T>(buffer_manager<T> const &other) = delete;
         buffer_manager<T> operator=(buffer_manager<T> const &other) = delete;
-        buffer_manager<T> operator=(buffer_manager<T> &other) = delete;
-        buffer_manager<T>(buffer_manager<T> &&other) = delete;
         buffer_manager<T>(buffer_manager<T> const &&other) = delete;
         buffer_manager<T> operator=(buffer_manager<T> const &&other) = delete;
-        buffer_manager<T> operator=(buffer_manager<T> &&other) = delete;
     };
 
     /// This class just makes sure the singleton is destroyed automatically UNLESS it has already been explictly destroyed
@@ -142,15 +191,10 @@ class buffer_recycler {
 
   public: // Putting deleted constructors in public gives more useful error messages
     // Bunch of constructors we don't need
-    buffer_recycler(buffer_recycler &other) = delete;
     buffer_recycler(buffer_recycler const &other) = delete;
     buffer_recycler operator=(buffer_recycler const &other) = delete;
-    buffer_recycler operator=(buffer_recycler &other) = delete;
-    buffer_recycler(buffer_recycler &&other) = delete;
     buffer_recycler(buffer_recycler const &&other) = delete;
     buffer_recycler operator=(buffer_recycler const &&other) = delete;
-    buffer_recycler operator=(buffer_recycler &&other) = delete;
-
 };
 
 // Instance defintions
@@ -172,7 +216,7 @@ struct recycle_allocator {
     return data;
   }
   void deallocate(T *p, std::size_t n) {
-    std::cout << "calling deallocate" << std::endl;
+    buffer_recycler::mark_unused<T>(p, n);
   }
 };
 

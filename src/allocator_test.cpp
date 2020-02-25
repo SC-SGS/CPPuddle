@@ -13,18 +13,30 @@
 // #pragma nv_exec_check_disable
 int main(int argc, char *argv[])
 {
-  buffer_recycler::get<double>(1000);
-  buffer_recycler::get<double>(1000);
-  buffer_recycler::get<float>(1000);
-  buffer_recycler::get<float>(1000);
-  buffer_recycler::get<int>(1000);
-  buffer_recycler::get<int>(1000);
-  buffer_recycler::get<int>(1000);
-  buffer_recycler::get<int>(1000);
-  std::cout << std::endl;
+  // buffer_recycler::get<double>(1000);
+  // buffer_recycler::get<double>(1000);
+  // buffer_recycler::get<float>(1000);
+  // buffer_recycler::get<float>(1000);
+  // buffer_recycler::get<int>(1000);
+  // buffer_recycler::get<int>(1000);
+  // buffer_recycler::get<int>(1000);
+  // buffer_recycler::get<int>(1000);
+  // std::cout << std::endl;
 
-  buffer_recycler::clean_all();
+  // buffer_recycler::clean_all();
 
   // Create Vectors with the new allocator
-  std::vector<float, recycle_allocator<float>> test(200);
+  {
+    std::cout << "Creating first scope of vectors" << std::endl;
+    std::vector<float, recycle_allocator<float>> test(200);
+    std::vector<float, recycle_allocator<float>> test1(200);
+    std::cout << "Leaving first scope ... " << std::endl;
+  } // let Vectors run out of scope
+  { // Check whetehr the first two reuse the memory
+    std::cout << "Creating second scope of vectors" << std::endl;
+    std::vector<float, recycle_allocator<float>> test(200);
+    std::vector<float, recycle_allocator<float>> test1(200);
+    std::vector<float, recycle_allocator<float>> test2(200);
+    std::cout << "Leaving second scope ... " << std::endl;
+  }
 }
