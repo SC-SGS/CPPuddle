@@ -7,34 +7,49 @@
 #include <typeinfo>
 
 
+constexpr size_t number_futures = 64;
+constexpr size_t array_size = 2000;
+constexpr size_t passes = 5;
+
 // #pragma nv_exec_check_disable
 int main(int argc, char *argv[])
 {
-  // buffer_recycler::get<double>(1000);
-  // buffer_recycler::get<double>(1000);
-  // buffer_recycler::get<float>(1000);
-  // buffer_recycler::get<float>(1000);
-  // buffer_recycler::get<int>(1000);
-  // buffer_recycler::get<int>(1000);
-  // buffer_recycler::get<int>(1000);
-  // buffer_recycler::get<int>(1000);
-  // std::cout << std::endl;
 
-  // buffer_recycler::clean_all();
-
-  // Create Vectors with the new allocator
-  {
-    std::cout << "Creating first scope of vectors" << std::endl;
-    std::vector<float, recycle_allocator<float>> test(200);
-    std::vector<float, recycle_allocator<float>> test1(200);
-    std::cout << "Leaving first scope ... " << std::endl;
-  } // let Vectors run out of scope
-  { // Check for memory reusage
-    std::cout << "Creating second scope of vectors" << std::endl;
-    std::vector<float, recycle_allocator<float>> test(2000);
-    std::vector<float, recycle_allocator<float>> test1(200);
-    std::vector<float, recycle_allocator<float>> test2(200);
-    std::vector<double, recycle_allocator<double>> test3(200);
-    std::cout << "Leaving second scope ... " << std::endl;
+/** Stress test for concurrency and performance:
+ *  Hopefully this will catch any race conditions and allow us to
+ *  determine bottlelegs by evaluating the performance of different allocator 
+ *  implementations.
+ * */
+  static_assert(passes >= 1);
+  static_assert(array_size >= 1);
+  assert(number_futures >= hpx::get_num_worker_threads());
+  std::array<hpx::future<void>, number_futures> futs;
+  for (size_t i = 0; i < number_futures; i++) {
+    futs[i]=hpx::async([&]() {
+      std::vector<float, recycle_allocator<float>> test0(array_size);
+      std::vector<float, recycle_allocator<float>> test1(array_size);
+      std::vector<float, recycle_allocator<float>> test2(array_size);
+      std::vector<float, recycle_allocator<float>> test3(array_size);
+      std::vector<double, recycle_allocator<double>> test4(array_size);
+      std::vector<double, recycle_allocator<double>> test5(array_size);
+      std::vector<double, recycle_allocator<double>> test6(array_size);
+      std::vector<double, recycle_allocator<double>> test7(array_size);
+    });
   }
+  for (size_t pass = 1; pass < passes; pass++) {
+    for (size_t i = 0; i < number_futures; i++) {
+      futs[i] = futs[i].then([&](hpx::future<void> &&predecessor) {
+        std::vector<float, recycle_allocator<float>> test0(array_size);
+        std::vector<float, recycle_allocator<float>> test1(array_size);
+        std::vector<float, recycle_allocator<float>> test2(array_size);
+        std::vector<float, recycle_allocator<float>> test3(array_size);
+        std::vector<double, recycle_allocator<double>> test4(array_size);
+        std::vector<double, recycle_allocator<double>> test5(array_size);
+        std::vector<double, recycle_allocator<double>> test6(array_size);
+        std::vector<double, recycle_allocator<double>> test7(array_size);
+      });
+    }
+  }
+  auto when = hpx::when_all(futs);
+  when.wait();
 }

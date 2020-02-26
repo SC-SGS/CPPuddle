@@ -47,7 +47,8 @@ class buffer_recycler {
     std::list<std::function<void()>> total_cleanup_callbacks;
     /// Callbacks for partial buffer_manager cleanups - each callback deallocates all unsued buffers of a manager
     std::list<std::function<void()>> partial_cleanup_callbacks;
-    /// One Mutex to control concurrent access
+    /// One Mutex to control concurrent access - Since we do not actually ever return the singleton instance anywhere, this should hopefully suffice
+    /// We want more fine-grained concurrent access eventually
     static std::mutex mut;
 
     buffer_recycler(void) {
