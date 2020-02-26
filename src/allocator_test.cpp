@@ -37,13 +37,30 @@ int main(int argc, char *argv[])
     for (size_t i = 0; i < number_futures; i++) {
       futs[i] = futs[i].then([&](hpx::future<void> &&predecessor) {
         std::vector<float, recycle_allocator<float>> test0(array_size);
+        for (auto &elem : test0)
+          elem = pass + 2.0;
         std::vector<float, recycle_allocator<float>> test1(array_size);
+        for (auto &elem : test1)
+          elem = pass + 2.0;
         std::vector<float, recycle_allocator<float>> test2(array_size);
+        for (auto &elem : test2)
+          elem = pass + 2.0;
         std::vector<float, recycle_allocator<float>> test3(array_size);
+        for (auto &elem : test3)
+          elem = pass + 2.0;
         std::vector<double, recycle_allocator<double>> test4(array_size);
+        for (auto &elem : test4)
+          elem = pass + 2.0;
         std::vector<double, recycle_allocator<double>> test5(array_size);
+        for (auto &elem : test5)
+          elem = pass + 2.0;
         std::vector<double, recycle_allocator<double>> test6(array_size);
+        for (auto &elem : test6)
+          elem = pass + 2.0;
         std::vector<double, recycle_allocator<double>> test7(array_size);
+        for (auto &elem : test7)
+          elem = pass + 2.0;
+
       });
     }
   }
