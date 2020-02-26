@@ -1,10 +1,12 @@
 #include <iostream>
+#include <mutex>
 
 class buffer_recycler {
   // Public interface
   public:
     template <class T>
     static T* get(size_t number_elements) {
+      std::lock_guard<std::mutex> guard(mut);
       if (!instance) {
         instance = new buffer_recycler();
         destroyer.set_singleton(instance);
@@ -14,6 +16,7 @@ class buffer_recycler {
 
     template <class T>
     static void mark_unused(T *p, size_t number_elements) {
+      std::lock_guard<std::mutex> guard(mut);
       if (!instance) {
         instance = new buffer_recycler();
         destroyer.set_singleton(instance);
@@ -21,6 +24,7 @@ class buffer_recycler {
       return buffer_manager<T>::mark_unused(p,number_elements);
     }
     static void clean_all(void) {
+      std::lock_guard<std::mutex> guard(mut);
       if (instance) {
         delete instance;
         instance = nullptr;
@@ -28,6 +32,7 @@ class buffer_recycler {
       }
     }
     static void clean_unused_buffers(void) {
+      std::lock_guard<std::mutex> guard(mut);
       if (instance) {
         for (auto clean_function : instance->partial_cleanup_callbacks)
           clean_function();
@@ -42,6 +47,8 @@ class buffer_recycler {
     std::list<std::function<void()>> total_cleanup_callbacks;
     /// Callbacks for partial buffer_manager cleanups - each callback deallocates all unsued buffers of a manager
     std::list<std::function<void()>> partial_cleanup_callbacks;
+    /// One Mutex to control concurrent access
+    static std::mutex mut;
 
     buffer_recycler(void) {
       std::cout << "Buffer recycler constructor!" << std::endl;
@@ -96,7 +103,7 @@ class buffer_recycler {
             if (std::get<1>(*iter) == number_of_elements) {
               instance->buffer_list.push_back(*iter);
               instance->unused_buffer_list.erase(iter);
-              std::cout << "Recycled buffer" << std::endl;
+              std::cout << "-->Recycled buffer" << std::endl;
               return std::get<0>(instance->buffer_list.back());
             }
           }
@@ -105,7 +112,7 @@ class buffer_recycler {
           try {
             T *buffer = new T[number_of_elements];
             instance->buffer_list.push_back(std::make_tuple(buffer, number_of_elements));
-            std::cout << "Created new buffer" << std::endl;
+            std::cout << "-->Created new buffer" << std::endl;
             return std::get<0>(instance->buffer_list.back());
           }
           catch(std::bad_alloc &e) { 
@@ -116,13 +123,12 @@ class buffer_recycler {
             // We've done all we can in here
             T *buffer = new T[number_of_elements];
             instance->buffer_list.push_back(std::make_tuple(buffer, number_of_elements));
-            std::cout << "Created new buffer" << std::endl;
+            std::cout << "-->Created new buffer after bad_alloc" << std::endl;
             return std::get<0>(instance->buffer_list.back());
           }
         }
 
         static void mark_unused(T* memory_location, size_t number_of_elements) {
-          std::cout << "calling mark_unused" << std::endl;
           // Search for used buffer
           auto to_mark = std::make_tuple(memory_location, number_of_elements);
           for (auto iter = instance->buffer_list.begin(); iter != instance->buffer_list.end(); iter++) {
@@ -215,6 +221,7 @@ class buffer_recycler {
 // Instance defintions
 buffer_recycler* buffer_recycler::instance = nullptr;
 buffer_recycler::memory_manager_destroyer buffer_recycler::destroyer;
+std::mutex buffer_recycler::mut;
 
 template<class T>
 buffer_recycler::buffer_manager<T>* buffer_recycler::buffer_manager<T>::instance = nullptr; 
@@ -227,10 +234,12 @@ struct recycle_allocator {
   recycle_allocator(recycle_allocator<U> const&) noexcept {
   }
   T* allocate(std::size_t n) {
+    std::cout << "calling allocate" << std::endl;
     T* data = buffer_recycler::get<T>(n);
     return data;
   }
   void deallocate(T *p, std::size_t n) {
+    std::cout << "calling deallocate" << std::endl;
     buffer_recycler::mark_unused<T>(p, n);
   }
 };

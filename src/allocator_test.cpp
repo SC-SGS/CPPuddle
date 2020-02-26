@@ -7,9 +7,6 @@
 #include <typeinfo>
 
 
-// TODO Insert templated singleton submanager -> Eine Bufferliste pro Submanager. Ein Buffer is
-// Do it is as subclass
-
 // #pragma nv_exec_check_disable
 int main(int argc, char *argv[])
 {
@@ -32,11 +29,12 @@ int main(int argc, char *argv[])
     std::vector<float, recycle_allocator<float>> test1(200);
     std::cout << "Leaving first scope ... " << std::endl;
   } // let Vectors run out of scope
-  { // Check whetehr the first two reuse the memory
+  { // Check for memory reusage
     std::cout << "Creating second scope of vectors" << std::endl;
-    std::vector<float, recycle_allocator<float>> test(200);
+    std::vector<float, recycle_allocator<float>> test(2000);
     std::vector<float, recycle_allocator<float>> test1(200);
     std::vector<float, recycle_allocator<float>> test2(200);
+    std::vector<double, recycle_allocator<double>> test3(200);
     std::cout << "Leaving second scope ... " << std::endl;
   }
 }
