@@ -8,7 +8,7 @@
 
 
 constexpr size_t number_futures = 64;
-constexpr size_t array_size = 2000;
+constexpr size_t array_size = 200;
 constexpr size_t passes = 5;
 
 // #pragma nv_exec_check_disable

@@ -52,12 +52,14 @@ class buffer_recycler {
     static std::mutex mut;
 
     buffer_recycler(void) {
-      std::cout << "Buffer recycler constructor!" << std::endl;
     }
     ~buffer_recycler(void) {
+      std::cout << "\n====================================================" << std::endl;
+      std::cout << "Buffer recycler cleanup started!" << std::endl; 
       for (auto clean_function : total_cleanup_callbacks)
         clean_function();
-      std::cout << "Buffer recycler destructor!" << std::endl;
+      std::cout << "\nBuffer recycler cleanup finished!" << std::endl;
+      std::cout << "====================================================" << std::endl;
     }
 
     static void add_total_cleanup_callback(std::function<void()> func) {
@@ -99,12 +101,13 @@ class buffer_recycler {
             buffer_recycler::add_total_cleanup_callback(clean);
             buffer_recycler::add_partial_cleanup_callback(clean_unused_buffers_only);
           }
+          instance->number_allocation++;
           // Check for unused buffers we can recycle:
           for (auto iter = instance->unused_buffer_list.begin(); iter != instance->unused_buffer_list.end(); iter++) {
             if (std::get<1>(*iter) == number_of_elements) {
               instance->buffer_list.push_back(*iter);
               instance->unused_buffer_list.erase(iter);
-              std::cout << "-->Recycled buffer" << std::endl;
+              instance->number_recycling++;
               return std::get<0>(instance->buffer_list.back());
             }
           }
@@ -113,7 +116,7 @@ class buffer_recycler {
           try {
             T *buffer = new T[number_of_elements];
             instance->buffer_list.push_back(std::make_tuple(buffer, number_of_elements));
-            std::cout << "-->Created new buffer" << std::endl;
+            instance->number_creation++;
             return std::get<0>(instance->buffer_list.back());
           }
           catch(std::bad_alloc &e) { 
@@ -124,12 +127,16 @@ class buffer_recycler {
             // We've done all we can in here
             T *buffer = new T[number_of_elements];
             instance->buffer_list.push_back(std::make_tuple(buffer, number_of_elements));
-            std::cout << "-->Created new buffer after bad_alloc" << std::endl;
+            instance->number_creation++;
+            instance->number_bad_alloc++;
             return std::get<0>(instance->buffer_list.back());
           }
         }
 
         static void mark_unused(T* memory_location, size_t number_of_elements) {
+          // This will never be called without an instance since all access for this method comes from the buffer recycler 
+          // We can forego the instance existence check here
+          instance->number_dealloacation++;
           // Search for used buffer
           auto to_mark = std::make_tuple(memory_location, number_of_elements);
           for (auto iter = instance->buffer_list.begin(); iter != instance->buffer_list.end(); iter++) {
@@ -147,11 +154,17 @@ class buffer_recycler {
         }
 
       private:
-        std::list<std::tuple<T*,size_t>> buffer_list; // used buffers
-        std::list<std::tuple<T*,size_t>> unused_buffer_list; // unused buffers
+        /// List with all buffers still in usage
+        std::list<std::tuple<T*,size_t>> buffer_list; 
+        /// List with all buffers currently not used
+        std::list<std::tuple<T*,size_t>> unused_buffer_list; 
+        /// Performance counters
+        size_t number_allocation, number_dealloacation, number_recycling, number_creation, number_bad_alloc;
+        /// Singleton instance
         static buffer_manager<T> *instance; 
 
-        buffer_manager(void) {
+        buffer_manager(void) : number_allocation(0), number_dealloacation(0), number_recycling(0),
+                               number_creation(0), number_bad_alloc(0) {
           std::cout << "Buffer mananger constructor for buffers of type " << typeid(T).name() << "!" << std::endl;
         }
         ~buffer_manager(void) {
@@ -170,10 +183,20 @@ class buffer_recycler {
             //throw std::logic_error(error_message);
             std::cerr << error_message << std::endl;
           }
-
-          std::cout << "Buffer mananger destructor for buffers of type " << typeid(T).name() 
-                    << "!\n-->Deleted " << unused_buffer_list.size()  << " unused buffers! " << std::endl
-                    << "-->Deleted " << buffer_list.size()  << " still used buffers! " << std::endl;
+          // Print performance counters
+          size_t number_cleaned = unused_buffer_list.size() + buffer_list.size();
+          std::cout << "\nBuffer mananger destructor for buffers of type " << typeid(T).name() << ":" << std::endl
+                    << "----------------------------------------------------" << std::endl
+                    << "--> Number of bad_allocs that triggered garbage collection:       " << number_bad_alloc << std::endl
+                    << "--> Number of buffers that got requested from this manager:       " << number_allocation << std::endl
+                    << "--> Number of times a unused buffer got recycled for a request:   " << number_recycling << std::endl
+                    << "--> Number of times a new buffer had to be created for a request: " << number_creation << std::endl 
+                    << "--> Number cleaned up buffers:                                    " << number_cleaned << std::endl 
+                    << "--> Number of buffers that were marked as used upon cleanup:      " << buffer_list.size() << std::endl
+                    << "==> Recycle rate:                                                 " 
+                    << static_cast<float>(number_recycling)/number_allocation * 100.0f << "%" << std::endl;
+                    // << "!\n-->Deleted " << unused_buffer_list.size()  << " unused buffers! " << std::endl
+                    // << "-->Deleted " << buffer_list.size()  << " still used buffers! " << std::endl;
           unused_buffer_list.clear();
           buffer_list.clear();
         }
@@ -235,12 +258,10 @@ struct recycle_allocator {
   recycle_allocator(recycle_allocator<U> const&) noexcept {
   }
   T* allocate(std::size_t n) {
-    std::cout << "calling allocate" << std::endl;
     T* data = buffer_recycler::get<T>(n);
     return data;
   }
   void deallocate(T *p, std::size_t n) {
-    std::cout << "calling deallocate" << std::endl;
     buffer_recycler::mark_unused<T>(p, n);
   }
 };
