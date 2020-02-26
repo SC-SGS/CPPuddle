@@ -5,11 +5,12 @@
 #include "../include/buffer_manager.hpp"
 #include <cstdio>
 #include <typeinfo>
+#include <chrono>
 
 
 constexpr size_t number_futures = 64;
-constexpr size_t array_size = 200;
-constexpr size_t passes = 5;
+constexpr size_t array_size = 20000;
+constexpr size_t passes = 15;
 
 // #pragma nv_exec_check_disable
 int main(int argc, char *argv[])
@@ -23,6 +24,8 @@ int main(int argc, char *argv[])
   static_assert(passes >= 1);
   static_assert(array_size >= 1);
   assert(number_futures >= hpx::get_num_worker_threads());
+
+  auto begin = std::chrono::high_resolution_clock::now();
   std::array<hpx::future<void>, number_futures> futs;
   for (size_t i = 0; i < number_futures; i++) {
     futs[i]=hpx::async([&]() {
@@ -52,4 +55,7 @@ int main(int argc, char *argv[])
   }
   auto when = hpx::when_all(futs);
   when.wait();
+  auto end = std::chrono::high_resolution_clock::now();
+  std::cout << "\n==>Allocation test took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms" << std::endl;
+
 }
