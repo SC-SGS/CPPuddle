@@ -18,13 +18,17 @@ int main(int argc, char *argv[])
   {
     std::vector<float, recycle_allocator_cuda_host<float>> test1(array_size);
     std::vector<float, recycle_allocator_cuda_host<float>> test2(array_size);
-    float *test = recycle_allocator_cuda_device<float>{}.allocate(100);
-    recycle_allocator_cuda_device<float>{}.deallocate(test, 100);
+
+    cuda_device_buffer<float> test3(array_size);
+    cuda_device_buffer<float> test4(array_size);
   }
   {
     std::vector<float, recycle_allocator_cuda_host<float>> test1(array_size);
     std::vector<float, recycle_allocator_cuda_host<float>> test2(array_size);
     std::vector<float, recycle_allocator_cuda_host<float>> test3(array_size);
+
+    cuda_device_buffer<float> test4(array_size);
+    cuda_device_buffer<float> test5(array_size);
   }
   std::cin.get();
   // std::vector<float, recycle_allocator<float>> test0(array_size);

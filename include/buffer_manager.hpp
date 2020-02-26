@@ -353,6 +353,26 @@ using recycle_allocator_cuda_host = recycle_allocator<T, cuda_pinned_allocator<T
 template<class T>
 using recycle_allocator_cuda_device = recycle_allocator<T, cuda_device_allocator<T>>;
 
+template<class T>
+struct cuda_device_buffer {
+  T *device_side_buffer;
+  size_t number_of_elements;
+  cuda_device_buffer(size_t number_of_elements) : number_of_elements(number_of_elements) {
+    device_side_buffer = recycle_allocator_cuda_device<T>{}.allocate(number_of_elements);
+  }
+  ~cuda_device_buffer(void) {
+    recycle_allocator_cuda_device<T>{}.deallocate(device_side_buffer, number_of_elements);
+  }
+};
+
+template<class T>
+struct cuda_channel {
+  std::vector<T, recycle_allocator_cuda_host<T>> host_side_buffer;
+  cuda_device_buffer<T> device_side_buffer;
+  cuda_channel(size_t number_of_elements) : host_side_buffer(number_of_elements), device_side_buffer(number_of_elements) {
+  }
+};
+
 
 
 
