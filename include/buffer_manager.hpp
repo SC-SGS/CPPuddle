@@ -5,7 +5,7 @@
 class buffer_recycler {
   // Public interface
   public:
-    template <class T, class Host_Allocator=std::allocator<T>>
+    template <class T, class Host_Allocator>
     static T* get(size_t number_elements) {
       std::lock_guard<std::mutex> guard(mut);
       if (!instance) {
@@ -15,7 +15,7 @@ class buffer_recycler {
       return buffer_manager<T, Host_Allocator>::get(number_elements);
     }
 
-    template <class T, class Host_Allocator=std::allocator<T>>
+    template <class T, class Host_Allocator>
     static void mark_unused(T *p, size_t number_elements) {
       std::lock_guard<std::mutex> guard(mut);
       if (!instance) {
@@ -76,8 +76,8 @@ class buffer_recycler {
 
   // Subclasses
   private: 
-    /// Memory Manager subclass to handle buffers of specific types and sizes
-    template<class T, class Host_Allocator=std::allocator<T>>
+    /// Memory Manager subclass to handle buffers a specific type 
+    template<class T, class Host_Allocator>
     class buffer_manager {
       public:
         static void clean(void) {
@@ -159,7 +159,7 @@ class buffer_recycler {
         }
 
       private:
-        /// List with all buffers still in usage
+        /// List with all buffers still in usage 
         std::list<std::tuple<T*,size_t>> buffer_list; 
         /// List with all buffers currently not used
         std::list<std::tuple<T*,size_t>> unused_buffer_list; 
@@ -220,10 +220,10 @@ class buffer_recycler {
 
       public: // Putting deleted constructors in public gives more useful error messages
         // Bunch of constructors we don't need
-        buffer_manager<T, Host_Allocator>(buffer_manager<T> const &other) = delete;
-        buffer_manager<T, Host_Allocator> operator=(buffer_manager<T> const &other) = delete;
-        buffer_manager<T, Host_Allocator>(buffer_manager<T> const &&other) = delete;
-        buffer_manager<T, Host_Allocator> operator=(buffer_manager<T> const &&other) = delete;
+        buffer_manager<T, Host_Allocator>(buffer_manager<T, Host_Allocator> const &other) = delete;
+        buffer_manager<T, Host_Allocator> operator=(buffer_manager<T, Host_Allocator> const &other) = delete;
+        buffer_manager<T, Host_Allocator>(buffer_manager<T, Host_Allocator> const &&other) = delete;
+        buffer_manager<T, Host_Allocator> operator=(buffer_manager<T, Host_Allocator> const &&other) = delete;
     };
 
     /// This class just makes sure the singleton is destroyed automatically UNLESS it has already been explictly destroyed
@@ -267,27 +267,92 @@ std::mutex buffer_recycler::mut;
 template<class T, class Host_Allocator>
 buffer_recycler::buffer_manager<T, Host_Allocator>* buffer_recycler::buffer_manager<T, Host_Allocator>::instance = nullptr; 
 
-template <class T>
+template <class T, class Host_Allocator>
 struct recycle_allocator {
   using value_type = T;
   recycle_allocator() noexcept {}
   template <class U>
-  recycle_allocator(recycle_allocator<U> const&) noexcept {
+  recycle_allocator(recycle_allocator<U, Host_Allocator> const&) noexcept {
   }
   T* allocate(std::size_t n) {
-    T* data = buffer_recycler::get<T>(n);
+    T* data = buffer_recycler::get<T, Host_Allocator>(n);
     return data;
   }
   void deallocate(T *p, std::size_t n) {
-    buffer_recycler::mark_unused<T>(p, n);
+    buffer_recycler::mark_unused<T, Host_Allocator>(p, n);
   }
 };
 
-template <class T, class U>
-constexpr bool operator==(recycle_allocator<T> const&, recycle_allocator<U> const&) noexcept {
+template <class T, class U, class Host_Allocator>
+constexpr bool operator==(recycle_allocator<T, Host_Allocator> const&, recycle_allocator<U, Host_Allocator> const&) noexcept {
   return true;
 }
-template <class T, class U>
-constexpr bool operator!=(recycle_allocator<T> const&, recycle_allocator<U> const&) noexcept {
+template <class T, class U, class Host_Allocator>
+constexpr bool operator!=(recycle_allocator<T, Host_Allocator> const&, recycle_allocator<U, Host_Allocator> const&) noexcept {
   return false;
 }
+
+template <class T>
+struct cuda_pinned_allocator
+{
+    using value_type = T;
+    cuda_pinned_allocator() noexcept {}
+    template <class U>
+    cuda_pinned_allocator(cuda_pinned_allocator<U> const&) noexcept {}
+    T* allocate(std::size_t n) {
+        T* data;
+        cudaMallocHost(reinterpret_cast<void**>(&data), n * sizeof(T));
+        return data;
+    }
+    void deallocate(T* p, std::size_t n) {
+        cudaFreeHost(p);
+    }
+};
+template <class T, class U>
+constexpr bool operator==(cuda_pinned_allocator<T> const&,
+    cuda_pinned_allocator<U> const&) noexcept {
+    return true;
+}
+template <class T, class U>
+constexpr bool operator!=(cuda_pinned_allocator<T> const&,
+    cuda_pinned_allocator<U> const&) noexcept {
+    return false;
+}
+
+template <class T>
+struct cuda_device_allocator
+{
+    using value_type = T;
+    cuda_device_allocator() noexcept {}
+    template <class U>
+    cuda_device_allocator(cuda_device_allocator<U> const&) noexcept {}
+    T* allocate(std::size_t n) {
+        T* data;
+        cudaMalloc(&data, n * sizeof(T));
+        return data;
+    }
+    void deallocate(T* p, std::size_t n) {
+        cudaFree(p);
+    }
+};
+template <class T, class U>
+constexpr bool operator==(cuda_device_allocator<T> const&,
+    cuda_device_allocator<U> const&) noexcept {
+    return true;
+}
+template <class T, class U>
+constexpr bool operator!=(cuda_device_allocator<T> const&,
+    cuda_device_allocator<U> const&) noexcept {
+    return false;
+}
+
+template<class T>
+using recycle_std = recycle_allocator<T, std::allocator<T>>;
+template<class T>
+using recycle_allocator_cuda_host = recycle_allocator<T, cuda_pinned_allocator<T>>;
+template<class T>
+using recycle_allocator_cuda_device = recycle_allocator<T, cuda_device_allocator<T>>;
+
+
+
+
