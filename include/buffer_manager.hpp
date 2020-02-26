@@ -1,27 +1,28 @@
 #include <iostream>
 #include <mutex>
+#include <memory>
 
 class buffer_recycler {
   // Public interface
   public:
-    template <class T>
+    template <class T, class Host_Allocator=std::allocator<T>>
     static T* get(size_t number_elements) {
       std::lock_guard<std::mutex> guard(mut);
       if (!instance) {
         instance = new buffer_recycler();
         destroyer.set_singleton(instance);
       }
-      return buffer_manager<T>::get(number_elements);
+      return buffer_manager<T, Host_Allocator>::get(number_elements);
     }
 
-    template <class T>
+    template <class T, class Host_Allocator=std::allocator<T>>
     static void mark_unused(T *p, size_t number_elements) {
       std::lock_guard<std::mutex> guard(mut);
       if (!instance) {
         instance = new buffer_recycler();
         destroyer.set_singleton(instance);
       }
-      return buffer_manager<T>::mark_unused(p,number_elements);
+      return buffer_manager<T, Host_Allocator>::mark_unused(p,number_elements);
     }
     static void clean_all(void) {
       std::lock_guard<std::mutex> guard(mut);
@@ -76,7 +77,7 @@ class buffer_recycler {
   // Subclasses
   private: 
     /// Memory Manager subclass to handle buffers of specific types and sizes
-    template<class T>
+    template<class T, class Host_Allocator=std::allocator<T>>
     class buffer_manager {
       public:
         static void clean(void) {
@@ -114,7 +115,9 @@ class buffer_recycler {
 
           // No unsued buffer found -> Create new one and return it
           try {
-            T *buffer = new T[number_of_elements];
+            //T *buffer = new T[number_of_elements];
+            Host_Allocator alloc;
+            T *buffer = alloc.allocate(number_of_elements);
             instance->buffer_list.push_back(std::make_tuple(buffer, number_of_elements));
             instance->number_creation++;
             return std::get<0>(instance->buffer_list.back());
@@ -125,7 +128,9 @@ class buffer_recycler {
 
             // If there still isn't enough memory left, the caller has to handle it 
             // We've done all we can in here
-            T *buffer = new T[number_of_elements];
+            //T *buffer = new T[number_of_elements];
+            Host_Allocator alloc;
+            T *buffer = alloc.allocate(number_of_elements);
             instance->buffer_list.push_back(std::make_tuple(buffer, number_of_elements));
             instance->number_creation++;
             instance->number_bad_alloc++;
@@ -161,18 +166,30 @@ class buffer_recycler {
         /// Performance counters
         size_t number_allocation, number_dealloacation, number_recycling, number_creation, number_bad_alloc;
         /// Singleton instance
-        static buffer_manager<T> *instance; 
+        static buffer_manager<T, Host_Allocator> *instance; 
 
         buffer_manager(void) : number_allocation(0), number_dealloacation(0), number_recycling(0),
                                number_creation(0), number_bad_alloc(0) {
           std::cout << "Buffer mananger constructor for buffers of type " << typeid(T).name() << "!" << std::endl;
         }
         ~buffer_manager(void) {
+          // for (auto buffer_tuple : unused_buffer_list) {
+          //   std::cout << "Unused buffer at " << std::get<0>(buffer_tuple) << " with " 
+          //             << std::get<1>(buffer_tuple) << " elements" << std::endl;
+          // }
+          // for (auto buffer_tuple : buffer_list) {
+          //   std::cout << "Used buffer at " << std::get<0>(buffer_tuple) << " with " 
+          //             << std::get<1>(buffer_tuple) << " elements" << std::endl;
+          // }
           for (auto buffer_tuple : unused_buffer_list) {
-            delete [] std::get<0>(buffer_tuple);
+            Host_Allocator alloc;
+            alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+            // delete [] std::get<0>(buffer_tuple);
           }
           for (auto buffer_tuple : buffer_list) {
-            delete [] std::get<0>(buffer_tuple);
+            Host_Allocator alloc;
+            alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+            // delete [] std::get<0>(buffer_tuple);
           }
           if (buffer_list.size() > 0) {
             const char *error_message =R""""(
@@ -189,7 +206,7 @@ class buffer_recycler {
                     << "----------------------------------------------------" << std::endl
                     << "--> Number of bad_allocs that triggered garbage collection:       " << number_bad_alloc << std::endl
                     << "--> Number of buffers that got requested from this manager:       " << number_allocation << std::endl
-                    << "--> Number of times a unused buffer got recycled for a request:   " << number_recycling << std::endl
+                    << "--> Number of times an unused buffer got recycled for a request:  " << number_recycling << std::endl
                     << "--> Number of times a new buffer had to be created for a request: " << number_creation << std::endl 
                     << "--> Number cleaned up buffers:                                    " << number_cleaned << std::endl 
                     << "--> Number of buffers that were marked as used upon cleanup:      " << buffer_list.size() << std::endl
@@ -203,10 +220,10 @@ class buffer_recycler {
 
       public: // Putting deleted constructors in public gives more useful error messages
         // Bunch of constructors we don't need
-        buffer_manager<T>(buffer_manager<T> const &other) = delete;
-        buffer_manager<T> operator=(buffer_manager<T> const &other) = delete;
-        buffer_manager<T>(buffer_manager<T> const &&other) = delete;
-        buffer_manager<T> operator=(buffer_manager<T> const &&other) = delete;
+        buffer_manager<T, Host_Allocator>(buffer_manager<T> const &other) = delete;
+        buffer_manager<T, Host_Allocator> operator=(buffer_manager<T> const &other) = delete;
+        buffer_manager<T, Host_Allocator>(buffer_manager<T> const &&other) = delete;
+        buffer_manager<T, Host_Allocator> operator=(buffer_manager<T> const &&other) = delete;
     };
 
     /// This class just makes sure the singleton is destroyed automatically UNLESS it has already been explictly destroyed
@@ -247,8 +264,8 @@ buffer_recycler* buffer_recycler::instance = nullptr;
 buffer_recycler::memory_manager_destroyer buffer_recycler::destroyer;
 std::mutex buffer_recycler::mut;
 
-template<class T>
-buffer_recycler::buffer_manager<T>* buffer_recycler::buffer_manager<T>::instance = nullptr; 
+template<class T, class Host_Allocator>
+buffer_recycler::buffer_manager<T, Host_Allocator>* buffer_recycler::buffer_manager<T, Host_Allocator>::instance = nullptr; 
 
 template <class T>
 struct recycle_allocator {

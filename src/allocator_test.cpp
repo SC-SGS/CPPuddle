@@ -9,37 +9,31 @@
 
 
 constexpr size_t number_futures = 64;
-constexpr size_t array_size = 20000;
-constexpr size_t passes = 15;
+constexpr size_t array_size = 10000;
+constexpr size_t passes = 10;
 
 // #pragma nv_exec_check_disable
 int main(int argc, char *argv[])
 {
+  // std::vector<float, recycle_allocator<float>> test0(array_size);
+  // test0.resize(10*array_size);
+  // test0.resize(100*array_size);
 
-/** Stress test for concurrency and performance:
- *  Hopefully this will catch any race conditions and allow us to
+/** Stress test for safe concurrency and performance:
+ *  Hopefully this will trigger any existing race conditions and allow us to
  *  determine bottlelegs by evaluating the performance of different allocator 
  *  implementations.
  * */
-  static_assert(passes >= 1);
+  static_assert(passes >= 0);
   static_assert(array_size >= 1);
   assert(number_futures >= hpx::get_num_worker_threads());
 
   auto begin = std::chrono::high_resolution_clock::now();
   std::array<hpx::future<void>, number_futures> futs;
   for (size_t i = 0; i < number_futures; i++) {
-    futs[i]=hpx::async([&]() {
-      std::vector<float, recycle_allocator<float>> test0(array_size);
-      std::vector<float, recycle_allocator<float>> test1(array_size);
-      std::vector<float, recycle_allocator<float>> test2(array_size);
-      std::vector<float, recycle_allocator<float>> test3(array_size);
-      std::vector<double, recycle_allocator<double>> test4(array_size);
-      std::vector<double, recycle_allocator<double>> test5(array_size);
-      std::vector<double, recycle_allocator<double>> test6(array_size);
-      std::vector<double, recycle_allocator<double>> test7(array_size);
-    });
+    futs[i]= hpx::make_ready_future<void>();
   }
-  for (size_t pass = 1; pass < passes; pass++) {
+  for (size_t pass = 0; pass < passes; pass++) {
     for (size_t i = 0; i < number_futures; i++) {
       futs[i] = futs[i].then([&](hpx::future<void> &&predecessor) {
         std::vector<float, recycle_allocator<float>> test0(array_size);
