@@ -363,6 +363,11 @@ struct cuda_device_buffer {
   ~cuda_device_buffer(void) {
     recycle_allocator_cuda_device<T>{}.deallocate(device_side_buffer, number_of_elements);
   }
+  // not yet implemented
+  cuda_device_buffer(cuda_device_buffer const &other) = delete;
+  cuda_device_buffer operator=(cuda_device_buffer const &other) = delete;
+  cuda_device_buffer(cuda_device_buffer const &&other) = delete;
+  cuda_device_buffer operator=(cuda_device_buffer const &&other) = delete;
 };
 
 template<class T>
