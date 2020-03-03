@@ -135,6 +135,22 @@ add_hpx_executable(
 	HEADERS 
 		${CMAKE_CURRENT_SOURCE_DIR}/include/buffer_manager.hpp
 )
+add_hpx_executable(
+	allocator_kokkos_test
+	SOURCES
+		${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_kokkos_test.cpp
+	HEADERS 
+		${CMAKE_CURRENT_SOURCE_DIR}/include/buffer_manager.hpp
+)
 
 add_compile_options(-I${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-hpx-interop/include)
 add_hpx_executable(interop SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-hpx-interop/src/kokkos_hpx.cpp)
+
+add_hpx_executable(
+	allocator_cuda_test
+	SOURCES
+		${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_cuda_test.cu 
+	HEADERS 
+		${CMAKE_CURRENT_SOURCE_DIR}/include/buffer_manager.hpp
+)
+

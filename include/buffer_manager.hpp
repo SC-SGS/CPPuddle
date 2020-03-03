@@ -370,13 +370,6 @@ struct cuda_device_buffer {
   cuda_device_buffer operator=(cuda_device_buffer const &&other) = delete;
 };
 
-template<class T>
-struct cuda_channel {
-  std::vector<T, recycle_allocator_cuda_host<T>> host_side_buffer;
-  cuda_device_buffer<T> device_side_buffer;
-  cuda_channel(size_t number_of_elements) : host_side_buffer(number_of_elements), device_side_buffer(number_of_elements) {
-  }
-};
 
 
 
