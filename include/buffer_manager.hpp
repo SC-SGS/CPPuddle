@@ -376,8 +376,3 @@ struct cuda_device_buffer {
   cuda_device_buffer(cuda_device_buffer const &&other) = delete;
   cuda_device_buffer operator=(cuda_device_buffer const &&other) = delete;
 };
-
-
-
-
-
