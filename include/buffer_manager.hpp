@@ -281,6 +281,13 @@ struct recycle_allocator {
   void deallocate(T *p, std::size_t n) {
     buffer_recycler::mark_unused<T, Host_Allocator>(p, n);
   }
+  template<typename... Args>
+  void construct(T *p, Args... args) {
+    ::new (static_cast<void*>(p)) T(std::forward<Args>(args)...);
+  }
+  void destroy(T *p) {
+    p->~T();
+  }
 };
 
 template <class T, class U, class Host_Allocator>

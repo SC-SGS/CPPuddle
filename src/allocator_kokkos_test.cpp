@@ -16,18 +16,17 @@
 #include <memory>
 
 // convience function to use the allocators together with Kokkos Views
-template <class T, class allocator = recycle_std<T>>
-std::unique_ptr<T, std::function<void(T *)>> make_or_recycle_unique()
+template <class T, class... Args>
+std::unique_ptr<T, std::function<void(T *)>> make_or_recycle_unique(Args... args)
 {
     auto deleter = [](T *p) {
         recycle_std<T> alloc;
-        p->~T();
+        alloc.destroy(p);
         alloc.deallocate(p, 1);
     };
     recycle_std<T> alloc;
     T *ptr = alloc.allocate(1);
-    // Use placement new to construct an object in the already allocated memory
-    ::new (static_cast<void*>(ptr)) T("x");
+    alloc.construct(ptr, std::forward<Args>(args)...);
     return std::unique_ptr<T, std::function<void(T *)>>(ptr, deleter);
 }
 
@@ -42,8 +41,8 @@ int main(int argc, char *argv[])
     Kokkos::print_configuration(std::cout);
 
 
-    // Current Option 1: (the less manual road)
-    auto input_array = make_or_recycle_unique<kokkos_array>();
+    // Current Option 1: (the smart (pointer) road)
+    auto input_array = make_or_recycle_unique<kokkos_array>(std::string("my_smart_view"));
     for (size_t i = 0; i < 100; i++) {
         (*input_array)(i) = i * 2.0;
     }
@@ -51,12 +50,20 @@ int main(int argc, char *argv[])
     // Current Option 2: (the manual road)
     recycle_std<kokkos_array> allocator;
     kokkos_array *input_array2 = allocator.allocate(1); // allocate memory
-    ::new (static_cast<void*>(input_array2)) kokkos_array("x"); // initialize kokkos view
+    allocator.construct(input_array2, std::string("my_manual_view")); // initialize kokkos view
     for (size_t i = 0; i < 100; i++) {
         input_array2[0](i) = i * 2.0;
     }
-    input_array2->~kokkos_array(); 
+    allocator.destroy(input_array2);
     allocator.deallocate(input_array2, 1);
+
+    // Current Option 3: (the vector-save-me road)
+    // Problematic since it wants to initalize with the default view constructor and that one does actually not initialize the kokkos view
+    std::vector<kokkos_array, recycle_std<kokkos_array>> input_array3(1);
+    input_array3[0] = kokkos_array("my_vector_view"); //hence this line...
+    for (size_t i = 0; i < 100; i++) {
+        input_array3[0](i) = i * 2.0;
+    }
 
 
     // These should use some of the recycled memory:
