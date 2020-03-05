@@ -15,10 +15,12 @@
 #include "../include/buffer_manager.hpp"
 #include <memory>
 
-//using kokkos_array = Kokkos::View<float[100], Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
-using kokkos_array = Kokkos::View<float[100], Kokkos::HostSpace>;
-using kokkos_pinned_array = Kokkos::View<float[100], Kokkos::CudaHostPinnedSpace>;
-using kokkos_cuda_array = Kokkos::View<float[100], Kokkos::CudaSpace>;
+//using kokkos_array = Kokkos::View<float[1000], Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
+using type_in_view = float[100][1000];
+constexpr size_t view_size = 100*1000;
+using kokkos_array = Kokkos::View<type_in_view, Kokkos::HostSpace>;
+using kokkos_pinned_array = Kokkos::View<type_in_view, Kokkos::CudaHostPinnedSpace>;
+using kokkos_cuda_array = Kokkos::View<type_in_view, Kokkos::CudaSpace>;
 
 template <class kokkos_type, class alloc_type, class element_type>
 class recycled_view : public kokkos_type {
@@ -51,7 +53,7 @@ template <class T>
 using recycled_device_view = recycled_view<kokkos_um_device_array<T>, recycle_allocator_cuda_device<T>, T>;
 
 
-// convience function to use the allocators together with Kokkos Views
+// convenience function to use the allocators together with Kokkos Views
 template <class T, class... Args>
 std::unique_ptr<T, std::function<void(T *)>> make_or_recycle_unique(Args... args)
 {
@@ -76,56 +78,56 @@ int main(int argc, char *argv[])
 
     // Bad way: Does not recycle the heap buffer of Kokkos as of yet
     auto input_array = make_or_recycle_unique<kokkos_array>(std::string("my_smart_view"));
-    for (size_t i = 0; i < 100; i++) {
-        (*input_array)(i) = i * 2.0;
+    for (size_t i = 0; i < view_size; i++) {
+        (*input_array).data()[i] = i * 2.0;
     }
 
     // Way 1 to recycle heap buffer as well (manually)
     auto my_layout = input_array->layout();
     recycle_std<float> alli;
-    float *my_recycled_data_buffer = alli.allocate(100); // allocate memory
+    float *my_recycled_data_buffer = alli.allocate(view_size); // allocate memory
     {
-        kokkos_um_array<float> test_buffered(my_recycled_data_buffer, 100);
-        for (size_t i = 0; i < 100; i++) {
+        kokkos_um_array<float> test_buffered(my_recycled_data_buffer, view_size);
+        for (size_t i = 0; i < view_size; i++) {
             test_buffered(i) = i * 2.0;
         }
     }
-    alli.deallocate(my_recycled_data_buffer, 100); 
-    size_t to_alloc = kokkos_um_array<float>::required_allocation_size(100);
+    alli.deallocate(my_recycled_data_buffer, view_size); 
+    size_t to_alloc = kokkos_um_array<float>::required_allocation_size(view_size);
     std::cout << "Actual required size: "  << to_alloc << std::endl; // Still a heap allocation!
 
     // Way 2 for recycling 
     using test_view = recycled_host_view<float>;
     using test_double_view = recycled_host_view<double>;
-    test_view my_wrapper_test0(100);
-    for (size_t i = 0; i < 100; i++) {
+    test_view my_wrapper_test0(view_size);
+    for (size_t i = 0; i < view_size; i++) {
         my_wrapper_test0(i) = i * 2.0;
     }
 
     { // Just some views that will be destroyed again to be recylced  the next block
-    	test_view my_wrapper_test1(100);
-    	test_view my_wrapper_test2(100);
-    	test_double_view my_wrapper_test3(100);
+    	test_view my_wrapper_test1(view_size);
+    	test_view my_wrapper_test2(view_size);
+    	test_double_view my_wrapper_test3(view_size);
     }
     { // Let the recycling commence
-    	test_view my_wrapper_test1(100);
-    	test_view my_wrapper_test2(100);
-    	test_view my_wrapper_test3(100);
-    	test_double_view my_wrapper_test4(100);
+    	test_view my_wrapper_test1(view_size);
+    	test_view my_wrapper_test2(view_size);
+    	test_view my_wrapper_test3(view_size);
+    	test_double_view my_wrapper_test4(view_size);
     }
     // now for some views on cuda data
     using test_device_view = recycled_device_view<float>;
     using test_device_double_view = recycled_device_view<double>;
-    test_device_view my_device_test0(100);
+    test_device_view my_device_test0(view_size);
     { // Just some views that will be destroyed again to be recylced  the next block
-    	test_device_view my_wrapper_test1(100);
-    	test_device_view my_wrapper_test2(100);
-    	test_device_double_view my_wrapper_test4(100);
+    	test_device_view my_wrapper_test1(view_size);
+    	test_device_view my_wrapper_test2(view_size);
+    	test_device_double_view my_wrapper_test4(view_size);
     }
     { // Let the recycling commence
-    	test_device_view my_wrapper_test1(100);
-    	test_device_view my_wrapper_test2(100);
-    	test_device_view my_wrapper_test3(100);
-    	test_device_double_view my_wrapper_test4(100);
+    	test_device_view my_wrapper_test1(view_size);
+    	test_device_view my_wrapper_test2(view_size);
+    	test_device_view my_wrapper_test3(view_size);
+    	test_device_double_view my_wrapper_test4(view_size);
     }
 }
