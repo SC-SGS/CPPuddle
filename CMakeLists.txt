@@ -54,7 +54,12 @@ endif()
 
 set(HPX_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/hpx-install)
 
-set(HPX_DIR ${HPX_BASE_DIR}/lib/cmake/HPX/)
+if(EXISTS "${HPX_BASE_DIR}/lib64/cmake/HPX/")
+   set(HPX_DIR ${HPX_BASE_DIR}/lib64/cmake/HPX/)
+else()
+   set(HPX_DIR ${HPX_BASE_DIR}/lib/cmake/HPX/)
+endif()
+
 find_package(HPX REQUIRED)
 message(INFO "HPX done:")
 
