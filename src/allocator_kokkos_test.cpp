@@ -30,7 +30,7 @@ class recycled_view : public kokkos_type {
         recycled_view(Args... args) :
           kokkos_type(allocator.allocate(kokkos_type::required_allocation_size(args...) / sizeof(element_type)),args...),
           total_elements(kokkos_type::required_allocation_size(args...) / sizeof(element_type)) {
-            std::cout << "Got buffer for " << total_elements << std::endl;
+            //std::cout << "Got buffer for " << total_elements << std::endl;
         }
         ~recycled_view(void) {
             allocator.deallocate(this->data(), total_elements);
@@ -39,10 +39,16 @@ class recycled_view : public kokkos_type {
 template <class kokkos_type, class alloc_type, class element_type>
 alloc_type recycled_view<kokkos_type, alloc_type, element_type>::allocator;
 
+// Just some 1D views used for testing
 template <class T>
 using kokkos_um_array = Kokkos::View<T*, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
 using recycled_host_view = recycled_view<kokkos_um_array<T>, recycle_std<T>, T>;
+
+template <class T>
+using kokkos_um_device_array = Kokkos::View<T*, Kokkos::CudaSpace, Kokkos::MemoryUnmanaged>;
+template <class T>
+using recycled_device_view = recycled_view<kokkos_um_device_array<T>, recycle_allocator_cuda_device<T>, T>;
 
 
 // convience function to use the allocators together with Kokkos Views
@@ -63,8 +69,6 @@ std::unique_ptr<T, std::function<void(T *)>> make_or_recycle_unique(Args... args
 // #pragma nv_exec_check_disable
 int main(int argc, char *argv[])
 {
-
-
     hpx::kokkos::ScopeGuard scopeGuard(argc, argv);
     Kokkos::print_configuration(std::cout);
 
@@ -108,5 +112,20 @@ int main(int argc, char *argv[])
     	test_view my_wrapper_test2(100);
     	test_view my_wrapper_test3(100);
     	test_double_view my_wrapper_test4(100);
+    }
+    // now for some views on cuda data
+    using test_device_view = recycled_device_view<float>;
+    using test_device_double_view = recycled_device_view<double>;
+    test_device_view my_device_test0(100);
+    { // Just some views that will be destroyed again to be recylced  the next block
+    	test_device_view my_wrapper_test1(100);
+    	test_device_view my_wrapper_test2(100);
+    	test_device_double_view my_wrapper_test4(100);
+    }
+    { // Let the recycling commence
+    	test_device_view my_wrapper_test1(100);
+    	test_device_view my_wrapper_test2(100);
+    	test_device_view my_wrapper_test3(100);
+    	test_device_double_view my_wrapper_test4(100);
     }
 }
