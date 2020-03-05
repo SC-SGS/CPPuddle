@@ -20,21 +20,30 @@ using kokkos_array = Kokkos::View<float[100], Kokkos::HostSpace>;
 using kokkos_pinned_array = Kokkos::View<float[100], Kokkos::CudaHostPinnedSpace>;
 using kokkos_cuda_array = Kokkos::View<float[100], Kokkos::CudaSpace>;
 
-template <class kokkos_type, class alloc_type>
+template <class kokkos_type, class alloc_type, class element_type>
 class recycled_view : public kokkos_type {
     private:
         static alloc_type allocator;
         size_t total_elements;
     public:
         template <class... Args>
-        recycled_view(size_t total_elements, Args... args) : kokkos_type(allocator.allocate(total_elements),args...), total_elements(total_elements) {
+        recycled_view(Args... args) :
+          kokkos_type(allocator.allocate(kokkos_type::required_allocation_size(args...) / sizeof(element_type)),args...),
+          total_elements(kokkos_type::required_allocation_size(args...) / sizeof(element_type)) {
+            std::cout << "Got buffer for " << total_elements << std::endl;
         }
         ~recycled_view(void) {
             allocator.deallocate(this->data(), total_elements);
         }
 };
-template <class kokkos_type, class alloc_type>
-alloc_type recycled_view<kokkos_type, alloc_type>::allocator;
+template <class kokkos_type, class alloc_type, class element_type>
+alloc_type recycled_view<kokkos_type, alloc_type, element_type>::allocator;
+
+template <class T>
+using kokkos_um_array = Kokkos::View<T*, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
+template <class T>
+using recycled_host_view = recycled_view<kokkos_um_array<T>, recycle_std<T>, T>;
+
 
 // convience function to use the allocators together with Kokkos Views
 template <class T, class... Args>
@@ -71,30 +80,33 @@ int main(int argc, char *argv[])
     auto my_layout = input_array->layout();
     recycle_std<float> alli;
     float *my_recycled_data_buffer = alli.allocate(100); // allocate memory
-    using kokkos_um_array = Kokkos::View<float[100], Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
     {
-        kokkos_um_array test_buffered(my_recycled_data_buffer);
+        kokkos_um_array<float> test_buffered(my_recycled_data_buffer, 100);
         for (size_t i = 0; i < 100; i++) {
             test_buffered(i) = i * 2.0;
         }
     }
     alli.deallocate(my_recycled_data_buffer, 100); 
-    size_t to_alloc = kokkos_um_array::required_allocation_size(100);
+    size_t to_alloc = kokkos_um_array<float>::required_allocation_size(100);
     std::cout << "Actual required size: "  << to_alloc << std::endl; // Still a heap allocation!
 
-    // Way 2 to recycle 
-    recycled_view<kokkos_um_array, recycle_std<float>> my_wrapper_test0(100);
+    // Way 2 for recycling 
+    using test_view = recycled_host_view<float>;
+    using test_double_view = recycled_host_view<double>;
+    test_view my_wrapper_test0(100);
     for (size_t i = 0; i < 100; i++) {
         my_wrapper_test0(i) = i * 2.0;
     }
 
-    { // Just some views that will be destroyed again to be recylced in the next block
-        recycled_view<kokkos_um_array, recycle_std<float>> my_wrapper_test1(100);
-        recycled_view<kokkos_um_array, recycle_std<float>> my_wrapper_test2(100);
+    { // Just some views that will be destroyed again to be recylced  the next block
+    	test_view my_wrapper_test1(100);
+    	test_view my_wrapper_test2(100);
+    	test_double_view my_wrapper_test3(100);
     }
     { // Let the recycling commence
-        recycled_view<kokkos_um_array, recycle_std<float>> my_wrapper_test1(100);
-        recycled_view<kokkos_um_array, recycle_std<float>> my_wrapper_test2(100);
-        recycled_view<kokkos_um_array, recycle_std<float>> my_wrapper_test3(100);
+    	test_view my_wrapper_test1(100);
+    	test_view my_wrapper_test2(100);
+    	test_view my_wrapper_test3(100);
+    	test_double_view my_wrapper_test4(100);
     }
 }
