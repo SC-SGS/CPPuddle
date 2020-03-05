@@ -15,6 +15,11 @@
 #include "../include/buffer_manager.hpp"
 #include <memory>
 
+//using kokkos_array = Kokkos::View<float[100], Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
+using kokkos_array = Kokkos::View<float[100], Kokkos::HostSpace>;
+using kokkos_pinned_array = Kokkos::View<float[100], Kokkos::CudaHostPinnedSpace>;
+using kokkos_cuda_array = Kokkos::View<float[100], Kokkos::CudaSpace>;
+
 // convience function to use the allocators together with Kokkos Views
 template <class T, class... Args>
 std::unique_ptr<T, std::function<void(T *)>> make_or_recycle_unique(Args... args)
@@ -30,16 +35,15 @@ std::unique_ptr<T, std::function<void(T *)>> make_or_recycle_unique(Args... args
     return std::unique_ptr<T, std::function<void(T *)>>(ptr, deleter);
 }
 
-using kokkos_array = Kokkos::View<float[100], Kokkos::HostSpace>;
-using kokkos_pinned_array = Kokkos::View<float[100], Kokkos::CudaHostPinnedSpace>;
-using kokkos_cuda_array = Kokkos::View<float[100], Kokkos::CudaSpace>;
-
 // #pragma nv_exec_check_disable
 int main(int argc, char *argv[])
 {
+
+
     hpx::kokkos::ScopeGuard scopeGuard(argc, argv);
     Kokkos::print_configuration(std::cout);
 
+    std::cout << "Size: "  << sizeof(kokkos_array) << std::endl; // Still a heap allocation!
 
     // Current Option 1: (the smart (pointer) road)
     auto input_array = make_or_recycle_unique<kokkos_array>(std::string("my_smart_view"));
@@ -47,12 +51,28 @@ int main(int argc, char *argv[])
         (*input_array)(i) = i * 2.0;
     }
 
+    auto my_layout = input_array->layout();
+    recycle_std<float> alli;
+    float *my_recycled_data_buffer = alli.allocate(100); // allocate memory
+    using kokkos_um_array = Kokkos::View<float[100], Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
+    {
+        kokkos_um_array test_buffered(my_recycled_data_buffer);
+        for (size_t i = 0; i < 100; i++) {
+            test_buffered(i) = i * 2.0;
+        }
+    }
+    alli.deallocate(my_recycled_data_buffer, 100); 
+    size_t to_alloc = kokkos_um_array::required_allocation_size(100);
+    std::cout << "Actual required size: "  << to_alloc << std::endl; // Still a heap allocation!
+
+
     // Current Option 2: (the manual road)
     recycle_std<kokkos_array> allocator;
     kokkos_array *input_array2 = allocator.allocate(1); // allocate memory
     allocator.construct(input_array2, std::string("my_manual_view")); // initialize kokkos view
     for (size_t i = 0; i < 100; i++) {
         input_array2[0](i) = i * 2.0;
+        (*input_array2)(i) = i *2.0;
     }
     allocator.destroy(input_array2);
     allocator.deallocate(input_array2, 1);
