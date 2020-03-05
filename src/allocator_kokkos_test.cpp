@@ -3,7 +3,6 @@
 #include <hpx/include/async.hpp>
 #include <hpx/include/lcos.hpp>
 
-#include <kokkos_viewpool.hpp>
 #include <hpx/kokkos.hpp>
 
 #include <Kokkos_Core.hpp>
@@ -11,8 +10,8 @@
 #include <typeinfo>
 
 // scoped_timer -- stolen from Mikael
-#include <hpx/timing/high_resolution_timer.hpp>
 #include "../include/buffer_manager.hpp"
+#include <hpx/timing/high_resolution_timer.hpp>
 #include <memory>
 
 //using kokkos_array = Kokkos::View<float[1000], Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
@@ -104,30 +103,46 @@ int main(int argc, char *argv[])
         my_wrapper_test0(i) = i * 2.0;
     }
 
-    { // Just some views that will be destroyed again to be recylced  the next block
-    	test_view my_wrapper_test1(view_size);
-    	test_view my_wrapper_test2(view_size);
-    	test_double_view my_wrapper_test3(view_size);
-    }
-    { // Let the recycling commence
-    	test_view my_wrapper_test1(view_size);
-    	test_view my_wrapper_test2(view_size);
-    	test_view my_wrapper_test3(view_size);
-    	test_double_view my_wrapper_test4(view_size);
-    }
-    // now for some views on cuda data
+    // for some views on cuda data
     using test_device_view = recycled_device_view<float>;
     using test_device_double_view = recycled_device_view<double>;
-    test_device_view my_device_test0(view_size);
-    { // Just some views that will be destroyed again to be recylced  the next block
-    	test_device_view my_wrapper_test1(view_size);
-    	test_device_view my_wrapper_test2(view_size);
-    	test_device_double_view my_wrapper_test4(view_size);
+
+
+    /** Stress test for safe concurrency and performance:
+   *  stolen from allocator_test
+   * */
+
+    constexpr size_t number_futures = 64;
+    constexpr size_t passes = 10;
+
+    static_assert(passes >= 0);
+    static_assert(view_size >= 1);
+    assert(number_futures >= hpx::get_num_worker_threads());
+
+    auto begin = std::chrono::high_resolution_clock::now();
+    std::array<hpx::future<void>, number_futures> futs;
+    for (size_t i = 0; i < number_futures; i++)
+    {
+        futs[i] = hpx::make_ready_future<void>();
     }
-    { // Let the recycling commence
-    	test_device_view my_wrapper_test1(view_size);
-    	test_device_view my_wrapper_test2(view_size);
-    	test_device_view my_wrapper_test3(view_size);
-    	test_device_double_view my_wrapper_test4(view_size);
+    for (size_t pass = 0; pass < passes; pass++)
+    {
+        for (size_t i = 0; i < number_futures; i++)
+        {
+            futs[i] = futs[i].then([&](hpx::future<void> &&predecessor) {
+                test_view test0(view_size);
+                test_view test1(view_size);
+                test_double_view test2(view_size);
+                test_double_view test3(view_size);
+                test_device_view test4(view_size);
+                test_device_view test5(view_size);
+                test_device_double_view test6(view_size);
+                test_device_double_view test7(view_size);
+            });
+        }
     }
+    auto when = hpx::when_all(futs);
+    when.wait();
+    auto end = std::chrono::high_resolution_clock::now();
+    std::cout << "\n==>Allocation test took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms" << std::endl;
 }
