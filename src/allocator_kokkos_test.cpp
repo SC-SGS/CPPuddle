@@ -15,11 +15,13 @@
 #include <memory>
 
 //using kokkos_array = Kokkos::View<float[1000], Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
-using type_in_view = float[100][1000];
-constexpr size_t view_size = 100*1000;
+constexpr size_t view_size_0 = 100;
+constexpr size_t view_size_1 = 1000;
+using type_in_view = float[view_size_1][view_size_0];
+constexpr size_t view_size = view_size_0*view_size_1;
 using kokkos_array = Kokkos::View<type_in_view, Kokkos::HostSpace>;
-using kokkos_pinned_array = Kokkos::View<type_in_view, Kokkos::CudaHostPinnedSpace>;
-using kokkos_cuda_array = Kokkos::View<type_in_view, Kokkos::CudaSpace>;
+// using kokkos_pinned_array = Kokkos::View<type_in_view, Kokkos::CudaHostPinnedSpace>;
+// using kokkos_cuda_array = Kokkos::View<type_in_view, Kokkos::CudaSpace>;
 
 template <class kokkos_type, class alloc_type, class element_type>
 class recycled_view : public kokkos_type {
@@ -40,14 +42,14 @@ class recycled_view : public kokkos_type {
 template <class kokkos_type, class alloc_type, class element_type>
 alloc_type recycled_view<kokkos_type, alloc_type, element_type>::allocator;
 
-// Just some 1D views used for testing
+// Just some 2D views used for testing
 template <class T>
-using kokkos_um_array = Kokkos::View<T*, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
+using kokkos_um_array = Kokkos::View<T**, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
 using recycled_host_view = recycled_view<kokkos_um_array<T>, recycle_std<T>, T>;
 
 template <class T>
-using kokkos_um_device_array = Kokkos::View<T*, Kokkos::CudaSpace, Kokkos::MemoryUnmanaged>;
+using kokkos_um_device_array = Kokkos::View<T**, Kokkos::CudaSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
 using recycled_device_view = recycled_view<kokkos_um_device_array<T>, recycle_allocator_cuda_device<T>, T>;
 
@@ -86,9 +88,9 @@ int main(int argc, char *argv[])
     recycle_std<float> alli;
     float *my_recycled_data_buffer = alli.allocate(view_size); // allocate memory
     {
-        kokkos_um_array<float> test_buffered(my_recycled_data_buffer, view_size);
+        kokkos_um_array<float> test_buffered(my_recycled_data_buffer, view_size_0, view_size_1);
         for (size_t i = 0; i < view_size; i++) {
-            test_buffered(i) = i * 2.0;
+            test_buffered.data()[i] = i * 2.0;
         }
     }
     alli.deallocate(my_recycled_data_buffer, view_size); 
@@ -98,9 +100,9 @@ int main(int argc, char *argv[])
     // Way 2 for recycling 
     using test_view = recycled_host_view<float>;
     using test_double_view = recycled_host_view<double>;
-    test_view my_wrapper_test0(view_size);
+    test_view my_wrapper_test0(view_size_0, view_size_1);
     for (size_t i = 0; i < view_size; i++) {
-        my_wrapper_test0(i) = i * 2.0;
+        my_wrapper_test0.data()[i] = i * 2.0;
     }
 
     // for some views on cuda data
@@ -130,14 +132,15 @@ int main(int argc, char *argv[])
         for (size_t i = 0; i < number_futures; i++)
         {
             futs[i] = futs[i].then([&](hpx::future<void> &&predecessor) {
-                test_view test0(view_size);
-                test_view test1(view_size);
-                test_double_view test2(view_size);
-                test_double_view test3(view_size);
-                test_device_view test4(view_size);
-                test_device_view test5(view_size);
-                test_device_double_view test6(view_size);
-                test_device_double_view test7(view_size);
+                // now we can even swap the sizes at runtime, will still be reused
+                test_view test0(view_size_0, view_size_1);
+                test_view test1(view_size_1, view_size_0);
+                test_double_view test2(view_size_0, view_size_1);
+                test_double_view test3(view_size_1, view_size_0);
+                test_device_view test4(view_size_0, view_size_1);
+                test_device_view test5(view_size_1, view_size_0);
+                test_device_double_view test6(view_size_0, view_size_1);
+                test_device_double_view test7(view_size_1, view_size_0);
             });
         }
     }
