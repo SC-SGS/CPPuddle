@@ -86,7 +86,7 @@ using recycled_pinned_view = recycled_view<kokkos_um_pinned_array<T>, recycle_al
  * @param view_to_iterate   the view that needs to be iterated
  */
 template <typename Executor, typename ViewType>
-auto get_iteration_policy(Executor executor, ViewType view_to_iterate)
+auto get_iteration_policy(const Executor&& executor, const ViewType& view_to_iterate)
 {
     constexpr auto rank = Kokkos::ViewTraits<type_in_view>::rank;
     const Kokkos::Array<int64_t, rank> zeros{};
@@ -100,7 +100,7 @@ auto get_iteration_policy(Executor executor, ViewType view_to_iterate)
     // return Kokkos::Experimental::require(Kokkos::MDRangePolicy<decltype(executor), Kokkos::Rank<rank>>(executor,
     //                                                                                                    zeros, extents),
     //                                      Kokkos::Experimental::WorkItemProperty::HintLightWeight);
-    return Kokkos::MDRangePolicy<decltype(executor), Kokkos::Rank<rank>>(executor, zeros, extents);
+    return Kokkos::MDRangePolicy<Executor, Kokkos::Rank<rank>>(executor, zeros, extents);
 }
 
 /**
@@ -215,6 +215,7 @@ void stream_executor_test()
 // #pragma nv_exec_check_disable
 int main(int argc, char *argv[])
 {
+    hpx::kokkos::ScopeGuard g(argc, argv);
 
     /** Stress test for safe concurrency and performance:
    *  stolen from allocator_test
