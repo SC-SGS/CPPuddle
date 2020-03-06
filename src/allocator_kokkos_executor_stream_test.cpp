@@ -86,7 +86,7 @@ using recycled_pinned_view = recycled_view<kokkos_um_pinned_array<T>, recycle_al
  * @param view_to_iterate   the view that needs to be iterated
  */
 template <typename Executor, typename ViewType>
-auto get_iteration_policy(const Executor&& executor, const ViewType& view_to_iterate)
+auto get_iteration_policy(const Executor& executor, const ViewType& view_to_iterate)
 {
     constexpr auto rank = Kokkos::ViewTraits<type_in_view>::rank;
     const Kokkos::Array<int64_t, rank> zeros{};
@@ -103,16 +103,22 @@ auto get_iteration_policy(const Executor&& executor, const ViewType& view_to_ite
     return Kokkos::MDRangePolicy<Executor, Kokkos::Rank<rank>>(executor, zeros, extents);
 }
 
+template <typename Executor, typename ViewType>
+auto get_iteration_policy(const Executor&& executor, const ViewType& view_to_iterate){ 
+    return get_iteration_policy(executor, view_to_iterate);
+}
+
 /**
  * 
  */
 template <typename Viewtype, typename Policytype>
-void kernel_add(Viewtype &first, Viewtype &second, Viewtype &output, Policytype &policy)
+KOKKOS_INLINE_FUNCTION void kernel_add(const Viewtype &first, const Viewtype &second, Viewtype &output, const Policytype &policy)
 {
   Kokkos::parallel_for(
       "kernel add",
       policy,
-      KOKKOS_LAMBDA(int j, int k) {
+    //   KOKKOS_LAMBDA(int j, int k) {
+      [&](int j, int k) {
         // useless loop to make the computation last longer in the profiler
         for (volatile int i = 0; i < 100000;)
         {
@@ -137,7 +143,7 @@ void stream_executor_test()
     recycled_device_view<double> deviceView(view_size_0,view_size_1);
 
     auto policy_host = get_iteration_policy(Kokkos::DefaultHostExecutionSpace(), pinnedView);
-    auto policy_host_manually = Kokkos::MDRangePolicy<Kokkos::DefaultHostExecutionSpace, Kokkos::Rank<2>>(Kokkos::DefaultHostExecutionSpace(), {0, 0}, {10,50});
+    auto policy_host_manually = Kokkos::MDRangePolicy<Kokkos::DefaultHostExecutionSpace, Kokkos::Rank<2>>(Kokkos::DefaultHostExecutionSpace(), {0, 0}, {view_size_0,view_size_1});
 
     static_assert(std::is_same<decltype(policy_host_manually),
                                decltype(policy_host)>::value);
@@ -154,26 +160,25 @@ void stream_executor_test()
 
     copy_finished.wait();
 
-    // auto stream_space = hpx::kokkos::make_execution_space<>(); //Error: device not initialized??
-    // auto policy_stream = get_iteration_policy(stream_space, pinnedView);
-    // auto policy_stream_manually = Kokkos::MDRangePolicy<decltype(stream_space), Kokkos::Rank<2>>(stream_space, {0, 0}, {hostView.extent(0), hostView.extent(1)});
+    auto stream_space = hpx::kokkos::make_execution_space<>(); //Error: device not initialized??
+    auto policy_stream = get_iteration_policy(stream_space, pinnedView);
+    auto policy_stream_manually = Kokkos::MDRangePolicy<decltype(stream_space), Kokkos::Rank<2>>(stream_space, {0, 0}, {view_size_0, view_size_1});
 
-    // static_assert(std::is_same<decltype(policy_stream_manually),
-    //                            decltype(policy_stream)>::value);
+    static_assert(std::is_same<decltype(policy_stream_manually),
+                               decltype(policy_stream)>::value);
 
+    {
+      auto totalTimer = scoped_timer("async device");
+      hpx::future<void> f;
+      for (int i = 0; i < numIterations; ++i){
+        hpx::kokkos::deep_copy_async(stream_space, deviceView, pinnedView);;
 
-//     {
-//       auto totalTimer = scoped_timer("async device");
-//       hpx::future<void> f;
-//       for (int i = 0; i < numIterations; ++i){
-//         hpx::kokkos::deep_copy_async(stream_space, deviceView, pinnedView);;
+        kernel_add(deviceView, deviceView, deviceView, policy_stream_manually);
 
-//         kernel_add(deviceView, deviceView, deviceView, policy_stream);
-
-//         f = hpx::kokkos::deep_copy_async(stream_space, pinnedView, deviceView);;
-//         f.wait();
-//       }
-//     }
+        f = hpx::kokkos::deep_copy_async(stream_space, pinnedView, deviceView);;
+        f.wait();
+      }
+    }
 
     hpx::kokkos::parallel_for_async(
         "pinned host copy back",

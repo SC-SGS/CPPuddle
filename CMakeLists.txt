@@ -159,3 +159,10 @@ add_hpx_executable(
 		${CMAKE_CURRENT_SOURCE_DIR}/include/buffer_manager.hpp
 )
 
+add_hpx_executable(
+        allocator_kokkos_executor_stream_test
+        SOURCES
+                ${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_kokkos_executor_stream_test.cpp
+        HEADERS
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/buffer_manager.hpp
+)
