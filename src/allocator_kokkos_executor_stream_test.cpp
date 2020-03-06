@@ -136,49 +136,23 @@ void stream_executor_test()
     recycled_pinned_view<double> pinnedView(view_size_0,view_size_1);
     recycled_device_view<double> deviceView(view_size_0,view_size_1);
 
-
-    Kokkos::parallel_for(
-        "dummy 1D",
-        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,view_size),
-        KOKKOS_LAMBDA(int n) {
-            for (volatile int i = 0; i < 100000;)
-            {
-                ++i;
-            }
-        });
-
     auto policy_host = get_iteration_policy(Kokkos::DefaultHostExecutionSpace(), pinnedView);
     auto policy_host_manually = Kokkos::MDRangePolicy<Kokkos::DefaultHostExecutionSpace, Kokkos::Rank<2>>(Kokkos::DefaultHostExecutionSpace(), {0, 0}, {10,50});
 
     static_assert(std::is_same<decltype(policy_host_manually),
                                decltype(policy_host)>::value);
-    // // if we don't do anything after this, we're fine, but even this here goes wrong:
-    // Kokkos::parallel_for(
-    //     "dummy 2D",
-    //     policy_host_manually,
-    //     KOKKOS_LAMBDA(int n, int o) {
-    //         for (volatile int i = 0; i < 100000;)
-    //         {
-    //             ++i;
-    //         }
-    //     });
-    // // terminate called after throwing an instance of 'std::logic_error'
-    // //   what():  
-    // //             Error! Deallocate was called on a memory location that is not known to the buffer_manager!\n
-    // //             This should never happen!
-
-    // // -> does KOKKOS_LAMBDA do something weird here ??!?
+                               
 
 
-    // auto copy_finished = hpx::kokkos::parallel_for_async(
-    //     "pinned host init",
-    //     get_iteration_policy(Kokkos::DefaultHostExecutionSpace(), hostView),
-    //     KOKKOS_LAMBDA(int n, int o) {
-    //       hostView(n, o) = d;
-    //       pinnedView(n, o) = hostView(n, o);
-    //     });
+    auto copy_finished = hpx::kokkos::parallel_for_async(
+        "pinned host init",
+        policy_host,
+        [&](int n, int o) {
+          hostView(n, o) = d;
+          pinnedView(n, o) = hostView(n, o);
+        });
 
-    // copy_finished.wait();
+    copy_finished.wait();
 
     // auto stream_space = hpx::kokkos::make_execution_space<>(); //Error: device not initialized??
     // auto policy_stream = get_iteration_policy(stream_space, pinnedView);
@@ -201,14 +175,13 @@ void stream_executor_test()
 //       }
 //     }
 
-    // hpx::kokkos::parallel_for_async(
-    //     "pinned host copy back",
-    //     get_iteration_policy(Kokkos::DefaultHostExecutionSpace(), hostView),
-    //     KOKKOS_LAMBDA(int n, int o) {
-    //       hostView(n, o) = pinnedView(n, o);
-    //     })
-    //     .wait(); 
-    Kokkos::fence(); //TODO remove
+    hpx::kokkos::parallel_for_async(
+        "pinned host copy back",
+        policy_host,
+        [&](int n, int o) {
+          hostView(n, o) = pinnedView(n, o);
+        })
+        .wait(); 
   }
 }
 
