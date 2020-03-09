@@ -13,7 +13,6 @@
 #include <hpx/timing/high_resolution_timer.hpp>
 #include <memory>
 
-
 // scoped_timer -- stolen from Mikael
 class [[nodiscard]] scoped_timer
 {
@@ -42,6 +41,7 @@ using kokkos_array = Kokkos::View<type_in_view, Kokkos::HostSpace>;
 // using kokkos_pinned_array = Kokkos::View<type_in_view, Kokkos::CudaHostPinnedSpace>;
 // using kokkos_cuda_array = Kokkos::View<type_in_view, Kokkos::CudaSpace>;
 
+//TODO put into own header
 template <class kokkos_type, class alloc_type, class element_type>
 class recycled_view : public kokkos_type {
     private:
@@ -57,6 +57,15 @@ class recycled_view : public kokkos_type {
         ~recycled_view(void) {
             allocator.deallocate(this->data(), total_elements);
         }
+
+  //TODO implement as appropriate
+  explicit recycled_view(const recycled_view &other) = delete;
+
+  explicit recycled_view(recycled_view &&other) noexcept = delete;
+
+  recycled_view &operator=(const recycled_view &other) = delete;
+
+  recycled_view &operator=(recycled_view &&other) noexcept = delete;
 };
 
 template <class kokkos_type, class alloc_type, class element_type>
@@ -96,7 +105,7 @@ auto get_iteration_policy(const Executor& executor, const ViewType& view_to_iter
         extents[i] = view_to_iterate.extent(i);
     }
 
-    // //TODO what exactly does HintLightWeight do?
+  // //TODO what exactly does HintLightWeight do? cf. https://github.com/kokkos/kokkos/issues/1723
     // return Kokkos::Experimental::require(Kokkos::MDRangePolicy<decltype(executor), Kokkos::Rank<rank>>(executor,
     //                                                                                                    zeros, extents),
     //                                      Kokkos::Experimental::WorkItemProperty::HintLightWeight);
@@ -108,23 +117,64 @@ auto get_iteration_policy(const Executor&& executor, const ViewType& view_to_ite
     return get_iteration_policy(executor, view_to_iterate);
 }
 
-/**
- * 
- */
-template <typename Viewtype, typename Policytype>
-KOKKOS_INLINE_FUNCTION void kernel_add(const Viewtype &first, const Viewtype &second, Viewtype &output, const Policytype &policy)
-{
-  Kokkos::parallel_for(
-      "kernel add",
-      policy,
-    //   KOKKOS_LAMBDA(int j, int k) {
-      [&](int j, int k) {
-        // useless loop to make the computation last longer in the profiler
-        for (volatile int i = 0; i < 100000;)
+template <typename Viewtype>
+struct kernel {
+  const Viewtype & first;
+  const Viewtype & second;
+  Viewtype & output;
+
+  kernel(const Viewtype & a, const Viewtype & b,
+         Viewtype & c)
+      : first(a), second(b), output(c) {}
+
+  KOKKOS_INLINE_FUNCTION void operator()(std::size_t const j, std::size_t const k) const {
+        printf("before all ");
+        for (volatile int i = 0; i < 1000000;)
         {
           ++i;
         }
+        printf("before assignment ");
         output(j, k) = first(j, k) + second(j, k);
+  }
+};
+
+template <typename Viewtype, typename Policytype>
+KOKKOS_INLINE_FUNCTION void kernel_add(const Viewtype &first, const Viewtype &second, Viewtype &output, const Policytype &policy)
+{
+
+  printf("outside all ");
+  hpx::kokkos::parallel_for_async(
+      "kernel add",
+      policy,
+        KOKKOS_LAMBDA(int j, int k) {
+        // useless loop to make the computation last longer in the profiler
+        printf("before all ");
+        for (volatile int i = 0; i < 1000000;)
+        {
+          ++i;
+        }
+        printf("before assignment ");
+        output(j, k) = first(j, k) + second(j, k);
+        printf("after assignment ");
+      });
+}
+template <typename Policytype>
+KOKKOS_INLINE_FUNCTION void kernel_dummy(const Policytype &policy)
+{
+
+  printf("outside all ");
+  hpx::kokkos::parallel_for_async(
+      "kernel dummy",
+      policy,
+        KOKKOS_LAMBDA(int j) {
+        // [&]__host__ __device__(int j) { 
+          // todo: error: An extended __host__ __device__ lambda cannot capture variables by reference
+        printf("before all ");
+        for (volatile int i = 0; i < 1000000;)
+        {
+          ++i;
+        }
+        printf("after all ");
       });
 }
 
@@ -135,6 +185,7 @@ void stream_executor_test()
   const int numIterations = 40;
   static double d = 0;
   ++d;
+  double t = d;
 
   recycled_host_view<double> hostView(view_size_0,view_size_1);
 
@@ -147,20 +198,19 @@ void stream_executor_test()
 
     static_assert(std::is_same<decltype(policy_host_manually),
                                decltype(policy_host)>::value);
-                               
-
 
     auto copy_finished = hpx::kokkos::parallel_for_async(
         "pinned host init",
         policy_host,
         [&](int n, int o) {
-          hostView(n, o) = d;
+          hostView(n, o) = t;
           pinnedView(n, o) = hostView(n, o);
         });
 
     copy_finished.wait();
 
-    auto stream_space = hpx::kokkos::make_execution_space<>(); //Error: device not initialized??
+    // auto stream_space = hpx::kokkos::make_execution_space();
+    auto stream_space = hpx::kokkos::make_execution_space<Kokkos::Cuda>(); // why do we only get the default stream??
     auto policy_stream = get_iteration_policy(stream_space, pinnedView);
     auto policy_stream_manually = Kokkos::MDRangePolicy<decltype(stream_space), Kokkos::Rank<2>>(stream_space, {0, 0}, {view_size_0, view_size_1});
 
@@ -170,14 +220,21 @@ void stream_executor_test()
     {
       auto totalTimer = scoped_timer("async device");
       hpx::future<void> f;
-      for (int i = 0; i < numIterations; ++i){
-        hpx::kokkos::deep_copy_async(stream_space, deviceView, pinnedView);;
+      for (int i = 0; i < numIterations; ++i)
+      {
+        hpx::kokkos::deep_copy_async(stream_space, deviceView, pinnedView);
 
-        kernel_add(deviceView, deviceView, deviceView, policy_stream_manually);
+        kernel_dummy(hpx::kokkos::RangePolicy<>(stream_space, 0, i));
+        // kernel_add(deviceView, deviceView, deviceView, policy_stream_manually);
+        // auto kernel_functor = kernel<decltype(deviceView)>(deviceView, deviceView, deviceView);
+        // hpx::kokkos::parallel_for_async(
+        //   "kernel add",
+        //   policy_stream_manually, 
+        //   kernel_functor);
 
-        f = hpx::kokkos::deep_copy_async(stream_space, pinnedView, deviceView);;
-        f.wait();
+        f = hpx::kokkos::deep_copy_async(stream_space, pinnedView, deviceView);
       }
+      f.wait();
     }
 
     hpx::kokkos::parallel_for_async(
@@ -186,7 +243,12 @@ void stream_executor_test()
         [&](int n, int o) {
           hostView(n, o) = pinnedView(n, o);
         })
-        .wait(); 
+        .wait();
+
+    // test values in hostView
+    // assert(hostView.data()[0] == t * (static_cast<unsigned long>(1) << numIterations));
+          printf("%f hd ", hostView.data()[0]);
+    Kokkos::fence();
   }
 }
 
