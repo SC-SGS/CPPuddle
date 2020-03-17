@@ -90,12 +90,12 @@ auto get_iteration_policy(const Executor&& executor, const ViewType& view_to_ite
 }
 
 template <typename Viewtype, typename Policytype>
-KOKKOS_INLINE_FUNCTION void kernel_add(const Viewtype &first, const Viewtype &second, Viewtype &output, const Policytype &policy)
+KOKKOS_INLINE_FUNCTION void kernel_add_kokkos(const Viewtype &first, const Viewtype &second, Viewtype &output, const Policytype &policy)
 {
-  hpx::kokkos::parallel_for_async(
+  Kokkos::parallel_for(
       "kernel add",
       policy,
-        KOKKOS_LAMBDA(int j, int k) {
+      KOKKOS_LAMBDA(int j, int k) {
         // useless loop to make the computation last longer in the profiler
         for (volatile double i = 0.; i < 100.;)
         {
@@ -122,12 +122,21 @@ void stream_executor_test()
 
     auto policy_host = get_iteration_policy(Kokkos::DefaultHostExecutionSpace(), pinnedView);
 
-    auto copy_finished = hpx::kokkos::parallel_for_async(
-        "pinned host init",
-        policy_host,
-        KOKKOS_LAMBDA(int n, int o) {
-          hostView(n, o) = t;
-          pinnedView(n, o) = hostView(n, o);
+    // don't use this variant for now, quoting msimberg:
+    // the HPX backend essentially has only one "stream"
+    // auto copy_finished = hpx::kokkos::parallel_for_async(
+    //     "pinned host init",
+    //     policy_host,
+    //     KOKKOS_LAMBDA(int n, int o) {
+    //       hostView(n, o) = t;
+    //       pinnedView(n, o) = hostView(n, o);
+    //     });
+
+    auto copy_finished = hpx::parallel::for_loop(
+        hpx::parallel::execution::par(hpx::parallel::execution::task), 0, view_size,
+        [=] HPX_HOST_DEVICE(std::size_t i) {
+          hostView.data()[i] = t;
+          pinnedView.data()[i] = hostView.data()[i];
         });
 
     // auto stream_space = hpx::kokkos::make_execution_space();
@@ -143,7 +152,7 @@ void stream_executor_test()
       {
         hpx::kokkos::deep_copy_async(stream_space, deviceView, pinnedView);
 
-        kernel_add(deviceView, deviceView, deviceView, policy_stream);
+        kernel_add_kokkos(deviceView, deviceView, deviceView, policy_stream);
 
         f = hpx::kokkos::deep_copy_async(stream_space, pinnedView, deviceView);
       }
