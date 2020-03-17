@@ -80,27 +80,27 @@ int main(int argc, char *argv[])
     hpx::kokkos::ScopeGuard scopeGuard(argc, argv);
     Kokkos::print_configuration(std::cout);
 
-    // Way 1 to recycle heap buffer as well (manually)
-    recycle_std<float> alli;
-    float *my_recycled_data_buffer = alli.allocate(1000); // allocate memory
-    {
-        kokkos_um_array<float> test_buffered(my_recycled_data_buffer, 1000);
-        for (size_t i = 0; i < 1000; i++) {
-            test_buffered.data()[i] = i * 2.0;
-        }
-    }
-    alli.deallocate(my_recycled_data_buffer, 1000); 
-    size_t to_alloc = kokkos_um_array<float>::required_allocation_size(1000);
-    std::cout << "Actual required size: "  << to_alloc << std::endl; // Still a heap allocation!
+    // // Way 1 to recycle heap buffer as well (manually)
+    // recycle_std<float> alli;
+    // float *my_recycled_data_buffer = alli.allocate(1000); // allocate memory
+    // {
+    //     kokkos_um_array<float> test_buffered(my_recycled_data_buffer, 1000);
+    //     for (size_t i = 0; i < 1000; i++) {
+    //         test_buffered.data()[i] = i * 2.0;
+    //     }
+    // }
+    // alli.deallocate(my_recycled_data_buffer, 1000); 
+    // size_t to_alloc = kokkos_um_array<float>::required_allocation_size(1000);
+    // std::cout << "Actual required size: "  << to_alloc << std::endl; // Still a heap allocation!
 
-    // Way 2 for recycling 
+    // // Way 2 for recycling 
+    // test_view my_wrapper_test0(1000);
+    // for (size_t i = 0; i < 1000; i++) {
+    //     my_wrapper_test0.data()[i] = i * 2.0;
+    // }
+
     using test_view = recycled_host_view<float>;
     using test_double_view = recycled_host_view<double>;
-    test_view my_wrapper_test0(1000);
-    for (size_t i = 0; i < 1000; i++) {
-        my_wrapper_test0.data()[i] = i * 2.0;
-    }
-
     test_view my_wrapper_test1(1000);
     test_view my_wrapper_test2(1000);
     double t = 2.6;
