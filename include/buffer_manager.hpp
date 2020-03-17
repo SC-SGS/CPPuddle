@@ -319,6 +319,9 @@ struct recycle_allocator {
   void destroy(T *p) {
     p->~T();
   }
+  void increase_usage_counter(T *p, size_t n) {
+    buffer_recycler::increase_usage_counter<T, Host_Allocator>(p, n);
+  }
 };
 
 template <class T, class U, class Host_Allocator>
