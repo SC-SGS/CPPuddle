@@ -11,56 +11,13 @@
 
 // scoped_timer -- stolen from Mikael
 #include "../include/buffer_manager.hpp"
+#include "../include/recycled_view.hpp"
 #include <hpx/timing/high_resolution_timer.hpp>
 #include <memory>
 
 using kokkos_array = Kokkos::View<float[1000], Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
 // using kokkos_pinned_array = Kokkos::View<type_in_view, Kokkos::CudaHostPinnedSpace>;
 // using kokkos_cuda_array = Kokkos::View<type_in_view, Kokkos::CudaSpace>;
-
-template <class kokkos_type, class alloc_type, class element_type>
-class recycled_view : public kokkos_type {
-    private:
-        static alloc_type allocator;
-        size_t total_elements;
-    public:
-        template <class... Args>
-        recycled_view(Args... args) :
-          kokkos_type(allocator.allocate(kokkos_type::required_allocation_size(args...) / sizeof(element_type)),args...),
-          total_elements(kokkos_type::required_allocation_size(args...) / sizeof(element_type)) {
-            //std::cout << "Got buffer for " << total_elements << std::endl;
-        }
-        recycled_view(const recycled_view<kokkos_type, alloc_type, element_type> &other) : 
-          kokkos_type(other) {
-          total_elements = other.total_elements;
-          std::cerr << "copy" << std::endl;
-          allocator.increase_usage_counter(other.data(), other.total_elements);
-        }
-        recycled_view<kokkos_type, alloc_type, element_type>& operator = (const recycled_view<kokkos_type, alloc_type, element_type> &other) {
-          kokkos_type::operator = (other);
-          total_elements = other.total_elements;
-          allocator.increase_usage_counter(other.data(), other.total_elements);
-          return *this;
-        }
-        recycled_view(recycled_view<kokkos_type, alloc_type, element_type> &&other) : 
-          kokkos_type(other) {
-          total_elements = other.total_elements;
-          // so that is doesn't matter if deallocate is called in the moved-from object
-          allocator.increase_usage_counter(other.data(), other.total_elements);
-        }
-        recycled_view<kokkos_type, alloc_type, element_type>& operator = (recycled_view<kokkos_type, alloc_type, element_type> &&other) {
-          kokkos_type::operator = (other);
-          total_elements = other.total_elements;
-          // so that is doesn't matter if deallocate is called in the moved-from object
-          allocator.increase_usage_counter(other.data(), other.total_elements);
-          return *this;
-        }
-        ~recycled_view(void) {
-            allocator.deallocate(this->data(), total_elements);
-        }
-};
-template <class kokkos_type, class alloc_type, class element_type>
-alloc_type recycled_view<kokkos_type, alloc_type, element_type>::allocator;
 
 // Just some 2D views used for testing
 template <class T>

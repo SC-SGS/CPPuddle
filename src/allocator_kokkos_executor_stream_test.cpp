@@ -10,6 +10,7 @@
 #include <typeinfo>
 
 #include "../include/buffer_manager.hpp"
+#include "../include/recycled_view.hpp"
 #include <hpx/timing/high_resolution_timer.hpp>
 #include <memory>
 
@@ -40,65 +41,6 @@ constexpr size_t view_size = view_size_0*view_size_1; // todo deduce from kokkos
 using kokkos_array = Kokkos::View<type_in_view, Kokkos::HostSpace>;
 // using kokkos_pinned_array = Kokkos::View<type_in_view, Kokkos::CudaHostPinnedSpace>;
 // using kokkos_cuda_array = Kokkos::View<type_in_view, Kokkos::CudaSpace>;
-
-//TODO put into own header
-
-template <class kokkos_type>
-class weak_recycled_view;
-
-template <class kokkos_type, class alloc_type, class element_type>
-class recycled_view : public kokkos_type {
-    private:
-        static alloc_type allocator;
-        size_t total_elements;
-    public:
-        template <class... Args>
-        recycled_view(Args... args) :
-          kokkos_type(allocator.allocate(kokkos_type::required_allocation_size(args...) / sizeof(element_type)),args...),
-          total_elements(kokkos_type::required_allocation_size(args...) / sizeof(element_type)) {
-            //std::cout << "Got buffer for " << total_elements << std::endl;
-        }
-        ~recycled_view(void) {
-            allocator.deallocate(this->data(), total_elements);
-        }
-  explicit recycled_view(const recycled_view &other) = delete;
-  explicit recycled_view(recycled_view &&other) noexcept = delete;
-
-  //TODO implement as appropriate
-  recycled_view &operator=(const recycled_view &other) = delete;
-  recycled_view &operator=(recycled_view &&other) noexcept = delete;
-
-  weak_recycled_view<kokkos_type> weak() const {
-    return weak_recycled_view<kokkos_type>(*this);
-  }
-};
-
-template <class kokkos_type, class alloc_type, class element_type>
-alloc_type recycled_view<kokkos_type, alloc_type, element_type>::allocator;
-
-template <class kokkos_type>
-class weak_recycled_view : public kokkos_type {
-    private:
-    public:
-        ~weak_recycled_view(void) {
-        }
-  
-  template <class... Args>
-  weak_recycled_view(const recycled_view<Args...> &other):kokkos_type(other)
-  {
-  }
-
-  template <class... Args>
-  weak_recycled_view &operator=(const recycled_view<Args...> &other){
-    this = weak_recycled_view(other);
-  }
-
-  explicit weak_recycled_view() = delete;
-  weak_recycled_view(const weak_recycled_view &other) = default;
-  weak_recycled_view(weak_recycled_view &&other) noexcept = default;
-  weak_recycled_view &operator=(const weak_recycled_view &other) = default;
-  weak_recycled_view &operator=(weak_recycled_view &&other) noexcept = default;
-};
 
 
 // Just some 2D views used for testing
@@ -135,11 +77,11 @@ auto get_iteration_policy(const Executor& executor, const ViewType& view_to_iter
         extents[i] = view_to_iterate.extent(i);
     }
 
-  // //TODO what exactly does HintLightWeight do? cf. https://github.com/kokkos/kokkos/issues/1723
-    // return Kokkos::Experimental::require(Kokkos::MDRangePolicy<decltype(executor), Kokkos::Rank<rank>>(executor,
-    //                                                                                                    zeros, extents),
-    //                                      Kokkos::Experimental::WorkItemProperty::HintLightWeight);
-    return Kokkos::MDRangePolicy<Executor, Kokkos::Rank<rank>>(executor, zeros, extents);
+  // TODO what exactly does HintLightWeight do? cf. https://github.com/kokkos/kokkos/issues/1723
+  return Kokkos::Experimental::require(Kokkos::MDRangePolicy<Executor, Kokkos::Rank<rank>>(executor,
+                                                                                           zeros, extents),
+                                       Kokkos::Experimental::WorkItemProperty::HintLightWeight);
+  // return Kokkos::MDRangePolicy<Executor, Kokkos::Rank<rank>>(executor, zeros, extents);
 }
 
 template <typename Executor, typename ViewType>
@@ -155,7 +97,7 @@ KOKKOS_INLINE_FUNCTION void kernel_add(const Viewtype &first, const Viewtype &se
       policy,
         KOKKOS_LAMBDA(int j, int k) {
         // useless loop to make the computation last longer in the profiler
-        for (volatile int i = 0; i < 1000000;)
+        for (volatile double i = 0.; i < 100.;)
         {
           ++i;
         }
@@ -165,9 +107,9 @@ KOKKOS_INLINE_FUNCTION void kernel_add(const Viewtype &first, const Viewtype &se
 
 void stream_executor_test()
 {
-  auto totalTimer = scoped_timer("total stream executor");
+  // auto totalTimer = scoped_timer("total stream executor");
 
-  const int numIterations = 2;
+  const int numIterations = 40;
   static double d = 0;
   ++d;
   double t = d;
@@ -177,42 +119,31 @@ void stream_executor_test()
   recycled_device_view<double> deviceView(view_size_0,view_size_1);
 
   {
-    auto weakHostView = hostView.weak();
-    auto weakPinnedView = pinnedView.weak();
-    auto weakDeviceView = deviceView.weak();
 
     auto policy_host = get_iteration_policy(Kokkos::DefaultHostExecutionSpace(), pinnedView);
-    auto policy_host_manually = Kokkos::MDRangePolicy<Kokkos::DefaultHostExecutionSpace, Kokkos::Rank<2>>(Kokkos::DefaultHostExecutionSpace(), {0, 0}, {view_size_0,view_size_1});
-
-    static_assert(std::is_same<decltype(policy_host_manually),
-                               decltype(policy_host)>::value);
 
     auto copy_finished = hpx::kokkos::parallel_for_async(
         "pinned host init",
         policy_host,
         KOKKOS_LAMBDA(int n, int o) {
-          weakHostView(n, o) = t;
-          weakPinnedView(n, o) = weakHostView(n, o);
+          hostView(n, o) = t;
+          pinnedView(n, o) = hostView(n, o);
         });
 
     // auto stream_space = hpx::kokkos::make_execution_space();
     auto stream_space = hpx::kokkos::make_execution_space<Kokkos::Cuda>();
     auto policy_stream = get_iteration_policy(stream_space, pinnedView);
-    auto policy_stream_manually = Kokkos::MDRangePolicy<decltype(stream_space), Kokkos::Rank<2>>(stream_space, {0, 0}, {view_size_0, view_size_1});
-
-    static_assert(std::is_same<decltype(policy_stream_manually),
-                               decltype(policy_stream)>::value);
 
     copy_finished.wait();
-    
+
     {
-      auto totalTimer = scoped_timer("async device");
+      // auto totalTimer = scoped_timer("async device");
       hpx::future<void> f;
       for (int i = 0; i < numIterations; ++i)
       {
         hpx::kokkos::deep_copy_async(stream_space, deviceView, pinnedView);
 
-        kernel_add(weakDeviceView, weakDeviceView, weakDeviceView, policy_stream_manually);
+        kernel_add(deviceView, deviceView, deviceView, policy_stream);
 
         f = hpx::kokkos::deep_copy_async(stream_space, pinnedView, deviceView);
       }
