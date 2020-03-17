@@ -21,7 +21,7 @@ public:
     recycled_view(const recycled_view<kokkos_type, alloc_type, element_type> &other) : kokkos_type(other)
     {
         total_elements = other.total_elements;
-        std::cerr << "copy" << std::endl;
+        // std::cerr << "copy" << std::endl;
         allocator.increase_usage_counter(other.data(), other.total_elements);
     }
 
