@@ -150,44 +150,28 @@ class buffer_recycler {
           // This will never be called without an instance since all access for this method comes from the buffer recycler 
           // We can forego the instance existence check here
           instance->number_dealloacation++;
-          
           auto it = instance->buffer_map.find(memory_location);
-          if (it != instance->buffer_map.end()) {
-            auto &tuple = it->second;
-            // sanity checks:
-            assert(std::get<1>(tuple) == number_of_elements);
-            assert(std::get<2>(tuple) >= 1);
-            std::get<2>(tuple)--; // decrase usage counter
-            if (std::get<2>(tuple) == 0) { // not used anymore?
-              // move to the unused_buffer list 
-              instance->unused_buffer_list.push_front(tuple);
-              instance->buffer_map.erase(memory_location);
-            } 
-          } else {
-            const char *error_message =R""""(
-              Error! Deallocate was called on a memory location that is not known to the buffer_manager!\n
-              This should never happen! MAP
-            )""""; 
-            throw std::logic_error(error_message);
+          assert(it != instance->buffer_map.end());
+          auto &tuple = it->second;
+          // sanity checks:
+          assert(std::get<1>(tuple) == number_of_elements);
+          assert(std::get<2>(tuple) >= 1);
+          std::get<2>(tuple)--; // decrease usage counter
+          if (std::get<2>(tuple) == 0) { // not used anymore?
+            // move to the unused_buffer list 
+            instance->unused_buffer_list.push_front(tuple);
+            instance->buffer_map.erase(memory_location);
           }
         }
 
         static void increase_usage_counter(T* memory_location, size_t number_of_elements) {
-
           auto it = instance->buffer_map.find(memory_location);
-          if (it != instance->buffer_map.end()) {
-            auto &tuple = it->second;
-            // sanity checks:
-            assert(std::get<1>(tuple) == number_of_elements);
-            assert(std::get<2>(tuple) >= 1);
-            std::get<2>(tuple)--; // decrase usage counter
-          } else {
-            const char *error_message =R""""(
-              Error! Deallocate was called on a memory location that is not known to the buffer_manager!\n
-              This should never happen!
-            )""""; 
-            throw std::logic_error(error_message);
-          }
+          assert(it != instance->buffer_map.end());
+          auto &tuple = it->second;
+          // sanity checks:
+          assert(std::get<1>(tuple) == number_of_elements);
+          assert(std::get<2>(tuple) >= 1);
+          std::get<2>(tuple)--; // decrase usage counter
         }
 
       private:
