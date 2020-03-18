@@ -10,8 +10,8 @@
 #include <typeinfo>
 
 #include "../include/buffer_manager.hpp"
-#include "../include/cuda_util.hpp"
-#include "../include/recycled_view.hpp"
+#include "../include/cuda_buffer_util.hpp"
+#include "../include/kokkos_buffer_util.hpp"
 #include <hpx/timing/high_resolution_timer.hpp>
 #include <memory>
 

@@ -4,7 +4,7 @@
 
 #include "../include/cuda_helper.hpp"
 #include "../include/buffer_manager.hpp"
-#include "../include/cuda_util.hpp"
+#include "../include/cuda_buffer_util.hpp"
 #include <cstdio>
 #include <typeinfo>
 #include <chrono>

@@ -139,7 +139,8 @@ add_hpx_executable(
 		${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_test.cpp 
 	HEADERS 
 		${CMAKE_CURRENT_SOURCE_DIR}/include/buffer_manager.hpp
-		${CMAKE_CURRENT_SOURCE_DIR}/include/cuda_util.hpp
+		${CMAKE_CURRENT_SOURCE_DIR}/include/cuda_buffer_util.hpp
+		${CMAKE_CURRENT_SOURCE_DIR}/include/kokkos_buffer_util.hpp
 )
 add_hpx_executable(
 	allocator_kokkos_test
@@ -147,7 +148,8 @@ add_hpx_executable(
 		${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_kokkos_test.cpp
 	HEADERS 
 		${CMAKE_CURRENT_SOURCE_DIR}/include/buffer_manager.hpp
-		${CMAKE_CURRENT_SOURCE_DIR}/include/cuda_util.hpp
+		${CMAKE_CURRENT_SOURCE_DIR}/include/cuda_buffer_util.hpp
+		${CMAKE_CURRENT_SOURCE_DIR}/include/kokkos_buffer_util.hpp
 )
 
 add_compile_options(-I${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-hpx-interop/include)
@@ -159,23 +161,26 @@ add_hpx_executable(
 		${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_cuda_test.cu 
 	HEADERS 
 		${CMAKE_CURRENT_SOURCE_DIR}/include/buffer_manager.hpp
-		${CMAKE_CURRENT_SOURCE_DIR}/include/cuda_util.hpp
+		${CMAKE_CURRENT_SOURCE_DIR}/include/cuda_buffer_util.hpp
+		${CMAKE_CURRENT_SOURCE_DIR}/include/kokkos_buffer_util.hpp
 )
 
 add_hpx_executable(
-        allocator_kokkos_executor_stream_test
-        SOURCES
-                ${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_kokkos_executor_stream_test.cpp
-		HEADERS 
-			${CMAKE_CURRENT_SOURCE_DIR}/include/buffer_manager.hpp
-			${CMAKE_CURRENT_SOURCE_DIR}/include/cuda_util.hpp
+	allocator_kokkos_executor_stream_test
+	SOURCES
+			${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_kokkos_executor_stream_test.cpp
+	HEADERS 
+		${CMAKE_CURRENT_SOURCE_DIR}/include/buffer_manager.hpp
+		${CMAKE_CURRENT_SOURCE_DIR}/include/cuda_buffer_util.hpp
+		${CMAKE_CURRENT_SOURCE_DIR}/include/kokkos_buffer_util.hpp
 )
 
 add_hpx_executable(
-        allocator_executor_stream_test
-        SOURCES
-                ${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_executor_stream_test.cpp
-		HEADERS 
-			${CMAKE_CURRENT_SOURCE_DIR}/include/buffer_manager.hpp
-			${CMAKE_CURRENT_SOURCE_DIR}/include/cuda_util.hpp
+	allocator_executor_stream_test
+	SOURCES
+			${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_executor_stream_test.cpp
+	HEADERS 
+		${CMAKE_CURRENT_SOURCE_DIR}/include/buffer_manager.hpp
+		${CMAKE_CURRENT_SOURCE_DIR}/include/cuda_buffer_util.hpp
+		${CMAKE_CURRENT_SOURCE_DIR}/include/kokkos_buffer_util.hpp
 )
