@@ -1,0 +1,48 @@
+From 62c5766fc63bdcbb6a4360f5a3b3ca6342969fa2 Mon Sep 17 00:00:00 2001
+From: Mikael Simberg <simberg@cscs.ch>
+Date: Fri, 4 Oct 2019 10:35:41 +0200
+Subject: [PATCH] Add -dumpversion option to nvcc_wrapper
+
+---
+ bin/nvcc_wrapper | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/bin/nvcc_wrapper b/bin/nvcc_wrapper
+index 3f497430..57a053a3 100755
+--- a/bin/nvcc_wrapper
++++ b/bin/nvcc_wrapper
+@@ -76,6 +76,7 @@ host_only_args=""
+ 
+ # Just run version on host compiler
+ get_host_version=0
++dumpversion=0
+ 
+ # Enable workaround for CUDA 6.5 for pragma ident 
+ replace_pragma_ident=0
+@@ -119,6 +120,10 @@ do
+   --host-version)
+     get_host_version=1
+     ;;
++  #get the host version only
++  -dumpversion)
++    dumpversion=1
++    ;;
+   #replace '#pragma ident' with '#ident' this is needed to compile OpenMPI due to a configure script bug and a non standardized behaviour of pragma with macros
+   --replace-pragma-ident)
+     replace_pragma_ident=1
+@@ -344,6 +349,12 @@ if [ $get_host_version -eq 1 ]; then
+   exit
+ fi
+ 
++# dumpversion (host compiler)
++if [ $dumpversion -eq 1 ]; then
++  $host_compiler -dumpversion
++  exit
++fi
++
+ #Remove duplicate object files
+ if [ $remove_duplicate_link_files -eq 1 ]; then
+ for obj in $object_files
+-- 
+2.16.4
+
