@@ -111,12 +111,13 @@ class buffer_recycler {
           instance->number_allocation++;
           // Check for unused buffers we can recycle:
           for (auto iter = instance->unused_buffer_list.begin(); iter != instance->unused_buffer_list.end(); iter++) {
-            if (std::get<1>(*iter) == number_of_elements) {
-              instance->buffer_list.push_back(*iter);
+            auto tuple = *iter;
+            if (std::get<1>(tuple) == number_of_elements) {
               instance->unused_buffer_list.erase(iter);
+              std::get<2>(tuple)++; // increase usage counter to 1
+              instance->buffer_map.insert({std::get<0>(tuple), tuple});
               instance->number_recycling++;
-              std::get<2>(instance->buffer_list.back())++;
-              return std::get<0>(instance->buffer_list.back());
+              return std::get<0>(tuple);
             }
           }
 
@@ -125,9 +126,9 @@ class buffer_recycler {
             //T *buffer = new T[number_of_elements];
             Host_Allocator alloc;
             T *buffer = alloc.allocate(number_of_elements);
-            instance->buffer_list.push_back(std::make_tuple(buffer, number_of_elements, 1));
+            instance->buffer_map.insert({buffer, std::make_tuple(buffer, number_of_elements, 1)});
             instance->number_creation++;
-            return std::get<0>(instance->buffer_list.back());
+            return buffer;
           }
           catch(std::bad_alloc &e) { 
             // not enough memory left! Cleanup and attempt again:
@@ -138,10 +139,10 @@ class buffer_recycler {
             //T *buffer = new T[number_of_elements];
             Host_Allocator alloc;
             T *buffer = alloc.allocate(number_of_elements);
-            instance->buffer_list.push_back(std::make_tuple(buffer, number_of_elements, 1));
+            instance->buffer_map.insert({buffer, std::make_tuple(buffer, number_of_elements, 1)});
             instance->number_creation++;
             instance->number_bad_alloc++;
-            return std::get<0>(instance->buffer_list.back());
+            return buffer;
           }
         }
 
@@ -149,48 +150,49 @@ class buffer_recycler {
           // This will never be called without an instance since all access for this method comes from the buffer recycler 
           // We can forego the instance existence check here
           instance->number_dealloacation++;
-          // Search for used buffer
-          for (auto iter = instance->buffer_list.begin(); iter != instance->buffer_list.end(); iter++) {
-            if (std::get<0>(*iter) == memory_location) {
-              assert(std::get<1>(*iter) == number_of_elements);
-              assert(std::get<2>(*iter) >= 1);
-
-              std::get<2>(*iter)--;
-              if (std::get<2>(*iter) == 0) {
-                instance->unused_buffer_list.push_front(*iter);
-                instance->buffer_list.erase(iter);
-              }
-              return;
-            }
+          
+          auto it = instance->buffer_map.find(memory_location);
+          if (it != instance->buffer_map.end()) {
+            auto &tuple = it->second;
+            // sanity checks:
+            assert(std::get<1>(tuple) == number_of_elements);
+            assert(std::get<2>(tuple) >= 1);
+            std::get<2>(tuple)--; // decrase usage counter
+            if (std::get<2>(tuple) == 0) { // not used anymore?
+              // move to the unused_buffer list 
+              instance->unused_buffer_list.push_front(tuple);
+              instance->buffer_map.erase(memory_location);
+            } 
+          } else {
+            const char *error_message =R""""(
+              Error! Deallocate was called on a memory location that is not known to the buffer_manager!\n
+              This should never happen! MAP
+            )""""; 
+            throw std::logic_error(error_message);
           }
-          const char *error_message =R""""(
-            Error! Deallocate was called on a memory location that is not known to the buffer_manager!\n
-            This should never happen!
-          )""""; 
-          throw std::logic_error(error_message);
         }
 
         static void increase_usage_counter(T* memory_location, size_t number_of_elements) {
-          // Search for used buffer
-          for (auto iter = instance->buffer_list.begin(); iter != instance->buffer_list.end(); iter++) {
-            if (std::get<0>(*iter) == memory_location) {
-              assert(std::get<1>(*iter) == number_of_elements);
-              assert(std::get<2>(*iter) >= 1);
 
-              std::get<2>(*iter)++;
-              return;
-            }
+          auto it = instance->buffer_map.find(memory_location);
+          if (it != instance->buffer_map.end()) {
+            auto &tuple = it->second;
+            // sanity checks:
+            assert(std::get<1>(tuple) == number_of_elements);
+            assert(std::get<2>(tuple) >= 1);
+            std::get<2>(tuple)--; // decrase usage counter
+          } else {
+            const char *error_message =R""""(
+              Error! Deallocate was called on a memory location that is not known to the buffer_manager!\n
+              This should never happen!
+            )""""; 
+            throw std::logic_error(error_message);
           }
-          const char *error_message =R""""(
-            Error! increase_usage_counter was called on a memory location that is not known to the buffer_manager!\n
-            This should never happen!
-          )""""; 
-          throw std::logic_error(error_message);
         }
 
       private:
         /// List with all buffers still in usage 
-        std::list<std::tuple<T*, size_t, size_t>> buffer_list; 
+        std::unordered_map<T*, std::tuple<T*, size_t, size_t>> buffer_map;
         /// List with all buffers currently not used
         std::list<std::tuple<T*,size_t, size_t>> unused_buffer_list; 
         /// Performance counters
@@ -203,26 +205,17 @@ class buffer_recycler {
           std::cout << "Buffer mananger constructor for buffers of type " << typeid(T).name() << "!" << std::endl;
         }
         ~buffer_manager(void) {
-          // for (auto buffer_tuple : unused_buffer_list) {
-          //   std::cout << "Unused buffer at " << std::get<0>(buffer_tuple) << " with " 
-          //             << std::get<1>(buffer_tuple) << " elements" << std::endl;
-          // }
-          // for (auto buffer_tuple : buffer_list) {
-          //   std::cout << "Used buffer at " << std::get<0>(buffer_tuple) << " with " 
-          //             << std::get<1>(buffer_tuple) << " elements" << std::endl;
-          // }
-          for (auto buffer_tuple : unused_buffer_list) {
+          for (auto &buffer_tuple : unused_buffer_list) {
             Host_Allocator alloc;
             alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
-            // delete [] std::get<0>(buffer_tuple);
           }
-          for (auto buffer_tuple : buffer_list) {
+          for (auto &map_tuple : buffer_map) {
+            auto buffer_tuple = map_tuple.second;
             Host_Allocator alloc;
             alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
-            // delete [] std::get<0>(buffer_tuple);
           }
           // Print performance counters
-          size_t number_cleaned = unused_buffer_list.size() + buffer_list.size();
+          size_t number_cleaned = unused_buffer_list.size() + buffer_map.size();
           std::cout << "\nBuffer mananger destructor for buffers of type " << typeid(T).name() << ":" << std::endl
                     << "----------------------------------------------------" << std::endl
                     << "--> Number of bad_allocs that triggered garbage collection:       " << number_bad_alloc << std::endl
@@ -230,12 +223,12 @@ class buffer_recycler {
                     << "--> Number of times an unused buffer got recycled for a request:  " << number_recycling << std::endl
                     << "--> Number of times a new buffer had to be created for a request: " << number_creation << std::endl 
                     << "--> Number cleaned up buffers:                                    " << number_cleaned << std::endl 
-                    << "--> Number of buffers that were marked as used upon cleanup:      " << buffer_list.size() << std::endl
+                    << "--> Number of buffers that were marked as used upon cleanup:      " << buffer_map.size() << std::endl
                     << "==> Recycle rate:                                                 " 
                     << static_cast<float>(number_recycling)/number_allocation * 100.0f << "%" << std::endl;
                     // << "!\n-->Deleted " << unused_buffer_list.size()  << " unused buffers! " << std::endl
                     // << "-->Deleted " << buffer_list.size()  << " still used buffers! " << std::endl;
-          if (buffer_list.size() > 0) {
+          if (buffer_map.size() > 0) {
             const char *error_message =R""""(
               WARNING: Some buffers are still marked as used upon the destruction of the buffer_manager!
               Please check if you are using the buffer_recycler without the recycle_allocator.
@@ -246,7 +239,7 @@ class buffer_recycler {
           }
 
           unused_buffer_list.clear();
-          buffer_list.clear();
+          buffer_map.clear();
         }
 
       public: // Putting deleted constructors in public gives more useful error messages
