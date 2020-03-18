@@ -3,6 +3,7 @@
 #include <hpx/include/lcos.hpp>
 
 #include "../include/buffer_manager.hpp"
+#include "../include/cuda_util.hpp"
 #include <cstdio>
 #include <typeinfo>
 #include <chrono>

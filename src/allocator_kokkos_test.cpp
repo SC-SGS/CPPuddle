@@ -11,6 +11,7 @@
 
 // scoped_timer -- stolen from Mikael
 #include "../include/buffer_manager.hpp"
+#include "../include/cuda_util.hpp"
 #include "../include/recycled_view.hpp"
 #include <hpx/timing/high_resolution_timer.hpp>
 #include <memory>

@@ -17,7 +17,7 @@ project(hpx_kokkos_example)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(SKIP_HPX_KOKKOS_BUILD TRUE)
+set(SKIP_HPX_KOKKOS_BUILD FALSE)
 
 #================================================================================================================================================
 # Setup HPX
@@ -124,14 +124,14 @@ link_directories(/usr/lib)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include, ${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-hpx-interop/include)
 
 # Sources of the current application
-set(SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/hello.cpp)
+#set(SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/hello.cpp)
 
 # We need C++14 for our example
 add_compile_options(-std=c++14) 
 
 link_libraries(kokkos hpx dl boost_system boost_program_options boost_thread boost_regex boost_chrono boost_atomic boost_filesystem)
 
-add_hpx_executable(hello SOURCES ${SOURCES})
+# add_hpx_executable(hello SOURCES ${SOURCES})
 
 add_hpx_executable(
 	allocator_test
@@ -139,6 +139,7 @@ add_hpx_executable(
 		${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_test.cpp 
 	HEADERS 
 		${CMAKE_CURRENT_SOURCE_DIR}/include/buffer_manager.hpp
+		${CMAKE_CURRENT_SOURCE_DIR}/include/cuda_util.hpp
 )
 add_hpx_executable(
 	allocator_kokkos_test
@@ -146,6 +147,7 @@ add_hpx_executable(
 		${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_kokkos_test.cpp
 	HEADERS 
 		${CMAKE_CURRENT_SOURCE_DIR}/include/buffer_manager.hpp
+		${CMAKE_CURRENT_SOURCE_DIR}/include/cuda_util.hpp
 )
 
 add_compile_options(-I${CMAKE_CURRENT_SOURCE_DIR}/external_dependencies/kokkos-hpx-interop/include)
@@ -157,16 +159,23 @@ add_hpx_executable(
 		${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_cuda_test.cu 
 	HEADERS 
 		${CMAKE_CURRENT_SOURCE_DIR}/include/buffer_manager.hpp
+		${CMAKE_CURRENT_SOURCE_DIR}/include/cuda_util.hpp
 )
 
 add_hpx_executable(
         allocator_kokkos_executor_stream_test
         SOURCES
                 ${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_kokkos_executor_stream_test.cpp
+		HEADERS 
+			${CMAKE_CURRENT_SOURCE_DIR}/include/buffer_manager.hpp
+			${CMAKE_CURRENT_SOURCE_DIR}/include/cuda_util.hpp
 )
 
 add_hpx_executable(
         allocator_executor_stream_test
         SOURCES
                 ${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_executor_stream_test.cpp
+		HEADERS 
+			${CMAKE_CURRENT_SOURCE_DIR}/include/buffer_manager.hpp
+			${CMAKE_CURRENT_SOURCE_DIR}/include/cuda_util.hpp
 )
