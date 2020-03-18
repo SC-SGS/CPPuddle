@@ -173,7 +173,7 @@ class buffer_recycler {
           // sanity checks:
           assert(std::get<1>(tuple) == number_of_elements);
           assert(std::get<2>(tuple) >= 1);
-          std::get<2>(tuple)--; // decrase usage counter
+          std::get<2>(tuple)++; // increase usage counter
         }
 
       private:
