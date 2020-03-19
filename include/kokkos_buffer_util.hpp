@@ -90,3 +90,28 @@ public:
     weak_recycled_view &operator=(const weak_recycled_view &other) = default;
     weak_recycled_view &operator=(weak_recycled_view &&other) noexcept = default;
 };
+
+
+/**
+ * get an MDRangePolicy suitable for iterating the views
+ * 
+ * @param executor          a kokkos ExecutionSpace, e.g. hpx::kokkos::make_execution_space<Kokkos::Cuda>()
+ * @param view_to_iterate   the view that needs to be iterated
+ */
+template <typename Executor, typename ViewType>
+auto get_iteration_policy(const Executor& executor, const ViewType& view_to_iterate)
+{
+    constexpr auto rank = ViewType::ViewTraits::rank;
+    const Kokkos::Array<int64_t, rank> zeros{};
+    Kokkos::Array<int64_t, rank> extents;
+    for (int i = 0; i < rank; ++i)
+    {
+        extents[i] = view_to_iterate.extent(i);
+    }
+
+  // TODO what exactly does HintLightWeight do? cf. https://github.com/kokkos/kokkos/issues/1723
+  return Kokkos::Experimental::require(Kokkos::MDRangePolicy<Executor, Kokkos::Rank<rank>>(executor,
+                                                                                           zeros, extents),
+                                       Kokkos::Experimental::WorkItemProperty::HintLightWeight);
+  // return Kokkos::MDRangePolicy<Executor, Kokkos::Rank<rank>>(executor, zeros, extents);
+}
