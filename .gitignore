@@ -1,4 +1,3 @@
 build
-external_dependencies/hpx-build
-external_dependencies/hpx-install
-external_dependencies/kokkos-master-build
+external_dependencies/build
+external_dependencies/install
