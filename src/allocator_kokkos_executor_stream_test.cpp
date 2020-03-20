@@ -123,7 +123,7 @@ void stream_executor_test()
 
     {
       // auto totalTimer = scoped_timer("async device");
-      hpx::future<void> f;
+      hpx::shared_future<void> f;
       for (int i = 0; i < numIterations; ++i)
       {
         hpx::kokkos::deep_copy_async(stream_space, deviceView, pinnedView);
@@ -135,7 +135,7 @@ void stream_executor_test()
       f.wait();
     }
 
-    hpx::kokkos::deep_copy_async(Kokkos::DefaultHostExecutionSpace(), hostView, pinnedView).wait();
+    hpx::kokkos::deep_copy_async(stream_space, hostView, pinnedView).wait();
 
     // test values in hostView
     // printf("%f %f hd ", hostView.data()[0], t);
@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
     assert(number_futures >= hpx::get_num_worker_threads());
 
     auto begin = std::chrono::high_resolution_clock::now();
-    std::array<hpx::future<void>, number_futures> futs;
+    std::array<hpx::shared_future<void>, number_futures> futs;
     for (size_t i = 0; i < number_futures; i++)
     {
         futs[i] = hpx::make_ready_future<void>();
@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
     {
         for (size_t i = 0; i < number_futures; i++)
         {
-            futs[i] = futs[i].then([&](hpx::future<void> &&predecessor) {
+            futs[i] = futs[i].then([&](hpx::shared_future<void> &&predecessor) {
                 stream_executor_test();
             });
         }

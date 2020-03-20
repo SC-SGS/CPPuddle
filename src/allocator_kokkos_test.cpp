@@ -71,7 +71,4 @@ int main(int argc, char *argv[])
     // for some views on cuda data
     using test_device_view = recycled_device_view<float>;
     using test_device_double_view = recycled_device_view<double>;
-
-
-
 }
