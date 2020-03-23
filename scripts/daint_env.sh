@@ -9,7 +9,7 @@ export CXXFLAGS="-Wno-cpp" # Silence deprecated header warnings in HPX
 export CMAKE_BUILD_TYPE=Debug
 export HPX_ROOT=${SCRIPTS_DIR}/../external_dependencies/install/hpx-${CMAKE_BUILD_TYPE}/lib64/cmake/HPX
 export Kokkos_ROOT=${SCRIPTS_DIR}/../external_dependencies/install/kokkos-${CMAKE_BUILD_TYPE}/lib64/cmake/Kokkos
-export HPX_KOKKOS_INTEROP_ROOT=${SCRIPTS_DIR}/../external_dependencies/kokkos-hpx-interop
+export HPXKokkos_ROOT=${SCRIPTS_DIR}/../external_dependencies/install/kokkos-hpx-interop-${CMAKE_BUILD_TYPE}/lib64/cmake/HPXKokkos
 
 module load daint-gpu
 module switch PrgEnv-cray PrgEnv-gnu
