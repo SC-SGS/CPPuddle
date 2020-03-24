@@ -46,17 +46,19 @@ using kokkos_array = Kokkos::View<type_in_view, Kokkos::HostSpace>;
 
 // Just some 2D views used for testing
 template <class T>
-using kokkos_um_array = Kokkos::View<T**, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
-template <class T>
-using recycled_host_view = recycled_view<kokkos_um_array<T>, recycle_std<T>, T>;
-
-template <class T>
 using kokkos_um_device_array = Kokkos::View<T**, Kokkos::CudaSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
 using recycled_device_view = recycled_view<kokkos_um_device_array<T>, recycle_allocator_cuda_device<T>, T>;
 
+// NOTE: Must use the same layout to be able to use e.g. cudaMemcpyAsync
 template <class T>
-using kokkos_um_pinned_array = Kokkos::View<T**, Kokkos::CudaHostPinnedSpace, Kokkos::MemoryUnmanaged>;
+using kokkos_um_array = Kokkos::View<T**, typename kokkos_um_device_array<T>::array_layout, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
+template <class T>
+using recycled_host_view = recycled_view<kokkos_um_array<T>, recycle_std<T>, T>;
+
+// NOTE: Must use the same layout to be able to use e.g. cudaMemcpyAsync
+template <class T>
+using kokkos_um_pinned_array = Kokkos::View<T**, typename kokkos_um_device_array<T>::array_layout, Kokkos::CudaHostPinnedSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
 using recycled_pinned_view = recycled_view<kokkos_um_pinned_array<T>, recycle_allocator_cuda_host<T>, T>;
 
@@ -95,46 +97,39 @@ void stream_executor_test()
   recycled_device_view<double> deviceView(view_size_0,view_size_1);
 
   {
+    auto host_space = hpx::kokkos::make_execution_space<Kokkos::DefaultHostExecutionSpace>();
+    auto policy_host = get_iteration_policy(host_space, pinnedView);
 
-    auto policy_host = get_iteration_policy(Kokkos::DefaultHostExecutionSpace(), pinnedView);
-
-    // don't use this variant for now, quoting msimberg:
-    // the HPX backend essentially has only one "stream"
-    // auto copy_finished = hpx::kokkos::parallel_for_async(
-    //     "pinned host init",
-    //     policy_host,
-    //     KOKKOS_LAMBDA(int n, int o) {
-    //       hostView(n, o) = t;
-    //       pinnedView(n, o) = hostView(n, o);
-    //     });
-
-    auto copy_finished = hpx::parallel::for_loop(
-        hpx::parallel::execution::par(hpx::parallel::execution::task), 0, view_size,
-        [=] HPX_HOST_DEVICE(std::size_t i) {
-          hostView.data()[i] = t;
-          pinnedView.data()[i] = hostView.data()[i];
+    auto copy_finished = hpx::kokkos::parallel_for_async(
+        "pinned host init",
+        policy_host,
+        KOKKOS_LAMBDA(int n, int o) {
+          hostView(n, o) = t;
+          pinnedView(n, o) = hostView(n, o);
         });
 
     // auto stream_space = hpx::kokkos::make_execution_space();
     auto stream_space = hpx::kokkos::make_execution_space<Kokkos::Cuda>();
     auto policy_stream = get_iteration_policy(stream_space, pinnedView);
 
+    // TODO: How to make a nice continuation from HPX future to CUDA stream
+    // (i.e. without using wait)?
     copy_finished.wait();
+
+    // All of the following deep copies and kernels are sequenced because they
+    // use the same instance. It is enough to wait for the last future. // The
+    // views must have compatible layouts to actually use cudaMemcpyAsync.
+    hpx::kokkos::deep_copy_async(stream_space, deviceView, pinnedView);
 
     {
       // auto totalTimer = scoped_timer("async device");
-      hpx::shared_future<void> f;
       for (int i = 0; i < numIterations; ++i)
       {
-        hpx::kokkos::deep_copy_async(stream_space, deviceView, pinnedView);
-
         kernel_add_kokkos(deviceView, deviceView, deviceView, policy_stream);
-
-        f = hpx::kokkos::deep_copy_async(stream_space, pinnedView, deviceView);
       }
-      f.wait();
     }
 
+    hpx::kokkos::deep_copy_async(stream_space, pinnedView, deviceView);
     hpx::kokkos::deep_copy_async(stream_space, hostView, pinnedView).wait();
 
     // test values in hostView
@@ -173,8 +168,7 @@ int main(int argc, char *argv[])
             });
         }
     }
-    auto when = hpx::when_all(futs);
-    when.wait();
+    hpx::wait_all(futs);
     auto end = std::chrono::high_resolution_clock::now();
     std::cout << "\n==>Allocation test took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms" << std::endl;
 }

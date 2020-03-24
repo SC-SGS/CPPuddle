@@ -22,14 +22,14 @@ using kokkos_array = Kokkos::View<float[1000], Kokkos::HostSpace, Kokkos::Memory
 
 // Just some 2D views used for testing
 template <class T>
-using kokkos_um_array = Kokkos::View<T*, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
-template <class T>
-using recycled_host_view = recycled_view<kokkos_um_array<T>, recycle_std<T>, T>;
-
-template <class T>
 using kokkos_um_device_array = Kokkos::View<T*, Kokkos::CudaSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
 using recycled_device_view = recycled_view<kokkos_um_device_array<T>, recycle_allocator_cuda_device<T>, T>;
+
+template <class T>
+using kokkos_um_array = Kokkos::View<T*, typename kokkos_um_device_array<T>::array_layout, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
+template <class T>
+using recycled_host_view = recycled_view<kokkos_um_array<T>, recycle_std<T>, T>;
 
 
 // #pragma nv_exec_check_disable
@@ -67,6 +67,8 @@ int main(int argc, char *argv[])
           my_wrapper_test1.access(n) = t;
           my_wrapper_test2.access(n) = my_wrapper_test1.access(n);
         });
+
+    Kokkos::fence();
 
     // for some views on cuda data
     using test_device_view = recycled_device_view<float>;
