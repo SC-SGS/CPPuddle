@@ -11,6 +11,8 @@ export HPX_ROOT=${SCRIPTS_DIR}/../external_dependencies/install/hpx-${CMAKE_BUIL
 export Kokkos_ROOT=${SCRIPTS_DIR}/../external_dependencies/install/kokkos-${CMAKE_BUILD_TYPE}/lib64/cmake/Kokkos
 export HPXKokkos_ROOT=${SCRIPTS_DIR}/../external_dependencies/install/kokkos-hpx-interop-${CMAKE_BUILD_TYPE}/lib64/cmake/HPXKokkos
 
+CURRENT_CUDA_ARCH_FLAG="-DKokkos_ARCH_PASCAL60=ON"
+
 module load daint-gpu
 module switch PrgEnv-cray PrgEnv-gnu
 module load cudatoolkit
