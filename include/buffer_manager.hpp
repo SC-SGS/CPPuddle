@@ -159,6 +159,7 @@ class buffer_recycler {
           assert(std::get<1>(tuple) == number_of_elements);
           assert(std::get<2>(tuple) >= 1);
           std::get<2>(tuple)--; // decrease usage counter
+          std::cout << "Usage counter is now " << std::get<2>(tuple) << std::endl;
           if (std::get<2>(tuple) == 0) { // not used anymore?
             // move to the unused_buffer list 
             instance->unused_buffer_list.push_front(tuple);
@@ -174,6 +175,7 @@ class buffer_recycler {
           assert(std::get<1>(tuple) == number_of_elements);
           assert(std::get<2>(tuple) >= 1);
           std::get<2>(tuple)++; // increase usage counter
+          std::cout << "Usage counter is now " << std::get<2>(tuple) << std::endl;
         }
 
       private:

@@ -54,3 +54,9 @@ add_executable(
   ${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_executor_stream_test.cpp)
 target_link_libraries(allocator_executor_stream_test
   PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
+
+add_executable(
+  minimal_parallel_for
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/minimal_parallel_for.cpp)
+target_link_libraries(minimal_parallel_for
+  PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
