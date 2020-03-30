@@ -23,35 +23,36 @@ public:
     {
         total_elements = other.total_elements;
         // std::cerr << "copy" << std::endl;
-        allocator.increase_usage_counter(other.data(), other.total_elements);
-        std::cout << "Copying view" << std::endl;
+
+        std::cout << "Copying view2" << std::endl;
+        allocator.increase_usage_counter(this->data(), this->total_elements);
 
     }
 
     recycled_view<kokkos_type, alloc_type, element_type> &operator=(const recycled_view<kokkos_type, alloc_type, element_type> &other)
     {
+        allocator.deallocate(this->data(), total_elements);
         kokkos_type::operator=(other);
         total_elements = other.total_elements;
         allocator.increase_usage_counter(other.data(), other.total_elements);
-        std::cout << "Copying view" << std::endl;
+        std::cout << "Assignement view" << std::endl;
         return *this;
     }
 
     recycled_view(recycled_view<kokkos_type, alloc_type, element_type> &&other) : kokkos_type(other)
     {
         total_elements = other.total_elements;
-        // so that is doesn't matter if deallocate is called in the moved-from object
         allocator.increase_usage_counter(other.data(), other.total_elements);
         std::cout << "Moving view" << std::endl;
     }
 
     recycled_view<kokkos_type, alloc_type, element_type> &operator=(recycled_view<kokkos_type, alloc_type, element_type> &&other)
     {
+        allocator.deallocate(this->data(), total_elements);
         kokkos_type::operator=(other);
         total_elements = other.total_elements;
-        // so that is doesn't matter if deallocate is called in the moved-from object
         allocator.increase_usage_counter(other.data(), other.total_elements);
-        std::cout << "Moving view" << std::endl;
+        std::cout << "Moving view assign" << std::endl;
         return *this;
     }
 
