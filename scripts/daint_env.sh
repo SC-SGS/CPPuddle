@@ -14,6 +14,7 @@ export HPXKokkos_ROOT=${SCRIPTS_DIR}/../external_dependencies/install/kokkos-hpx
 CURRENT_CUDA_ARCH_FLAG="-DKokkos_ARCH_PASCAL60=ON"
 
 module load daint-gpu
+module load CMake
 module switch PrgEnv-cray PrgEnv-gnu
 module load cudatoolkit
 module load Boost
