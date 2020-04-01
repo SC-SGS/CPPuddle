@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
     assert(number_futures >= hpx::get_num_worker_threads());
 
     auto begin = std::chrono::high_resolution_clock::now();
-    std::array<hpx::future<void>, number_futures> futs;
+    std::array<hpx::shared_future<void>, number_futures> futs;
     for (size_t i = 0; i < number_futures; i++)
     {
         futs[i] = hpx::make_ready_future<void>();
@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
     {
         for (size_t i = 0; i < number_futures; i++)
         {
-            futs[i] = futs[i].then([&](hpx::future<void> &&predecessor) {
+            futs[i] = futs[i].then([&](hpx::shared_future<void> &&predecessor) {
                 stream_executor_test();
             });
         }

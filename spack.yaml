@@ -1,0 +1,5 @@
+spack:
+  specs:
+  - cmake@3.13.4
+  - boost@1.70.0
+  - jemalloc

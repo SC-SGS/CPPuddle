@@ -31,13 +31,13 @@ int main(int argc, char *argv[])
   assert(number_futures >= hpx::get_num_worker_threads());
 
   auto begin = std::chrono::high_resolution_clock::now();
-  std::array<hpx::future<void>, number_futures> futs;
+  std::array<hpx::shared_future<void>, number_futures> futs;
   for (size_t i = 0; i < number_futures; i++) {
     futs[i]= hpx::make_ready_future<void>();
   }
   for (size_t pass = 0; pass < passes; pass++) {
     for (size_t i = 0; i < number_futures; i++) {
-      futs[i] = futs[i].then([&](hpx::future<void> &&predecessor) {
+      futs[i] = futs[i].then([&](hpx::shared_future<void> &&predecessor) {
         std::vector<float, recycle_std<float>> test0(array_size);
         std::vector<float, recycle_std<float>> test1(array_size);
         // how about some int allocations

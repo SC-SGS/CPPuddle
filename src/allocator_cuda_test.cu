@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
   constexpr size_t number_packages = N / chunksize + static_cast<int>(N % chunksize);
   size_t problemsize = N; // interface.execute does not like constexpr so we got these
   size_t chunk = chunksize;
-  std::array<hpx::future<void>, number_packages> futs;
+  std::array<hpx::shared_future<void>, number_packages> futs;
   for (size_t i = 0; i < number_packages; i++) {
     futs[i]= hpx::make_ready_future<void>();
   }
@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
     size_t fut_index = 0;
     for(size_t row_index = 0; row_index < N; row_index += chunksize, fut_index++) {
     futs[fut_index] = futs[fut_index].then(
-      [row_index, &erg_vector, mult_vector, &problemsize, &chunk, &cpu_side_function](hpx::future<void> &&f) {
+      [row_index, &erg_vector, mult_vector, &problemsize, &chunk, &cpu_side_function](hpx::shared_future<void> &&f) {
       // Recycle communication channels
       cuda_channel<double, chunksize> input;
       cuda_channel<double, chunksize> erg;
@@ -131,4 +131,5 @@ int main(int argc, char *argv[])
   auto end = std::chrono::high_resolution_clock::now();
   std::cout << "\n==>Mults took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms" << std::endl;
 
+  return 0;
 }
