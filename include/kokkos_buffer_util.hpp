@@ -16,15 +16,12 @@ public:
                                   total_elements(kokkos_type::required_allocation_size(args...) / sizeof(element_type))
     {
         //std::cout << "Got buffer for " << total_elements << std::endl;
-        std::cout << "Creating view" << std::endl;
     }
 
     recycled_view(const recycled_view<kokkos_type, alloc_type, element_type> &other) : kokkos_type(other)
     {
         total_elements = other.total_elements;
-        // std::cerr << "copy" << std::endl;
 
-        std::cout << "Copying view2" << std::endl;
         allocator.increase_usage_counter(this->data(), this->total_elements);
 
     }
@@ -35,7 +32,6 @@ public:
         kokkos_type::operator=(other);
         total_elements = other.total_elements;
         allocator.increase_usage_counter(other.data(), other.total_elements);
-        std::cout << "Assignement view" << std::endl;
         return *this;
     }
 
@@ -43,7 +39,6 @@ public:
     {
         total_elements = other.total_elements;
         allocator.increase_usage_counter(other.data(), other.total_elements);
-        std::cout << "Moving view" << std::endl;
     }
 
     recycled_view<kokkos_type, alloc_type, element_type> &operator=(recycled_view<kokkos_type, alloc_type, element_type> &&other)
@@ -52,13 +47,11 @@ public:
         kokkos_type::operator=(other);
         total_elements = other.total_elements;
         allocator.increase_usage_counter(other.data(), other.total_elements);
-        std::cout << "Moving view assign" << std::endl;
         return *this;
     }
 
     virtual ~recycled_view(void)
     {
-        std::cout << "Dellocating view" << std::endl;
         allocator.deallocate(this->data(), total_elements);
     }
 
