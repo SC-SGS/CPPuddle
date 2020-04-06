@@ -23,43 +23,53 @@ endif()
 kokkos_check(DEVICES HPX)
 kokkos_check(OPTIONS HPX_ASYNC_DISPATCH)
 
+option(INTEROPT_WITH_CUDA "Enable CUDA" ON)
+
 ## Interface targets
 add_library(buffer_manager INTERFACE)
 target_include_directories(buffer_manager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
 
 ## Tests
 add_executable(allocator_test src/allocator_test.cpp)
 target_link_libraries(allocator_test
   PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
 
-add_executable(
-  allocator_kokkos_test
-  src/allocator_kokkos_test.cpp
-  include/buffer_manager.hpp)
-target_link_libraries(allocator_kokkos_test
-  PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
+if (INTEROPT_WITH_CUDA)
+  add_executable(
+    allocator_kokkos_test
+    src/allocator_kokkos_test.cpp
+    include/buffer_manager.hpp)
+  target_link_libraries(allocator_kokkos_test
+    PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
+  target_compile_definitions(allocator_kokkos_test PRIVATE INTEROPT_HAVE_CUDA)
 
-add_executable(allocator_cuda_test src/allocator_cuda_test.cu)
-target_link_libraries(allocator_cuda_test
-  PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
+  add_executable(allocator_cuda_test src/allocator_cuda_test.cu)
+  target_link_libraries(allocator_cuda_test
+    PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
+  target_compile_definitions(allocator_cuda_test PRIVATE INTEROPT_HAVE_CUDA)
 
-add_executable(
-  allocator_kokkos_executor_stream_test
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_kokkos_executor_stream_test.cpp)
-target_link_libraries(allocator_kokkos_executor_stream_test
-  PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
+  add_executable(
+    allocator_kokkos_executor_stream_test
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_kokkos_executor_stream_test.cpp)
+  target_link_libraries(allocator_kokkos_executor_stream_test
+    PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
+  target_compile_definitions(allocator_kokkos_executor_stream_test PRIVATE INTEROPT_HAVE_CUDA)
 
-add_executable(
-  allocator_executor_stream_test
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_executor_stream_test.cpp)
-target_link_libraries(allocator_executor_stream_test
-  PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
+  add_executable(
+    allocator_executor_stream_test
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_executor_stream_test.cpp)
+  target_link_libraries(allocator_executor_stream_test
+    PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
+  target_compile_definitions(allocator_executor_stream_test PRIVATE INTEROPT_HAVE_CUDA)
 
-add_executable(
-  minimal_parallel_for
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/minimal_parallel_for.cpp)
-target_link_libraries(minimal_parallel_for
-  PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
+  add_executable(
+    minimal_parallel_for
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/minimal_parallel_for.cpp)
+  target_link_libraries(minimal_parallel_for
+    PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
+  target_compile_definitions(minimal_parallel_for PRIVATE INTEROPT_HAVE_CUDA)
+endif()
 
 # install the headers only
 install(

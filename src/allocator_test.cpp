@@ -3,7 +3,6 @@
 #include <hpx/include/lcos.hpp>
 
 #include "../include/buffer_manager.hpp"
-#include "../include/cuda_buffer_util.hpp"
 #include <cstdio>
 #include <typeinfo>
 #include <chrono>
@@ -47,8 +46,6 @@ int main(int argc, char *argv[])
         std::vector<double, recycle_std<double>> test4(array_size);
         std::vector<double, recycle_std<double>> test5(array_size);
         std::vector<double, recycle_std<double>> test6(array_size);
-        // using cuda host recycle allocator for a change!
-        std::vector<double, recycle_allocator_cuda_host<double>> test7(array_size);
       });
     }
   }

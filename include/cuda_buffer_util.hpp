@@ -1,4 +1,6 @@
 #pragma once
+
+#if INTEROPT_HAVE_CUDA
 #include "buffer_manager.hpp"
 
 template <class T>
@@ -76,3 +78,4 @@ struct cuda_device_buffer {
   cuda_device_buffer(cuda_device_buffer const &&other) = delete;
   cuda_device_buffer operator=(cuda_device_buffer const &&other) = delete;
 };
+#endif
