@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 
-project(hpx_kokkos_example CXX CUDA)
+project(hpx_kokkos_example CXX) 
 
 # TODO: We actually require unreleased features. The minimum versions need to
 # be updated when they are released.
@@ -8,8 +8,17 @@ find_package(HPX 1.4.1 REQUIRED)
 find_package(Kokkos 3.0.0 REQUIRED)
 find_package(HPXKokkos REQUIRED) # No version yet.
 
+option(INTEROPT_WITH_CUDA "Enable CUDA" ON)
+
+if (INTEROPT_WITH_CUDA)
+   enable_language(CUDA) 
+endif ()
+
 # Check that Kokkos and HPX options are consistent.
 if(Kokkos_ENABLE_CUDA)
+  if(NOT HPX_WITH_CUDA)
+    message(FATAL_ERROR "Kokkos was built with CUDA support, HPX was not")
+  endif()
   kokkos_check(OPTIONS CUDA_LAMBDA)
   if(NOT HPX_WITH_CUDA)
     message(FATAL_ERROR "Kokkos was built with CUDA support, HPX was not")
@@ -23,7 +32,6 @@ endif()
 kokkos_check(DEVICES HPX)
 kokkos_check(OPTIONS HPX_ASYNC_DISPATCH)
 
-option(INTEROPT_WITH_CUDA "Enable CUDA" ON)
 
 ## Interface targets
 add_library(buffer_manager INTERFACE)
