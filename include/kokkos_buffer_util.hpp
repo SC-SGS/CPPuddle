@@ -1,9 +1,6 @@
 #include <Kokkos_Core.hpp>
 
-template <class kokkos_type>
-class weak_recycled_view;
-
-template <class kokkos_type, class alloc_type, class element_type>
+template <typename kokkos_type, typename alloc_type, typename element_type>
 class recycled_view : public kokkos_type
 {
 private:
@@ -50,48 +47,14 @@ public:
         return *this;
     }
 
-    virtual ~recycled_view(void)
+    ~recycled_view(void)
     {
         allocator.deallocate(this->data(), total_elements);
-    }
-
-    // get a view that does not increase the reference count -- lifetime of parent has to be guaranteed by user
-    weak_recycled_view<kokkos_type> weak() const
-    {
-        return weak_recycled_view<kokkos_type>(*this);
     }
 };
 
 template <class kokkos_type, class alloc_type, class element_type>
 alloc_type recycled_view<kokkos_type, alloc_type, element_type>::allocator;
-
-template <class kokkos_type>
-class weak_recycled_view : public kokkos_type
-{
-private:
-public:
-    ~weak_recycled_view(void)
-    {
-    }
-
-    template <class... Args>
-    weak_recycled_view(const recycled_view<Args...> &other) : kokkos_type(other)
-    {
-    }
-
-    template <class... Args>
-    weak_recycled_view &operator=(const recycled_view<Args...> &other)
-    {
-        this = weak_recycled_view(other);
-    }
-
-    explicit weak_recycled_view() = delete;
-    weak_recycled_view(const weak_recycled_view &other) = default;
-    weak_recycled_view(weak_recycled_view &&other) noexcept = default;
-    weak_recycled_view &operator=(const weak_recycled_view &other) = default;
-    weak_recycled_view &operator=(weak_recycled_view &&other) noexcept = default;
-};
-
 
 /**
  * get an MDRangePolicy suitable for iterating the views
