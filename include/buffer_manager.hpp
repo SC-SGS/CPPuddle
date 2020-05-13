@@ -3,6 +3,8 @@
 #include <iostream>
 #include <mutex>
 #include <memory>
+#include <list>
+#include <unordered_map>
 
 class buffer_recycler {
   // Public interface
