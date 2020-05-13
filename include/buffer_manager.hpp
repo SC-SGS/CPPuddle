@@ -133,6 +133,8 @@ class buffer_recycler {
             T *buffer = alloc.allocate(number_of_elements);
             instance->buffer_map.insert({buffer, std::make_tuple(buffer, number_of_elements, 1)});
             instance->number_creation++;
+            for (size_t i{0}; i < number_of_elements; i++)
+              ::new (static_cast<void*>(buffer)) T{};
             return buffer;
           }
           catch(std::bad_alloc &e) { 
@@ -147,6 +149,8 @@ class buffer_recycler {
             instance->buffer_map.insert({buffer, std::make_tuple(buffer, number_of_elements, 1)});
             instance->number_creation++;
             instance->number_bad_alloc++;
+            for (size_t i{0}; i < number_of_elements; i++)
+              ::new (static_cast<void*>(buffer)) T{};
             return buffer;
           }
         }
@@ -194,11 +198,15 @@ class buffer_recycler {
         ~buffer_manager(void) {
           for (auto &buffer_tuple : unused_buffer_list) {
             Host_Allocator alloc;
+            for (size_t i{0}; i < std::get<1>(buffer_tuple); i++)
+              std::get<0>(buffer_tuple)->~T();
             alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
           }
           for (auto &map_tuple : buffer_map) {
             auto buffer_tuple = map_tuple.second;
             Host_Allocator alloc;
+            for (size_t i{0}; i < std::get<1>(buffer_tuple); i++)
+              std::get<0>(buffer_tuple)->~T();
             alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
           }
           // Print performance counters
@@ -283,10 +291,10 @@ struct recycle_allocator {
   }
   template<typename... Args>
   void construct(T *p, Args... args) {
-    ::new (static_cast<void*>(p)) T(std::forward<Args>(args)...);
+    //::new (static_cast<void*>(p)) T(std::forward<Args>(args)...);
   }
   void destroy(T *p) {
-    p->~T();
+    //p->~T();
   }
   void increase_usage_counter(T *p, size_t n) {
     buffer_recycler::increase_usage_counter<T, Host_Allocator>(p, n);

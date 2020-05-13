@@ -49,11 +49,6 @@ int hpx_main(int argc, char* argv[])
     std::cerr << "CLI argument problem found: " << ex.what() << '\n';
   }
 
-  // Test whether it works at all:
-  std::vector<float, recycle_std<float>> test0(array_size);
-  for (auto &elem : test0)
-    elem = elem + 1.0;
-
   assert(passes >= 1);
   assert(array_size >= 1);
   assert(number_futures >= 1);
