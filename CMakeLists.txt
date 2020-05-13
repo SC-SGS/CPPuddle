@@ -41,7 +41,11 @@ target_include_directories(buffer_manager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/
 ## Tests
 add_executable(allocator_test src/allocator_test.cpp)
 target_link_libraries(allocator_test
-  PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
+  PRIVATE HPX::hpx buffer_manager)
+
+add_executable(allocator_hpx_test src/allocator_hpx_test.cpp)
+target_link_libraries(allocator_hpx_test
+  PRIVATE HPX::hpx buffer_manager)
 
 if (INTEROPT_WITH_CUDA)
   add_executable(

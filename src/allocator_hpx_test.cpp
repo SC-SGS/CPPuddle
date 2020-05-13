@@ -1,3 +1,7 @@
+#include <hpx/hpx_init.hpp> 
+#include <hpx/include/async.hpp>
+#include <hpx/include/lcos.hpp>
+
 #include <boost/program_options.hpp>
 
 #include "../include/buffer_manager.hpp"
@@ -5,17 +9,23 @@
 #include <typeinfo>
 #include <chrono>
 
+
+constexpr size_t max_number_futures = 64;
+size_t number_futures = 64;
 size_t array_size = 500000;
-size_t passes = 10000;
+size_t passes = 200;
 
 // #pragma nv_exec_check_disable
-int main(int argc, char* argv[]) {
+int hpx_main(int argc, char* argv[])
+{
   try {
     boost::program_options::options_description desc{"Options"};
     desc.add_options()
       ("help", "Help screen")
       ("arraysize", boost::program_options::value<size_t>(&array_size)->default_value(5000000),
        "Size of the buffers")
+      ("futures", boost::program_options::value<size_t>(&number_futures)->default_value(64),
+       "Sets the number of futures to be (potentially) executed in parallel")
       ("passes", boost::program_options::value<size_t>(&passes)->default_value(200),
        "Sets the number of repetitions");
 
@@ -30,22 +40,41 @@ int main(int argc, char* argv[]) {
     } else  {
       std::cout << "Running with parameters:" << std::endl
                 << " - Array size: " << array_size << std::endl
-                << " - Passes: " << passes << std::endl;
+                << " - Number futures: " << number_futures << std::endl
+                << " - Passes: " << passes << std::endl
+                << " - HPX worker threads: " << hpx::get_os_thread_count() << std::endl;
     }
   }
   catch (const boost::program_options::error &ex) {
     std::cerr << "CLI argument problem found: " << ex.what() << '\n';
   }
 
+  // Test whether it works at all:
+  std::vector<float, recycle_std<float>> test0(array_size);
+  for (auto &elem : test0)
+    elem = elem + 1.0;
+
   assert(passes >= 1);
   assert(array_size >= 1);
+  assert(number_futures >= 1);
+  assert(number_futures <= max_number_futures);
 
   // Initial Recycle Test:
   {
     auto begin = std::chrono::high_resolution_clock::now();
-    for (size_t pass = 0; pass < passes; pass++) {
-      std::vector<double, recycle_std<double>> test1(array_size, double{});
+    std::array<hpx::shared_future<void>, max_number_futures> futs;
+    for (size_t i = 0; i < number_futures; i++) {
+      futs[i]= hpx::make_ready_future<void>();
     }
+    for (size_t pass = 0; pass < passes; pass++) {
+      for (size_t i = 0; i < number_futures; i++) {
+        futs[i] = futs[i].then([&](hpx::shared_future<void> &&predecessor) {
+          std::vector<double, recycle_std<double>> test6(array_size, double{});
+        });
+      }
+    }
+    auto when = hpx::when_all(futs);
+    when.wait();
     auto end = std::chrono::high_resolution_clock::now();
     std::cout << "\n==> Recycle allocation test took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms" << std::endl;
   }
@@ -53,12 +82,26 @@ int main(int argc, char* argv[]) {
   // Same test using std::allocator:
   {
     auto begin = std::chrono::high_resolution_clock::now();
-    for (size_t pass = 0; pass < passes; pass++) {
-      std::vector<double> test2(array_size, double{});
+    std::array<hpx::shared_future<void>, max_number_futures> futs;
+    for (size_t i = 0; i < number_futures; i++) {
+      futs[i]= hpx::make_ready_future<void>();
     }
+    for (size_t pass = 0; pass < passes; pass++) {
+      for (size_t i = 0; i < number_futures; i++) {
+        futs[i] = futs[i].then([&](hpx::shared_future<void> &&predecessor) {
+          std::vector<double> test6(array_size, double{});
+        });
+      }
+    }
+    auto when = hpx::when_all(futs);
+    when.wait();
     auto end = std::chrono::high_resolution_clock::now();
     std::cout << "\n==> Non-recycle allocation test took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms" << std::endl;
   }
-  return EXIT_SUCCESS;
+  return hpx::finalize();
 }
 
+int main(int argc, char* argv[]) {
+  std::vector<std::string> cfg = {"hpx.commandline.allow_unknown=1"};
+  return hpx::init(argc, argv, cfg);
+}
