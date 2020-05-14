@@ -40,7 +40,17 @@ int main(int argc, char* argv[]) {
   assert(passes >= 1);
   assert(array_size >= 1);
 
-  // Initial Recycle Test:
+  // Aggressive recycle Test:
+  {
+    auto begin = std::chrono::high_resolution_clock::now();
+    for (size_t pass = 0; pass < passes; pass++) {
+      std::vector<double, aggressive_recycle_std<double>> test1(array_size, double{});
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+    std::cout << "\n==> Aggressive recycle allocation test took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms" << std::endl;
+  }
+
+  // Recycle Test:
   {
     auto begin = std::chrono::high_resolution_clock::now();
     for (size_t pass = 0; pass < passes; pass++) {
@@ -49,6 +59,7 @@ int main(int argc, char* argv[]) {
     auto end = std::chrono::high_resolution_clock::now();
     std::cout << "\n==> Recycle allocation test took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms" << std::endl;
   }
+
 
   // Same test using std::allocator:
   {

@@ -11,13 +11,13 @@ class buffer_recycler {
   public:
     /// Returns and allocated buffer of the requested size - this may be a reused buffer
     template <typename T, typename Host_Allocator>
-    static T* get(size_t number_elements) {
+    static T* get(size_t number_elements, bool init_buffer=false) {
       std::lock_guard<std::mutex> guard(mut);
       if (!instance) {
         instance = new buffer_recycler();
         destroyer.set_singleton(instance);
       }
-      return buffer_manager<T, Host_Allocator>::get(number_elements);
+      return buffer_manager<T, Host_Allocator>::get(number_elements, init_buffer);
     }
     /// Marks an buffer as unused and fit for reusage
     template <typename T, typename Host_Allocator>
@@ -107,7 +107,7 @@ class buffer_recycler {
         }
 
         /// Tries to recycle or create a buffer of type T and size number_elements. 
-        static T* get(size_t number_of_elements) {
+        static T* get(size_t number_of_elements, bool init_buffer) {
           if (!instance) {
             instance = new buffer_manager();
             buffer_recycler::add_total_cleanup_callback(clean);
@@ -120,6 +120,17 @@ class buffer_recycler {
             if (std::get<1>(tuple) == number_of_elements) {
               instance->unused_buffer_list.erase(iter);
               std::get<2>(tuple)++; // increase usage counter to 1
+
+              // handle the switch from aggressive to non aggressive reusage (or vice-versa)
+              if (init_buffer && !std::get<3>(tuple)) {
+                for (size_t i{0}; i < number_of_elements; i++)
+                  ::new (static_cast<void*>(std::get<0>(tuple))) T{};
+                std::get<3>(tuple) = true;
+              } else if (!init_buffer && std::get<3>(tuple)) {
+                for (size_t i{0}; i < std::get<1>(tuple); i++)
+                  std::get<0>(tuple)->~T();
+                std::get<3>(tuple) = false;
+              }
               instance->buffer_map.insert({std::get<0>(tuple), tuple});
               instance->number_recycling++;
               return std::get<0>(tuple);
@@ -131,10 +142,12 @@ class buffer_recycler {
             //T *buffer = new T[number_of_elements];
             Host_Allocator alloc;
             T *buffer = alloc.allocate(number_of_elements);
-            instance->buffer_map.insert({buffer, std::make_tuple(buffer, number_of_elements, 1)});
+            instance->buffer_map.insert({buffer, std::make_tuple(buffer, number_of_elements, 1, init_buffer)});
             instance->number_creation++;
-            for (size_t i{0}; i < number_of_elements; i++)
-              ::new (static_cast<void*>(buffer)) T{};
+            if (init_buffer) {
+              for (size_t i{0}; i < number_of_elements; i++)
+                ::new (static_cast<void*>(buffer)) T{};
+            }
             return buffer;
           }
           catch(std::bad_alloc &e) { 
@@ -146,11 +159,13 @@ class buffer_recycler {
             //T *buffer = new T[number_of_elements];
             Host_Allocator alloc;
             T *buffer = alloc.allocate(number_of_elements);
-            instance->buffer_map.insert({buffer, std::make_tuple(buffer, number_of_elements, 1)});
+            instance->buffer_map.insert({buffer, std::make_tuple(buffer, number_of_elements, 1, init_buffer)});
             instance->number_creation++;
             instance->number_bad_alloc++;
-            for (size_t i{0}; i < number_of_elements; i++)
-              ::new (static_cast<void*>(buffer)) T{};
+            if (init_buffer) {
+              for (size_t i{0}; i < number_of_elements; i++)
+                ::new (static_cast<void*>(buffer)) T{};
+            }
             return buffer;
           }
         }
@@ -185,9 +200,9 @@ class buffer_recycler {
 
       private:
         /// List with all buffers still in usage 
-        std::unordered_map<T*, std::tuple<T*, size_t, size_t>> buffer_map;
+        std::unordered_map<T*, std::tuple<T*, size_t, size_t, bool>> buffer_map;
         /// List with all buffers currently not used
-        std::list<std::tuple<T*,size_t, size_t>> unused_buffer_list; 
+        std::list<std::tuple<T*,size_t, size_t, bool>> unused_buffer_list; 
         /// Performance counters
         size_t number_allocation{0}, number_dealloacation{0};
         size_t number_recycling{0}, number_creation{0}, number_bad_alloc{0};
@@ -198,15 +213,19 @@ class buffer_recycler {
         ~buffer_manager(void) {
           for (auto &buffer_tuple : unused_buffer_list) {
             Host_Allocator alloc;
-            for (size_t i{0}; i < std::get<1>(buffer_tuple); i++)
-              std::get<0>(buffer_tuple)->~T();
+            if(std::get<3>(buffer_tuple)) {
+              for (size_t i{0}; i < std::get<1>(buffer_tuple); i++)
+                std::get<0>(buffer_tuple)->~T();
+            }
             alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
           }
           for (auto &map_tuple : buffer_map) {
             auto buffer_tuple = map_tuple.second;
             Host_Allocator alloc;
-            for (size_t i{0}; i < std::get<1>(buffer_tuple); i++)
-              std::get<0>(buffer_tuple)->~T();
+            if(std::get<3>(buffer_tuple)) {
+              for (size_t i{0}; i < std::get<1>(buffer_tuple); i++)
+                std::get<0>(buffer_tuple)->~T();
+            }
             alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
           }
           // Print performance counters
@@ -290,17 +309,16 @@ struct recycle_allocator {
     buffer_recycler::mark_unused<T, Host_Allocator>(p, n);
   }
   template<typename... Args>
-  void construct(T *p, Args... args) {
-    //::new (static_cast<void*>(p)) T(std::forward<Args>(args)...);
+  inline void construct(T *p, Args... args) noexcept {
+    ::new (static_cast<void*>(p)) T(std::forward<Args>(args)...);
   }
   void destroy(T *p) {
-    //p->~T();
+    p->~T();
   }
   void increase_usage_counter(T *p, size_t n) {
     buffer_recycler::increase_usage_counter<T, Host_Allocator>(p, n);
   }
 };
-
 template <typename T, typename U, typename Host_Allocator>
 constexpr bool operator==(recycle_allocator<T, Host_Allocator> const&, recycle_allocator<U, Host_Allocator> const&) noexcept {
   return true;
@@ -310,5 +328,43 @@ constexpr bool operator!=(recycle_allocator<T, Host_Allocator> const&, recycle_a
   return false;
 }
 
+/// Recycles not only allocations but also the contents of a buffer
+template <typename T, typename Host_Allocator>
+struct aggressive_recycle_allocator {
+  using value_type = T;
+  aggressive_recycle_allocator() noexcept {}
+  template <typename U>
+  aggressive_recycle_allocator(aggressive_recycle_allocator<U, Host_Allocator> const&) noexcept {
+  }
+  T* allocate(std::size_t n) {
+    T* data = buffer_recycler::get<T, Host_Allocator>(n, true);
+    return data;
+  }
+  void deallocate(T *p, std::size_t n) {
+    buffer_recycler::mark_unused<T, Host_Allocator>(p, n);
+  }
+  template<typename... Args>
+  inline void construct(T *p, Args... args) noexcept {
+    //::new (static_cast<void*>(p)) T(std::forward<Args>(args)...);
+  }
+  void destroy(T *p) {
+    //p->~T();
+  }
+  void increase_usage_counter(T *p, size_t n) {
+    buffer_recycler::increase_usage_counter<T, Host_Allocator>(p, n);
+  }
+};
+template <typename T, typename U, typename Host_Allocator>
+constexpr bool operator==(aggressive_recycle_allocator<T, Host_Allocator> const&, aggressive_recycle_allocator<U, Host_Allocator> const&) noexcept {
+  return true;
+}
+template <typename T, typename U, typename Host_Allocator>
+constexpr bool operator!=(aggressive_recycle_allocator<T, Host_Allocator> const&, aggressive_recycle_allocator<U, Host_Allocator> const&) noexcept {
+  return false;
+}
+
+
 template<typename T>
 using recycle_std = recycle_allocator<T, std::allocator<T>>;
+template<typename T>
+using aggressive_recycle_std = aggressive_recycle_allocator<T, std::allocator<T>>;
