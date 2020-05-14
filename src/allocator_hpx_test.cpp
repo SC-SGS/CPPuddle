@@ -54,7 +54,26 @@ int hpx_main(int argc, char* argv[])
   assert(number_futures >= 1);
   assert(number_futures <= max_number_futures);
 
-  // Initial Recycle Test:
+  // Aggressive recycle Test:
+  {
+    auto begin = std::chrono::high_resolution_clock::now();
+    std::array<hpx::shared_future<void>, max_number_futures> futs;
+    for (size_t i = 0; i < number_futures; i++) {
+      futs[i]= hpx::make_ready_future<void>();
+    }
+    for (size_t pass = 0; pass < passes; pass++) {
+      for (size_t i = 0; i < number_futures; i++) {
+        futs[i] = futs[i].then([&](hpx::shared_future<void> &&predecessor) {
+          std::vector<double, aggressive_recycle_std<double>> test6(array_size, double{});
+        });
+      }
+    }
+    auto when = hpx::when_all(futs);
+    when.wait();
+    auto end = std::chrono::high_resolution_clock::now();
+    std::cout << "\n==> Aggressive recycle allocation test took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms" << std::endl;
+  }
+
   {
     auto begin = std::chrono::high_resolution_clock::now();
     std::array<hpx::shared_future<void>, max_number_futures> futs;

@@ -337,7 +337,7 @@ struct aggressive_recycle_allocator {
   aggressive_recycle_allocator(aggressive_recycle_allocator<U, Host_Allocator> const&) noexcept {
   }
   T* allocate(std::size_t n) {
-    T* data = buffer_recycler::get<T, Host_Allocator>(n, true);
+    T* data = buffer_recycler::get<T, Host_Allocator>(n, true); // also initializes the buffer if it isn't reused
     return data;
   }
   void deallocate(T *p, std::size_t n) {
@@ -345,10 +345,10 @@ struct aggressive_recycle_allocator {
   }
   template<typename... Args>
   inline void construct(T *p, Args... args) noexcept {
-    //::new (static_cast<void*>(p)) T(std::forward<Args>(args)...);
+    // Do nothing here - we reuse the content of the last owner
   }
   void destroy(T *p) {
-    //p->~T();
+    // Do nothing here - Contents will be destroyed when the buffer manager is destroyed, not before
   }
   void increase_usage_counter(T *p, size_t n) {
     buffer_recycler::increase_usage_counter<T, Host_Allocator>(p, n);
