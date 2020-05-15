@@ -1,5 +1,7 @@
 #include <Kokkos_Core.hpp>
 
+namespace recycler {
+
 template <typename kokkos_type, typename alloc_type, typename element_type>
 class recycled_view : public kokkos_type
 {
@@ -11,9 +13,7 @@ public:
     template <class... Args>
     recycled_view(Args... args) : kokkos_type(allocator.allocate(kokkos_type::required_allocation_size(args...) / sizeof(element_type)), args...),
                                   total_elements(kokkos_type::required_allocation_size(args...) / sizeof(element_type))
-    {
-        //std::cout << "Got buffer for " << total_elements << std::endl;
-    }
+    {}
 
     recycled_view(const recycled_view<kokkos_type, alloc_type, element_type> &other) : kokkos_type(other)
     {
@@ -55,6 +55,8 @@ public:
 
 template <class kokkos_type, class alloc_type, class element_type>
 alloc_type recycled_view<kokkos_type, alloc_type, element_type>::allocator;
+
+}
 
 /**
  * get an MDRangePolicy suitable for iterating the views

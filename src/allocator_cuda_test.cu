@@ -19,9 +19,9 @@ constexpr size_t passes = 100;
 template<class T, size_t N>
 class cuda_channel {
   private:
-    std::vector<T, recycle_allocator_cuda_host<T>> host_side_buffer; 
+    std::vector<T, recycler::recycle_allocator_cuda_host<T>> host_side_buffer; 
   public:
-  cuda_device_buffer<T> device_side_buffer;
+  recycler::cuda_device_buffer<T> device_side_buffer;
   cuda_channel(void) : host_side_buffer(N), device_side_buffer(N) {
   }
   void cp_from_device(cuda_helper &interface) {

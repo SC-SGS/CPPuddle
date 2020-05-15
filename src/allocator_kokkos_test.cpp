@@ -24,12 +24,12 @@ using kokkos_array = Kokkos::View<float[1000], Kokkos::HostSpace, Kokkos::Memory
 template <class T>
 using kokkos_um_device_array = Kokkos::View<T*, Kokkos::CudaSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
-using recycled_device_view = recycled_view<kokkos_um_device_array<T>, recycle_allocator_cuda_device<T>, T>;
+using recycled_device_view = recycler::recycled_view<kokkos_um_device_array<T>, recycler::recycle_allocator_cuda_device<T>, T>;
 
 template <class T>
 using kokkos_um_array = Kokkos::View<T*, typename kokkos_um_device_array<T>::array_layout, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
-using recycled_host_view = recycled_view<kokkos_um_array<T>, recycle_std<T>, T>;
+using recycled_host_view = recycler::recycled_view<kokkos_um_array<T>, recycler::recycle_std<T>, T>;
 
 
 // #pragma nv_exec_check_disable
@@ -37,25 +37,6 @@ int main(int argc, char *argv[])
 {
     hpx::kokkos::ScopeGuard scopeGuard(argc, argv);
     Kokkos::print_configuration(std::cout);
-
-    // // Way 1 to recycle heap buffer as well (manually)
-    // recycle_std<float> alli;
-    // float *my_recycled_data_buffer = alli.allocate(1000); // allocate memory
-    // {
-    //     kokkos_um_array<float> test_buffered(my_recycled_data_buffer, 1000);
-    //     for (size_t i = 0; i < 1000; i++) {
-    //         test_buffered.data()[i] = i * 2.0;
-    //     }
-    // }
-    // alli.deallocate(my_recycled_data_buffer, 1000); 
-    // size_t to_alloc = kokkos_um_array<float>::required_allocation_size(1000);
-    // std::cout << "Actual required size: "  << to_alloc << std::endl; // Still a heap allocation!
-
-    // // Way 2 for recycling 
-    // test_view my_wrapper_test0(1000);
-    // for (size_t i = 0; i < 1000; i++) {
-    //     my_wrapper_test0.data()[i] = i * 2.0;
-    // }
 
     using test_view = recycled_host_view<float>;
     using test_double_view = recycled_host_view<double>;

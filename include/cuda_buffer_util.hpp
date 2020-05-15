@@ -3,6 +3,10 @@
 #if INTEROPT_HAVE_CUDA
 #include "buffer_manager.hpp"
 
+namespace recycler {
+
+namespace detail {
+
 template <class T>
 struct cuda_pinned_allocator
 {
@@ -57,12 +61,14 @@ constexpr bool operator!=(cuda_device_allocator<T> const&,
     return false;
 }
 
-template<class T>
-using recycle_allocator_cuda_host = recycle_allocator<T, cuda_pinned_allocator<T>>;
-template<class T>
-using recycle_allocator_cuda_device = recycle_allocator<T, cuda_device_allocator<T>>;
+} //end namespace detail
 
-template<class T>
+template <typename T, std::enable_if_t< std::is_trivial<T>::value, int> = 0>
+using recycle_allocator_cuda_host = detail::aggressive_recycle_allocator<T, detail::cuda_pinned_allocator<T>>;
+template <typename T, std::enable_if_t< std::is_trivial<T>::value, int> = 0>
+using recycle_allocator_cuda_device = detail::recycle_allocator<T, detail::cuda_device_allocator<T>>;
+
+template <typename T, std::enable_if_t< std::is_trivial<T>::value, int> = 0>
 struct cuda_device_buffer {
   T *device_side_buffer;
   size_t number_of_elements;
@@ -78,4 +84,6 @@ struct cuda_device_buffer {
   cuda_device_buffer(cuda_device_buffer const &&other) = delete;
   cuda_device_buffer operator=(cuda_device_buffer const &&other) = delete;
 };
+
+} // end namespace recycler
 #endif

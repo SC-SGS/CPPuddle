@@ -64,7 +64,7 @@ int hpx_main(int argc, char* argv[])
     for (size_t pass = 0; pass < passes; pass++) {
       for (size_t i = 0; i < number_futures; i++) {
         futs[i] = futs[i].then([&](hpx::shared_future<void> &&predecessor) {
-          std::vector<double, aggressive_recycle_std<double>> test6(array_size, double{});
+          std::vector<double, recycler::aggressive_recycle_std<double>> test6(array_size, double{});
         });
       }
     }
@@ -83,7 +83,7 @@ int hpx_main(int argc, char* argv[])
     for (size_t pass = 0; pass < passes; pass++) {
       for (size_t i = 0; i < number_futures; i++) {
         futs[i] = futs[i].then([&](hpx::shared_future<void> &&predecessor) {
-          std::vector<double, recycle_std<double>> test6(array_size, double{});
+          std::vector<double, recycler::recycle_std<double>> test6(array_size, double{});
         });
       }
     }

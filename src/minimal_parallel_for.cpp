@@ -20,7 +20,7 @@ constexpr size_t view_size_1 = 50;
 template <class T>
 using kokkos_um_array = Kokkos::View<T**, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
-using recycled_host_view = recycled_view<kokkos_um_array<T>, recycle_std<T>, T>;
+using recycled_host_view = recycler::recycled_view<kokkos_um_array<T>, recycler::recycle_std<T>, T>;
 
 
 template <typename Executor, typename ViewType>

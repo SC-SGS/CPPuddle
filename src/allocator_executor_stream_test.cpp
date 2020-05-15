@@ -37,11 +37,11 @@ constexpr size_t view_size_1 = 50;
 constexpr size_t view_size = view_size_0 * view_size_1;
 
 template <class T>
-using recycled_host_vector = std::vector<T, recycle_std<T>>;
+using recycled_host_vector = std::vector<T, recycler::recycle_std<T>>;
 template <class T>
-using recycled_device_vector = std::vector<T, recycle_allocator_cuda_device<T>>;
+using recycled_device_vector = std::vector<T, recycler::recycle_allocator_cuda_device<T>>;
 template <class T>
-using recycled_pinned_vector = std::vector<T, recycle_allocator_cuda_host<T>>;
+using recycled_pinned_vector = std::vector<T, recycler::recycle_allocator_cuda_host<T>>;
 
 void stream_executor_test()
 {

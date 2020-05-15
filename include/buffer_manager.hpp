@@ -5,6 +5,10 @@
 #include <memory>
 #include <list>
 #include <unordered_map>
+#include <type_traits>
+
+namespace recycler {
+namespace detail {
 
 class buffer_recycler {
   // Public interface
@@ -363,8 +367,11 @@ constexpr bool operator!=(aggressive_recycle_allocator<T, Host_Allocator> const&
   return false;
 }
 
+} // end namespace detail
 
-template<typename T>
-using recycle_std = recycle_allocator<T, std::allocator<T>>;
-template<typename T>
-using aggressive_recycle_std = aggressive_recycle_allocator<T, std::allocator<T>>;
+template <typename T, std::enable_if_t< std::is_trivial<T>::value, int> = 0>
+using recycle_std = detail::recycle_allocator<T, std::allocator<T>>;
+template <typename T, std::enable_if_t< std::is_trivial<T>::value, int> = 0>
+using aggressive_recycle_std = detail::aggressive_recycle_allocator<T, std::allocator<T>>;
+
+} // end namespace recycler
