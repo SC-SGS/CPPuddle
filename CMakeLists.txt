@@ -37,6 +37,8 @@ kokkos_check(OPTIONS HPX_ASYNC_DISPATCH)
 add_library(buffer_manager INTERFACE)
 target_include_directories(buffer_manager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+# Linter
+set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-checks=*,-fuchsia*,-android*")
 
 ## Tests
 add_executable(allocator_test src/allocator_test.cpp)
