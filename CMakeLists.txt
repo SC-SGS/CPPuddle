@@ -49,7 +49,8 @@ if(CLANG_FORMAT)
     clang-format
     COMMAND clang-format
     -i
-    -style=llvm
+    #-style=llvm
+    -style=file # checks .clang-format file
     ${ALL_CXX_SOURCE_FILES}
     )
 endif()
