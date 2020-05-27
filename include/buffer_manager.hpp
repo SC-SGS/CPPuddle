@@ -103,6 +103,9 @@ public:
 private:
   /// Memory Manager subclass to handle buffers a specific type
   template <typename T, typename Host_Allocator> class buffer_manager {
+  private:
+    using buffer_entry_type = std::tuple<T *, size_t, size_t, bool>;
+
   public:
     /// Cleanup and delete this singleton
     static void clean() { manager_instance.reset(); }
@@ -224,9 +227,9 @@ private:
 
   private:
     /// List with all buffers still in usage
-    std::unordered_map<T *, std::tuple<T *, size_t, size_t, bool>> buffer_map;
+    std::unordered_map<T *, buffer_entry_type> buffer_map{};
     /// List with all buffers currently not used
-    std::list<std::tuple<T *, size_t, size_t, bool>> unused_buffer_list{};
+    std::list<buffer_entry_type> unused_buffer_list{};
     /// Performance counters
     size_t number_allocation{0}, number_dealloacation{0};
     size_t number_recycling{0}, number_creation{0}, number_bad_alloc{0};
