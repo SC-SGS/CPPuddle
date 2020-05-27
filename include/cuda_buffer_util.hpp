@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CUDA_BUFFER_UTIL_HPP
+#define CUDA_BUFFER_UTIL_HPP
 
 #if INTEROPT_HAVE_CUDA
 #include "buffer_manager.hpp"
@@ -11,9 +12,9 @@ template <class T>
 struct cuda_pinned_allocator
 {
     using value_type = T;
-    cuda_pinned_allocator() noexcept {}
+    cuda_pinned_allocator() noexcept = default;
     template <class U>
-    cuda_pinned_allocator(cuda_pinned_allocator<U> const&) noexcept {}
+    explicit cuda_pinned_allocator(cuda_pinned_allocator<U> const&) noexcept {}
     T* allocate(std::size_t n) {
         T* data;
         cudaMallocHost(reinterpret_cast<void**>(&data), n * sizeof(T));
@@ -38,9 +39,9 @@ template <class T>
 struct cuda_device_allocator
 {
     using value_type = T;
-    cuda_device_allocator() noexcept {}
+    cuda_device_allocator() noexcept = default;
     template <class U>
-    cuda_device_allocator(cuda_device_allocator<U> const&) noexcept {}
+    explicit cuda_device_allocator(cuda_device_allocator<U> const&) noexcept {}
     T* allocate(std::size_t n) {
         T* data;
         cudaMalloc(&data, n * sizeof(T));
@@ -86,4 +87,5 @@ struct cuda_device_buffer {
 };
 
 } // end namespace recycler
+#endif
 #endif

@@ -1,9 +1,11 @@
+#include "../include/buffer_manager.hpp"
 #include <boost/program_options.hpp>
 
-#include "../include/buffer_manager.hpp"
+#include <cassert>
+#include <chrono>
 #include <cstdio>
 #include <typeinfo>
-#include <chrono>
+
 
 size_t array_size = 500000;
 size_t passes = 10000;
@@ -24,13 +26,13 @@ int main(int argc, char* argv[]) {
     boost::program_options::store(options, vm);
     boost::program_options::notify(vm);
 
-    if (vm.count("help")) {
-      std::cout << desc << std::endl;
-      return EXIT_SUCCESS;
-    } else  {
+    if (vm.count("help") == 0u) {
       std::cout << "Running with parameters:" << std::endl
                 << " --arraysize = " << array_size << std::endl
                 << " --passes = " << passes << std::endl;
+    } else  {
+      std::cout << desc << std::endl;
+      return EXIT_SUCCESS;
     }
   }
   catch (const boost::program_options::error &ex) {

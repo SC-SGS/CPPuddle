@@ -1,11 +1,14 @@
-#pragma once
+#ifndef BUFFER_MANAGER_HPP
+#define BUFFER_MANAGER_HPP
 
+#include <cassert>
+#include <functional>
 #include <iostream>
-#include <mutex>
-#include <memory>
 #include <list>
-#include <unordered_map>
+#include <memory>
+#include <mutex>
 #include <type_traits>
+#include <unordered_map>
 
 namespace recycler {
 namespace detail {
@@ -17,7 +20,7 @@ class buffer_recycler {
     template <typename T, typename Host_Allocator>
     static T* get(size_t number_elements, bool init_buffer=false) {
       std::lock_guard<std::mutex> guard(mut);
-      if (!instance) {
+      if (instance == nullptr) {
         instance = new buffer_recycler();
         destroyer.set_singleton(instance);
       }
@@ -27,7 +30,7 @@ class buffer_recycler {
     template <typename T, typename Host_Allocator>
     static void mark_unused(T *p, size_t number_elements) {
       std::lock_guard<std::mutex> guard(mut);
-      if (!instance) {
+      if (instance == nullptr) {
         instance = new buffer_recycler();
         destroyer.set_singleton(instance);
       }
@@ -35,26 +38,27 @@ class buffer_recycler {
     }
     /// Increase the reference coutner of a buffer
     template <typename T, typename Host_Allocator>
-    static void increase_usage_counter(T *p, size_t number_elements) {
+    static void increase_usage_counter(T *p, size_t number_elements) noexcept {
       std::lock_guard<std::mutex> guard(mut);
       assert(instance != nullptr);
       return buffer_manager<T, Host_Allocator>::increase_usage_counter(p,number_elements);
     }
     /// Deallocated all buffers, no matter whether they are marked as used or not
-    static void clean_all(void) {
+    static void clean_all() {
       std::lock_guard<std::mutex> guard(mut);
-      if (instance) {
+      if (instance != nullptr) {
         delete instance;
         instance = nullptr;
         destroyer.set_singleton(nullptr);
       }
     }
     /// Deallocated all currently unused buffer
-    static void clean_unused_buffers(void) {
+    static void clean_unused_buffers() {
       std::lock_guard<std::mutex> guard(mut);
-      if (instance) {
-        for (auto clean_function : instance->partial_cleanup_callbacks)
+      if (instance != nullptr) {
+        for (const auto &clean_function : instance->partial_cleanup_callbacks) {
           clean_function();
+        }
       }
     }
 
@@ -62,7 +66,7 @@ class buffer_recycler {
   private: 
     /// Singleton instance pointer
     static buffer_recycler *instance;
-    /// Callbacks for buffer_manager cleanups - each callback complete destroys one buffer_manager
+    /// Callbacks for buffer_manager cleanups - each callback completely destroys one buffer_manager
     std::list<std::function<void()>> total_cleanup_callbacks;
     /// Callbacks for partial buffer_manager cleanups - each callback deallocates all unsued buffers of a manager
     std::list<std::function<void()>> partial_cleanup_callbacks;
@@ -70,19 +74,20 @@ class buffer_recycler {
     /// We want more fine-grained concurrent access eventually
     static std::mutex mut;
     /// default, private constructor - not automatically constructed due to the deleted constructors
-    buffer_recycler(void) = default;
+    buffer_recycler() = default;
     /// Clean all buffers by using the callbacks of the buffer managers
-    ~buffer_recycler(void) {
-      for (auto clean_function : total_cleanup_callbacks)
+    ~buffer_recycler() {
+      for (const auto &clean_function : total_cleanup_callbacks) {
         clean_function();
+      }
     }
     /// Add a callback function that gets executed upon cleanup and destruction
-    static void add_total_cleanup_callback(std::function<void()> func) {
+    static void add_total_cleanup_callback(const std::function<void()> &func) {
         // This methods assumes instance is initialized since it is a private method and all static public methods have guards
         instance->total_cleanup_callbacks.push_back(func);
     }
     /// Add a callback function that gets executed upon partial (unused memory) cleanup
-    static void add_partial_cleanup_callback(std::function<void()> func) {
+    static void add_partial_cleanup_callback(const std::function<void()> &func) {
         // This methods assumes instance is initialized since it is a private method and all static public methods have guards
         instance->partial_cleanup_callbacks.push_back(func);
     }
@@ -94,17 +99,19 @@ class buffer_recycler {
     class buffer_manager {
       public:
         /// Cleanup and delete this singleton
-        static void clean(void) {
-          if (!instance)
+        static void clean() {
+          if (!instance) {
             return;
+          }
           delete instance;
           instance = nullptr;
         }
         /// Cleanup all buffers not currently in use
-        static void clean_unused_buffers_only(void) {
-          if (!instance)
+        static void clean_unused_buffers_only() {
+          if (!instance) {
             return;
-          for (auto buffer_tuple : instance->unused_buffer_list) {
+          }
+          for (const auto &buffer_tuple : instance->unused_buffer_list) {
             delete [] std::get<0>(buffer_tuple);
           }
           instance->unused_buffer_list.clear();
@@ -127,12 +134,14 @@ class buffer_recycler {
 
               // handle the switch from aggressive to non aggressive reusage (or vice-versa)
               if (init_buffer && !std::get<3>(tuple)) {
-                for (size_t i{0}; i < number_of_elements; i++)
+                for (size_t i{0}; i < number_of_elements; i++) {
                   ::new (static_cast<void*>(std::get<0>(tuple))) T{};
+                }
                 std::get<3>(tuple) = true;
               } else if (!init_buffer && std::get<3>(tuple)) {
-                for (size_t i{0}; i < std::get<1>(tuple); i++)
+                for (size_t i{0}; i < std::get<1>(tuple); i++) {
                   std::get<0>(tuple)->~T();
+                }
                 std::get<3>(tuple) = false;
               }
               instance->buffer_map.insert({std::get<0>(tuple), tuple});
@@ -149,8 +158,9 @@ class buffer_recycler {
             instance->buffer_map.insert({buffer, std::make_tuple(buffer, number_of_elements, 1, init_buffer)});
             instance->number_creation++;
             if (init_buffer) {
-              for (size_t i{0}; i < number_of_elements; i++)
+              for (size_t i{0}; i < number_of_elements; i++) {
                 ::new (static_cast<void*>(buffer)) T{};
+              }
             }
             return buffer;
           }
@@ -167,8 +177,9 @@ class buffer_recycler {
             instance->number_creation++;
             instance->number_bad_alloc++;
             if (init_buffer) {
-              for (size_t i{0}; i < number_of_elements; i++)
+              for (size_t i{0}; i < number_of_elements; i++) {
                 ::new (static_cast<void*>(buffer)) T{};
+              }
             }
             return buffer;
           }
@@ -192,7 +203,7 @@ class buffer_recycler {
           }
         }
 
-        static void increase_usage_counter(T* memory_location, size_t number_of_elements) {
+        static void increase_usage_counter(T* memory_location, size_t number_of_elements)  noexcept {
           auto it = instance->buffer_map.find(memory_location);
           assert(it != instance->buffer_map.end());
           auto &tuple = it->second;
@@ -213,13 +224,14 @@ class buffer_recycler {
         /// Singleton instance
         static buffer_manager<T, Host_Allocator> *instance; 
         /// default, private constructor - not automatically constructed due to the deleted constructors
-        buffer_manager(void) = default;
-        ~buffer_manager(void) {
+        buffer_manager() = default;
+        ~buffer_manager() {
           for (auto &buffer_tuple : unused_buffer_list) {
             Host_Allocator alloc;
             if(std::get<3>(buffer_tuple)) {
-              for (size_t i{0}; i < std::get<1>(buffer_tuple); i++)
+              for (size_t i{0}; i < std::get<1>(buffer_tuple); i++) {
                 std::get<0>(buffer_tuple)->~T();
+              }
             }
             alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
           }
@@ -227,8 +239,9 @@ class buffer_recycler {
             auto buffer_tuple = map_tuple.second;
             Host_Allocator alloc;
             if(std::get<3>(buffer_tuple)) {
-              for (size_t i{0}; i < std::get<1>(buffer_tuple); i++)
+              for (size_t i{0}; i < std::get<1>(buffer_tuple); i++) {
                 std::get<0>(buffer_tuple)->~T();
+              }
             }
             alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
           }
@@ -265,12 +278,16 @@ class buffer_recycler {
      */
     class memory_manager_destroyer {
       public:
-        memory_manager_destroyer(buffer_recycler *instance = nullptr) {
+        explicit memory_manager_destroyer(buffer_recycler *instance = nullptr) {
           singleton = instance;
         }
+        memory_manager_destroyer(const memory_manager_destroyer &) = delete;
+        memory_manager_destroyer(memory_manager_destroyer &&) = delete;
+        memory_manager_destroyer& operator=(const memory_manager_destroyer &) = delete;
+        memory_manager_destroyer& operator=(memory_manager_destroyer &&) = delete;
+
         ~memory_manager_destroyer() {
-          if (singleton != nullptr)
-            delete singleton;
+          delete singleton;
           singleton = nullptr;
         }
         void set_singleton(buffer_recycler *s) {
@@ -301,9 +318,9 @@ buffer_recycler::buffer_manager<T, Host_Allocator>* buffer_recycler::buffer_mana
 template <typename T, typename Host_Allocator>
 struct recycle_allocator {
   using value_type = T;
-  recycle_allocator() noexcept {}
+  recycle_allocator() noexcept = default;
   template <typename U>
-  recycle_allocator(recycle_allocator<U, Host_Allocator> const&) noexcept {
+  explicit recycle_allocator(recycle_allocator<U, Host_Allocator> const&) noexcept {
   }
   T* allocate(std::size_t n) {
     T* data = buffer_recycler::get<T, Host_Allocator>(n);
@@ -336,9 +353,9 @@ constexpr bool operator!=(recycle_allocator<T, Host_Allocator> const&, recycle_a
 template <typename T, typename Host_Allocator>
 struct aggressive_recycle_allocator {
   using value_type = T;
-  aggressive_recycle_allocator() noexcept {}
+  aggressive_recycle_allocator() noexcept = default;
   template <typename U>
-  aggressive_recycle_allocator(aggressive_recycle_allocator<U, Host_Allocator> const&) noexcept {
+  explicit aggressive_recycle_allocator(aggressive_recycle_allocator<U, Host_Allocator> const&) noexcept {
   }
   T* allocate(std::size_t n) {
     T* data = buffer_recycler::get<T, Host_Allocator>(n, true); // also initializes the buffer if it isn't reused
@@ -375,3 +392,5 @@ template <typename T, std::enable_if_t< std::is_trivial<T>::value, int> = 0>
 using aggressive_recycle_std = detail::aggressive_recycle_allocator<T, std::allocator<T>>;
 
 } // end namespace recycler
+
+#endif
