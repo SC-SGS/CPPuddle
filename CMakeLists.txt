@@ -35,7 +35,7 @@ kokkos_check(OPTIONS HPX_ASYNC_DISPATCH)
 # Linter
 find_program(CLANG_TIDY "clang-tidy")
 if(CLANG_TIDY)
-  set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-header-filter=.;-checks=*,-fuchsia*,-misc-unused-parameters,-readability-named-parameter,-cert*,-android*,-modernize-pass-by-value")
+  set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-header-filter=.;-checks=*,-fuchsia*,-misc-unused-parameters,-readability-named-parameter,-cert*,-android*,-modernize-pass-by-value,-hicpp-use-equals-default,-modernize-use-equals-default")
 endif()
 
 # Format

@@ -67,12 +67,12 @@ template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 struct cuda_device_buffer {
   T *device_side_buffer;
   size_t number_of_elements;
-  cuda_device_buffer(size_t number_of_elements)
+  explicit cuda_device_buffer(size_t number_of_elements)
       : number_of_elements(number_of_elements) {
     device_side_buffer =
         recycle_allocator_cuda_device<T>{}.allocate(number_of_elements);
   }
-  ~cuda_device_buffer(void) {
+  ~cuda_device_buffer() {
     recycle_allocator_cuda_device<T>{}.deallocate(device_side_buffer,
                                                   number_of_elements);
   }

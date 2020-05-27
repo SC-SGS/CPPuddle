@@ -12,7 +12,7 @@ private:
 
 public:
   template <class... Args>
-  recycled_view(Args... args)
+  explicit recycled_view(Args... args)
       : kokkos_type(
             allocator.allocate(kokkos_type::required_allocation_size(args...) /
                                sizeof(element_type)),
