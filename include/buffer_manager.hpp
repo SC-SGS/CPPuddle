@@ -47,6 +47,11 @@ public:
   /// Deallocated all buffers, no matter whether they are marked as used or not
   static void clean_all() {
     std::lock_guard<std::mutex> guard(mut);
+    if (recycler_instance) {
+      for (const auto &clean_function : recycler_instance->total_cleanup_callbacks) {
+        clean_function();
+      }
+    }
     recycler_instance.reset();
   }
   /// Deallocated all currently unused buffer
@@ -92,12 +97,7 @@ private:
   }
 
 public:
-  /// Clean all buffers by using the callbacks of the buffer managers
-  ~buffer_recycler() { // public destructor for unique_ptr instance
-    for (const auto &clean_function : total_cleanup_callbacks) {
-      clean_function();
-    }
-  }
+  ~buffer_recycler() = default; // public destructor for unique_ptr instance
 
   // Subclasses
 private:
@@ -407,6 +407,12 @@ using recycle_std = detail::recycle_allocator<T, std::allocator<T>>;
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using aggressive_recycle_std =
     detail::aggressive_recycle_allocator<T, std::allocator<T>>;
+
+/// Deletes all buffers (even ones still marked as used), delete the buffer
+/// managers and the recycler itself
+inline void force_cleanup() { detail::buffer_recycler::clean_all(); }
+/// Deletes all buffers currently marked as unused
+inline void cleanup() { detail::buffer_recycler::clean_unused_buffers(); }
 
 } // end namespace recycler
 

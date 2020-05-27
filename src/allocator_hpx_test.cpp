@@ -107,6 +107,8 @@ int hpx_main(int argc, char *argv[]) {
                      .count()
               << "ms" << std::endl;
   }
+  recycler::force_cleanup(); // Cleanup all buffers and the managers for better
+                             // comparison
 
   // Same test using std::allocator:
   {

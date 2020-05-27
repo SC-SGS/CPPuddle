@@ -57,6 +57,8 @@ int main(int argc, char *argv[]) {
                      .count()
               << "ms" << std::endl;
   }
+  recycler::force_cleanup(); // Cleanup all buffers and the managers for better
+                             // comparison
 
   // Recycle Test:
   {
