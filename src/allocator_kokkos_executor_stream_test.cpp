@@ -19,26 +19,30 @@
 class [[nodiscard]] scoped_timer
 {
 public:
-  scoped_timer(std::string const &label)
-      : label(label), timer() {}
-  ~scoped_timer()
-  {
-    std::ostringstream s;
-    s << label << ": " << timer.elapsed() << " seconds" << std::endl;
-    std::cerr << s.str();
-  }
+    explicit scoped_timer(const std::string &label)
+        : label(label) {}
+    scoped_timer(scoped_timer &&) = default;
+    scoped_timer& operator=(scoped_timer &&) = default;
+    scoped_timer(const scoped_timer &) = default;
+    scoped_timer& operator=(const scoped_timer &) = default;
+    ~scoped_timer()
+    {
+        std::ostringstream s;
+        s << label << ": " << timer.elapsed() << " seconds" << std::endl;
+        std::cerr << s.str();
+    }
 
 private:
-  std::string label;
-  hpx::util::high_resolution_timer timer;
+    std::string label;
+    hpx::util::high_resolution_timer timer;
 };
 
 
 //using kokkos_array = Kokkos::View<float[1000], Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
 constexpr size_t view_size_0 = 10;
 constexpr size_t view_size_1 = 50;
-using type_in_view = float[view_size_1][view_size_0]; // todo deduce from kokkos_array
-constexpr size_t view_size = view_size_0*view_size_1; // todo deduce from kokkos_array
+using type_in_view = float[view_size_1][view_size_0]; 
+constexpr size_t view_size = view_size_0*view_size_1; 
 using kokkos_array = Kokkos::View<type_in_view, Kokkos::HostSpace>;
 // using kokkos_pinned_array = Kokkos::View<type_in_view, Kokkos::CudaHostPinnedSpace>;
 // using kokkos_cuda_array = Kokkos::View<type_in_view, Kokkos::CudaSpace>;
@@ -112,7 +116,7 @@ void stream_executor_test()
     auto stream_space = hpx::kokkos::make_execution_space<Kokkos::Cuda>();
     auto policy_stream = get_iteration_policy(stream_space, pinnedView);
 
-    // TODO: How to make a nice continuation from HPX future to CUDA stream
+    // TODO(pollinta): How to make a nice continuation from HPX future to CUDA stream
     // (i.e. without using wait)?
     copy_finished.wait();
 

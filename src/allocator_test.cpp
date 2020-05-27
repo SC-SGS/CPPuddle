@@ -29,8 +29,8 @@ int main(int argc, char* argv[]) {
       return EXIT_SUCCESS;
     } else  {
       std::cout << "Running with parameters:" << std::endl
-                << " - Array size: " << array_size << std::endl
-                << " - Passes: " << passes << std::endl;
+                << " --arraysize = " << array_size << std::endl
+                << " --passes = " << passes << std::endl;
     }
   }
   catch (const boost::program_options::error &ex) {

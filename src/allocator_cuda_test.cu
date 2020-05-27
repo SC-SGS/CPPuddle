@@ -1,3 +1,9 @@
+
+#include <chrono>
+#include <cstdio>
+#include <typeinfo>
+#include <random>
+
 #include <hpx/hpx_main.hpp> // we don't need an hpx_main that way?
 #include <hpx/include/async.hpp>
 #include <hpx/include/lcos.hpp>
@@ -5,10 +11,7 @@
 #include "../include/cuda_helper.hpp"
 #include "../include/buffer_manager.hpp"
 #include "../include/cuda_buffer_util.hpp"
-#include <cstdio>
-#include <typeinfo>
-#include <chrono>
-#include <random>
+
 
 
 constexpr size_t N = 20000000;
@@ -45,18 +48,18 @@ void saxpy(int n, float a, float *x, float *y)
 }
 
 __global__
-void mv(const size_t startindex,const  size_t chunksize,const  size_t N,
+void mv(const size_t startindex,const  size_t chunksize,const size_t N,
    double *y, double *erg) {
   // Matrix is row major
-  int i = blockIdx.x*blockDim.x + threadIdx.x;
-  if (i < chunksize) {
+  int item_index = blockIdx.x*blockDim.x + threadIdx.x;
+  if (item_index < chunksize) {
     double tmp = 0.0;
-    int start_row = (startindex + i) * N;
+    int start_row = (startindex + item_index) * N;
     for (size_t i = 0; i < N; i ++) {
       double a = (i + start_row) % 2;
       tmp += a * y[i];
     }
-    erg[i] = tmp;
+    erg[item_index] = tmp;
   }
 }
 

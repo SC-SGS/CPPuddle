@@ -18,8 +18,12 @@
 class [[nodiscard]] scoped_timer
 {
 public:
-    scoped_timer(std::string const &label)
-        : label(label), timer() {}
+    explicit scoped_timer(const std::string &label)
+        : label(std::move(label)) {}
+    scoped_timer(scoped_timer &&) = default;
+    scoped_timer& operator=(scoped_timer &&) = default;
+    scoped_timer(const scoped_timer &) = default;
+    scoped_timer& operator=(const scoped_timer &) = default;
     ~scoped_timer()
     {
         std::ostringstream s;
@@ -52,10 +56,10 @@ void stream_executor_test()
     recycled_host_vector<double> hostVector(view_size);
     recycled_pinned_vector<double> pinnedVector(view_size);
 
-    // TODO this here segfaults for me, why?
+    // TODO(pollinta) this here segfaults for me, why?
     recycled_device_vector<double> deviceVector(view_size);
 
-    //TODO reference in __host__ __device__ lambda problem
+    //TODO(pollinta) reference in __host__ __device__ lambda problem
     auto g1 = hpx::parallel::for_loop(
         hpx::parallel::execution::par(hpx::parallel::execution::task), 0, view_size,
         // [&hostVector] HPX_HOST_DEVICE (std::size_t i) { hostVector[i] = std::sin(double(i)); });
@@ -66,7 +70,7 @@ void stream_executor_test()
     //     hpx::parallel::execution::par(hpx::parallel::execution::task).on(hpx::compute::cuda::default_executor(t)), 0, n,
     //     [&deviceVector] HPX_HOST_DEVICE (std::size_t i) { deviceVector[i] = std::sin(double(i)); });
 
-    //TODO is there a way to use stream synchronization with HPX-only executors too?
+    //TODO(pollinta) is there a way to use stream synchronization with HPX-only executors too?
 
     g1.wait();
 }

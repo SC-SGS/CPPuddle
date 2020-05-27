@@ -1,3 +1,8 @@
+
+#include <chrono>
+#include <cstdio>
+#include <typeinfo>
+
 #include <hpx/hpx_init.hpp> 
 #include <hpx/include/async.hpp>
 #include <hpx/include/lcos.hpp>
@@ -5,9 +10,6 @@
 #include <boost/program_options.hpp>
 
 #include "../include/buffer_manager.hpp"
-#include <cstdio>
-#include <typeinfo>
-#include <chrono>
 
 
 constexpr size_t max_number_futures = 64;
@@ -34,15 +36,15 @@ int hpx_main(int argc, char* argv[])
     boost::program_options::store(options, vm);
     boost::program_options::notify(vm);
 
-    if (vm.count("help")) {
+    if (vm.count("help") == 0u) {
+      std::cout << "Running with parameters:" << std::endl
+                << " --arraysize = " << array_size << std::endl
+                << " --futures =  " << number_futures << std::endl
+                << " --passes = " << passes << std::endl
+                << " --hpx:threads = " << hpx::get_os_thread_count() << std::endl;
+    } else  {
       std::cout << desc << std::endl;
       return EXIT_SUCCESS;
-    } else  {
-      std::cout << "Running with parameters:" << std::endl
-                << " - Array size: " << array_size << std::endl
-                << " - Number futures: " << number_futures << std::endl
-                << " - Passes: " << passes << std::endl
-                << " - HPX worker threads: " << hpx::get_os_thread_count() << std::endl;
     }
   }
   catch (const boost::program_options::error &ex) {
@@ -57,8 +59,8 @@ int hpx_main(int argc, char* argv[])
   // Aggressive recycle Test:
   {
     auto begin = std::chrono::high_resolution_clock::now();
-    std::array<hpx::shared_future<void>, max_number_futures> futs;
-    for (size_t i = 0; i < number_futures; i++) {
+    std::vector<hpx::shared_future<void>> futs(max_number_futures);
+    for (size_t i = 0; i < max_number_futures; i++) {
       futs[i]= hpx::make_ready_future<void>();
     }
     for (size_t pass = 0; pass < passes; pass++) {
@@ -76,8 +78,8 @@ int hpx_main(int argc, char* argv[])
 
   {
     auto begin = std::chrono::high_resolution_clock::now();
-    std::array<hpx::shared_future<void>, max_number_futures> futs;
-    for (size_t i = 0; i < number_futures; i++) {
+    std::vector<hpx::shared_future<void>> futs(max_number_futures);
+    for (size_t i = 0; i < max_number_futures; i++) {
       futs[i]= hpx::make_ready_future<void>();
     }
     for (size_t pass = 0; pass < passes; pass++) {
@@ -96,8 +98,8 @@ int hpx_main(int argc, char* argv[])
   // Same test using std::allocator:
   {
     auto begin = std::chrono::high_resolution_clock::now();
-    std::array<hpx::shared_future<void>, max_number_futures> futs;
-    for (size_t i = 0; i < number_futures; i++) {
+    std::vector<hpx::shared_future<void>> futs(max_number_futures);
+    for (size_t i = 0; i < max_number_futures; i++) {
       futs[i]= hpx::make_ready_future<void>();
     }
     for (size_t pass = 0; pass < passes; pass++) {
