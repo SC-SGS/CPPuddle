@@ -38,7 +38,7 @@ add_library(buffer_manager INTERFACE)
 target_include_directories(buffer_manager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # Linter
-set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-checks=*,-fuchsia*,-android*")
+set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-header-filter=.;-checks=*,-fuchsia*,-misc-unused-parameters,-readability-named-parameter,-cert*,-android*,-modernize-pass-by-value")
 
 ## Tests
 add_executable(allocator_test src/allocator_test.cpp)
