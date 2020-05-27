@@ -32,13 +32,33 @@ endif()
 kokkos_check(DEVICES HPX)
 kokkos_check(OPTIONS HPX_ASYNC_DISPATCH)
 
+# Linter
+find_program(CLANG_TIDY "clang-tidy")
+if(CLANG_TIDY)
+  set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-header-filter=.;-checks=*,-fuchsia*,-misc-unused-parameters,-readability-named-parameter,-cert*,-android*,-modernize-pass-by-value")
+endif()
+
+# Format
+file(GLOB_RECURSE
+     ALL_CXX_SOURCE_FILES
+     src/*.cpp include/*.hpp 
+     )
+find_program(CLANG_FORMAT "clang-format")
+if(CLANG_FORMAT)
+  add_custom_target(
+    clang-format
+    COMMAND clang-format
+    -i
+    -style=llvm
+    ${ALL_CXX_SOURCE_FILES}
+    )
+endif()
+
 
 ## Interface targets
 add_library(buffer_manager INTERFACE)
 target_include_directories(buffer_manager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-# Linter
-set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-header-filter=.;-checks=*,-fuchsia*,-misc-unused-parameters,-readability-named-parameter,-cert*,-android*,-modernize-pass-by-value")
 
 ## Tests
 add_executable(allocator_test src/allocator_test.cpp)

@@ -9,7 +9,7 @@ class recycled_view : public kokkos_type
 {
 private:
     static alloc_type allocator;
-    size_t total_elements;
+    size_t total_elements{0};
 
 public:
     template <class... Args>
@@ -49,7 +49,7 @@ public:
         return *this;
     }
 
-    ~recycled_view(void)
+    ~recycled_view()
     {
         allocator.deallocate(this->data(), total_elements);
     }
