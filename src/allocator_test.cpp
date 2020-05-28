@@ -55,6 +55,10 @@ int main(int argc, char *argv[]) {
   assert(passes >= 1);     // NOLINT
   assert(array_size >= 1); // NOLINT
 
+  size_t aggressive_duration = 0;
+  size_t recycle_duration = 0;
+  size_t default_duration = 0;
+
   // Aggressive recycle Test:
   {
     auto begin = std::chrono::high_resolution_clock::now();
@@ -63,11 +67,11 @@ int main(int argc, char *argv[]) {
           array_size, double{});
     }
     auto end = std::chrono::high_resolution_clock::now();
+    aggressive_duration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
+            .count();
     std::cout << "\n==> Aggressive recycle allocation test took "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(end -
-                                                                       begin)
-                     .count()
-              << "ms" << std::endl;
+              << aggressive_duration << "ms" << std::endl;
   }
   recycler::force_cleanup(); // Cleanup all buffers and the managers for better
                              // comparison
@@ -80,10 +84,10 @@ int main(int argc, char *argv[]) {
                                                                double{});
     }
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "\n==> Recycle allocation test took "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(end -
-                                                                       begin)
-                     .count()
+    recycle_duration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
+            .count();
+    std::cout << "\n==> Recycle allocation test took " << recycle_duration
               << "ms" << std::endl;
   }
   recycler::force_cleanup(); // Cleanup all buffers and the managers for better
@@ -96,11 +100,21 @@ int main(int argc, char *argv[]) {
       std::vector<double> test2(array_size, double{});
     }
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "\n==> Non-recycle allocation test took "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(end -
-                                                                       begin)
-                     .count()
+    default_duration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
+            .count();
+    std::cout << "\n==> Non-recycle allocation test took " << default_duration
               << "ms" << std::endl;
+  }
+
+  if (aggressive_duration < recycle_duration) {
+    std::cout << "Test information: Aggressive recycler was faster than normal "
+                 "recycler!"
+              << std::endl;
+  }
+  if (recycle_duration < default_duration) {
+    std::cout << "Test information: Recycler was faster than default allocator!"
+              << std::endl;
   }
   return EXIT_SUCCESS;
 }

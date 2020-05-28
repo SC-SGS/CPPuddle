@@ -70,6 +70,10 @@ int hpx_main(int argc, char *argv[]) {
   assert(number_futures >= 1);                  // NOLINT
   assert(number_futures <= max_number_futures); // NOLINT
 
+  size_t aggressive_duration = 0;
+  size_t recycle_duration = 0;
+  size_t default_duration = 0;
+
   // ensure that at least 4 buffers have to created for unit testing
   {
     std::vector<double, recycler::aggressive_recycle_std<double>> buffer1(
@@ -100,11 +104,11 @@ int hpx_main(int argc, char *argv[]) {
     auto when = hpx::when_all(futs);
     when.wait();
     auto end = std::chrono::high_resolution_clock::now();
+    aggressive_duration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
+            .count();
     std::cout << "\n==> Aggressive recycle allocation test took "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(end -
-                                                                       begin)
-                     .count()
-              << "ms" << std::endl;
+              << aggressive_duration << "ms" << std::endl;
   }
 
   {
@@ -124,10 +128,10 @@ int hpx_main(int argc, char *argv[]) {
     auto when = hpx::when_all(futs);
     when.wait();
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "\n==> Recycle allocation test took "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(end -
-                                                                       begin)
-                     .count()
+    recycle_duration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
+            .count();
+    std::cout << "\n==> Recycle allocation test took " << recycle_duration
               << "ms" << std::endl;
   }
   recycler::force_cleanup(); // Cleanup all buffers and the managers for better
@@ -150,11 +154,21 @@ int hpx_main(int argc, char *argv[]) {
     auto when = hpx::when_all(futs);
     when.wait();
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "\n==> Non-recycle allocation test took "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(end -
-                                                                       begin)
-                     .count()
+    default_duration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
+            .count();
+    std::cout << "\n==> Non-recycle allocation test took " << default_duration
               << "ms" << std::endl;
+  }
+
+  if (aggressive_duration < recycle_duration) {
+    std::cout << "Test information: Aggressive recycler was faster than normal "
+                 "recycler!"
+              << std::endl;
+  }
+  if (recycle_duration < default_duration) {
+    std::cout << "Test information: Recycler was faster than default allocator!"
+              << std::endl;
   }
   return hpx::finalize();
 }

@@ -142,6 +142,18 @@ set_tests_properties(allocator_test.analyse_bad_allocs PROPERTIES
   FIXTURES_REQUIRED allocator_test_output
   PASS_REGULAR_EXPRESSION "--> Number of bad_allocs that triggered garbage collection: [ ]* 0"
 )
+if (NOT CMAKE_BUILD_TYPE MATCHES "Debug") # Performance tests only make sense with optimizations on
+  add_test(allocator_test.performance.analyse_recycle_performance cat allocator_test.out)
+  set_tests_properties(allocator_test.performance.analyse_recycle_performance PROPERTIES
+    FIXTURES_REQUIRED allocator_test_output
+    PASS_REGULAR_EXPRESSION "Test information: Recycler was faster than default allocator!"
+  )
+  add_test(allocator_test.performance.analyse_aggressive_performance cat allocator_test.out)
+  set_tests_properties(allocator_test.performance.analyse_aggressive_performance PROPERTIES
+    FIXTURES_REQUIRED allocator_test_output
+    PASS_REGULAR_EXPRESSION "Test information: Recycler was faster than default allocator!"
+  )
+endif()
 add_test(allocator_test.fixture_cleanup ${CMAKE_COMMAND} -E remove allocator_test.out)
 set_tests_properties(allocator_test.fixture_cleanup PROPERTIES
   FIXTURES_CLEANUP allocator_test_output
@@ -185,6 +197,18 @@ set_tests_properties(allocator_concurrency_test.analyse_bad_allocs PROPERTIES
   FIXTURES_REQUIRED allocator_concurrency_output
   PASS_REGULAR_EXPRESSION "--> Number of bad_allocs that triggered garbage collection: [ ]* 0"
 )
+if (NOT CMAKE_BUILD_TYPE MATCHES "Debug") # Performance tests only make sense with optimizations on
+  add_test(allocator_concurrency_test.performance.analyse_recycle_performance cat allocator_concurrency_test.out)
+  set_tests_properties(allocator_concurrency_test.performance.analyse_recycle_performance PROPERTIES
+    FIXTURES_REQUIRED allocator_concurrency_output
+    PASS_REGULAR_EXPRESSION "Test information: Recycler was faster than default allocator!"
+  )
+  add_test(allocator_concurrency_test.performance.analyse_aggressive_performance cat allocator_concurrency_test.out)
+  set_tests_properties(allocator_concurrency_test.performance.analyse_aggressive_performance PROPERTIES
+    FIXTURES_REQUIRED allocator_concurrency_output
+    PASS_REGULAR_EXPRESSION "Test information: Recycler was faster than default allocator!"
+  )
+endif()
 add_test(allocator_concurrency_test.fixture_cleanup ${CMAKE_COMMAND} -E remove allocator_concurrency_test.out)
 set_tests_properties(allocator_concurrency_test.fixture_cleanup PROPERTIES
   FIXTURES_CLEANUP allocator_concurrency_output
