@@ -31,16 +31,16 @@ public:
   template <typename T, typename Host_Allocator>
   static void mark_unused(T *p, size_t number_elements) {
     std::lock_guard<std::mutex> guard(mut);
-    if (!recycler_instance) {
-      recycler_instance.reset(new buffer_recycler());
-    }
+    assert(recycler_instance); // instance should be already initialized by the
+                               // first call to get
     return buffer_manager<T, Host_Allocator>::mark_unused(p, number_elements);
   }
   /// Increase the reference coutner of a buffer
   template <typename T, typename Host_Allocator>
   static void increase_usage_counter(T *p, size_t number_elements) noexcept {
     std::lock_guard<std::mutex> guard(mut);
-    assert(recycler_instance);
+    assert(recycler_instance); // instance should be already initialized by the
+                               // first call to get
     return buffer_manager<T, Host_Allocator>::increase_usage_counter(
         p, number_elements);
   }
@@ -48,7 +48,8 @@ public:
   static void clean_all() {
     std::lock_guard<std::mutex> guard(mut);
     if (recycler_instance) {
-      for (const auto &clean_function : recycler_instance->total_cleanup_callbacks) {
+      for (const auto &clean_function :
+           recycler_instance->total_cleanup_callbacks) {
         clean_function();
       }
     }
@@ -114,8 +115,14 @@ private:
       if (!manager_instance) {
         return;
       }
-      for (const auto &buffer_tuple : manager_instance->unused_buffer_list) {
-        delete[] std::get<0>(buffer_tuple);
+      for (auto &buffer_tuple : manager_instance->unused_buffer_list) {
+        Host_Allocator alloc;
+        if (std::get<3>(buffer_tuple)) {
+          for (size_t i{0}; i < std::get<1>(buffer_tuple); i++) {
+            std::get<0>(buffer_tuple)->~T();
+          }
+        }
+        alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
       }
       manager_instance->unused_buffer_list.clear();
     }
