@@ -4,13 +4,17 @@
 #include <cassert>
 #include <chrono>
 #include <cstdio>
+#include <fstream>
+#include <iostream>
+#include <string>
 #include <typeinfo>
 
-size_t array_size = 500000;
-size_t passes = 10000;
-
-// #pragma nv_exec_check_disable
 int main(int argc, char *argv[]) {
+
+  size_t array_size = 500000;
+  size_t passes = 10000;
+  std::string filename{};
+
   try {
     boost::program_options::options_description desc{"Options"};
     desc.add_options()("help", "Help screen")(
@@ -20,7 +24,11 @@ int main(int argc, char *argv[]) {
         "Size of the buffers")(
         "passes",
         boost::program_options::value<size_t>(&passes)->default_value(200),
-        "Sets the number of repetitions");
+        "Sets the number of repetitions")(
+        "outputfile",
+        boost::program_options::value<std::string>(&filename)->default_value(
+            ""),
+        "Redirect stdout/stderr to this file");
 
     boost::program_options::variables_map vm;
     boost::program_options::parsed_options options =
@@ -39,9 +47,13 @@ int main(int argc, char *argv[]) {
   } catch (const boost::program_options::error &ex) {
     std::cerr << "CLI argument problem found: " << ex.what() << '\n';
   }
+  if (!filename.empty()) {
+    freopen(filename.c_str(), "w", stdout); // NOLINT
+    freopen(filename.c_str(), "w", stderr); // NOLINT
+  }
 
-  assert(passes >= 1);
-  assert(array_size >= 1);
+  assert(passes >= 1);     // NOLINT
+  assert(array_size >= 1); // NOLINT
 
   // Aggressive recycle Test:
   {
@@ -74,6 +86,8 @@ int main(int argc, char *argv[]) {
                      .count()
               << "ms" << std::endl;
   }
+  recycler::force_cleanup(); // Cleanup all buffers and the managers for better
+                             // comparison
 
   // Same test using std::allocator:
   {

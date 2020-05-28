@@ -22,6 +22,7 @@ public:
   static T *get(size_t number_elements, bool init_buffer = false) {
     std::lock_guard<std::mutex> guard(mut);
     if (!recycler_instance) {
+      // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
       recycler_instance.reset(new buffer_recycler());
       // destroyer.set_singleton(instance);
     }
@@ -165,7 +166,6 @@ private:
 
       // No unsued buffer found -> Create new one and return it
       try {
-        // T *buffer = new T[number_of_elements];
         Host_Allocator alloc;
         T *buffer = alloc.allocate(number_of_elements);
         manager_instance->buffer_map.insert(
@@ -184,7 +184,6 @@ private:
 
         // If there still isn't enough memory left, the caller has to handle it
         // We've done all we can in here
-        // T *buffer = new T[number_of_elements];
         Host_Allocator alloc;
         T *buffer = alloc.allocate(number_of_elements);
         manager_instance->buffer_map.insert(
@@ -324,8 +323,9 @@ public:
 };
 
 // Instance defintions
+// NOLINTNEXTLINE(misc-definitions-in-headers)
 std::unique_ptr<buffer_recycler> buffer_recycler::recycler_instance{};
-std::mutex buffer_recycler::mut{};
+std::mutex buffer_recycler::mut{}; // NOLINT(misc-definitions-in-headers)
 
 template <typename T, typename Host_Allocator>
 std::unique_ptr<buffer_recycler::buffer_manager<T, Host_Allocator>>

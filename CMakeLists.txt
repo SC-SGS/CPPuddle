@@ -41,7 +41,7 @@ endif()
 # Format
 file(GLOB_RECURSE
      ALL_CXX_SOURCE_FILES
-     src/*.cpp include/*.hpp 
+     src/*.cpp include/*.hpp src/*.cu
      )
 find_program(CLANG_FORMAT "clang-format")
 if(CLANG_FORMAT)
@@ -111,3 +111,90 @@ install(
   DIRECTORY include/
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
+
+enable_testing()
+add_test(allocator_test.run allocator_test --arraysize 5000000 --passes 200 --outputfile allocator_test.out)
+set_tests_properties(allocator_test.run PROPERTIES
+  FIXTURES_SETUP allocator_test_output
+)
+add_test(allocator_test.analyse_recycle_rate cat allocator_test.out)
+set_tests_properties(allocator_test.analyse_recycle_rate PROPERTIES
+  FIXTURES_REQUIRED allocator_test_output
+  PASS_REGULAR_EXPRESSION "==> Recycle rate: [ ]* 99.5%"
+)
+add_test(allocator_test.analyse_marked_buffers_cleanup cat allocator_test.out)
+set_tests_properties(allocator_test.analyse_marked_buffers_cleanup PROPERTIES
+  FIXTURES_REQUIRED allocator_test_output
+  PASS_REGULAR_EXPRESSION "--> Number of buffers that were marked as used upon cleanup:[ ]* 0"
+)
+add_test(allocator_test.analyse_cleaned_buffers cat allocator_test.out)
+set_tests_properties(allocator_test.analyse_cleaned_buffers PROPERTIES
+  FIXTURES_REQUIRED allocator_test_output
+  PASS_REGULAR_EXPRESSION "--> Number cleaned up buffers:[ ]* 1"
+)
+add_test(allocator_test.analyse_created_buffers cat allocator_test.out)
+set_tests_properties(allocator_test.analyse_created_buffers PROPERTIES
+  FIXTURES_REQUIRED allocator_test_output
+  PASS_REGULAR_EXPRESSION "--> Number of times a new buffer had to be created for a request:[ ]* 1"
+)
+add_test(allocator_test.analyse_bad_allocs cat allocator_test.out)
+set_tests_properties(allocator_test.analyse_bad_allocs PROPERTIES
+  FIXTURES_REQUIRED allocator_test_output
+  PASS_REGULAR_EXPRESSION "--> Number of bad_allocs that triggered garbage collection: [ ]* 0"
+)
+add_test(allocator_test.fixture_cleanup ${CMAKE_COMMAND} -E remove allocator_test.out)
+set_tests_properties(allocator_test.fixture_cleanup PROPERTIES
+  FIXTURES_CLEANUP allocator_test_output
+)
+find_program(VALGRIND_COMMAND valgrind)
+if (VALGRIND_COMMAND)
+  add_test(allocator_memcheck.valgrind
+   ${VALGRIND_COMMAND} --trace-children=yes --leak-check=full ./allocator_test --arraysize 5000000 --passes 200)
+  set_tests_properties(allocator_memcheck.valgrind PROPERTIES
+    PASS_REGULAR_EXPRESSION "ERROR SUMMARY: 0 errors from 0 contexts"
+  )
+endif()
+
+add_test(allocator_concurrency_test.run allocator_hpx_test -t4 --passes 20 --outputfile allocator_concurrency_test.out)
+set_tests_properties(allocator_concurrency_test.run PROPERTIES
+  FIXTURES_SETUP allocator_concurrency_output
+  PROCESSORS 4
+)
+add_test(allocator_concurrency_test.analyse_recycle_rate cat allocator_concurrency_test.out)
+set_tests_properties(allocator_concurrency_test.analyse_recycle_rate PROPERTIES
+  FIXTURES_REQUIRED allocator_concurrency_output
+  PASS_REGULAR_EXPRESSION "==> Recycle rate: [ ]* 99.844%"
+)
+add_test(allocator_concurrency_test.analyse_marked_buffers_cleanup cat allocator_concurrency_test.out)
+set_tests_properties(allocator_concurrency_test.analyse_marked_buffers_cleanup PROPERTIES
+  FIXTURES_REQUIRED allocator_concurrency_output
+  PASS_REGULAR_EXPRESSION "--> Number of buffers that were marked as used upon cleanup:[ ]* 0"
+)
+add_test(allocator_concurrency_test.analyse_cleaned_buffers cat allocator_concurrency_test.out)
+set_tests_properties(allocator_concurrency_test.analyse_cleaned_buffers PROPERTIES
+  FIXTURES_REQUIRED allocator_concurrency_output
+  PASS_REGULAR_EXPRESSION "--> Number cleaned up buffers:[ ]* 4"
+)
+add_test(allocator_concurrency_test.analyse_created_buffers cat allocator_concurrency_test.out)
+set_tests_properties(allocator_concurrency_test.analyse_created_buffers PROPERTIES
+  FIXTURES_REQUIRED allocator_concurrency_output
+  PASS_REGULAR_EXPRESSION "--> Number of times a new buffer had to be created for a request:[ ]* 4"
+)
+add_test(allocator_concurrency_test.analyse_bad_allocs cat allocator_concurrency_test.out)
+set_tests_properties(allocator_concurrency_test.analyse_bad_allocs PROPERTIES
+  FIXTURES_REQUIRED allocator_concurrency_output
+  PASS_REGULAR_EXPRESSION "--> Number of bad_allocs that triggered garbage collection: [ ]* 0"
+)
+add_test(allocator_concurrency_test.fixture_cleanup ${CMAKE_COMMAND} -E remove allocator_concurrency_test.out)
+set_tests_properties(allocator_concurrency_test.fixture_cleanup PROPERTIES
+  FIXTURES_CLEANUP allocator_concurrency_output
+)
+
+if (INTEROPT_WITH_CUDA)
+  add_test(allocator_cuda_test.run allocator_cuda_test)
+  add_test(allocator_kokkos_minimal.run minimal_parallel_for)
+  #add_test(allocator_executor_stream_test.run allocator_executor_stream_test)
+  add_test(allocator_kokkos_executor_stream_test.run allocator_kokkos_executor_stream_test)
+endif()
+
+#set_tests_properties(run_allocator_test PROPERTIES WILL_FAIL TRUE)

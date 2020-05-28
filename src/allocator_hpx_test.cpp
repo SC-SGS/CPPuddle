@@ -1,6 +1,8 @@
 
 #include <chrono>
 #include <cstdio>
+#include <iostream>
+#include <string>
 #include <typeinfo>
 
 #include <hpx/hpx_init.hpp>
@@ -11,13 +13,14 @@
 
 #include "../include/buffer_manager.hpp"
 
-constexpr size_t max_number_futures = 64;
-size_t number_futures = 64;
-size_t array_size = 500000;
-size_t passes = 200;
-
-// #pragma nv_exec_check_disable
 int hpx_main(int argc, char *argv[]) {
+
+  constexpr size_t max_number_futures = 64;
+  size_t number_futures = 64;
+  size_t array_size = 500000;
+  size_t passes = 200;
+  std::string filename{};
+
   try {
     boost::program_options::options_description desc{"Options"};
     desc.add_options()("help", "Help screen")(
@@ -31,7 +34,11 @@ int hpx_main(int argc, char *argv[]) {
         "Sets the number of futures to be (potentially) executed in parallel")(
         "passes",
         boost::program_options::value<size_t>(&passes)->default_value(200),
-        "Sets the number of repetitions");
+        "Sets the number of repetitions")(
+        "outputfile",
+        boost::program_options::value<std::string>(&filename)->default_value(
+            ""),
+        "Redirect stdout/stderr to this file");
 
     boost::program_options::variables_map vm;
     boost::program_options::parsed_options options =
@@ -48,16 +55,32 @@ int hpx_main(int argc, char *argv[]) {
                 << std::endl;
     } else {
       std::cout << desc << std::endl;
-      return EXIT_SUCCESS;
+      return hpx::finalize();
     }
   } catch (const boost::program_options::error &ex) {
     std::cerr << "CLI argument problem found: " << ex.what() << '\n';
   }
+  if (!filename.empty()) {
+    freopen(filename.c_str(), "w", stdout); // NOLINT
+    freopen(filename.c_str(), "w", stderr); // NOLINT
+  }
 
-  assert(passes >= 1);
-  assert(array_size >= 1);
-  assert(number_futures >= 1);
-  assert(number_futures <= max_number_futures);
+  assert(passes >= 1);                          // NOLINT
+  assert(array_size >= 1);                      // NOLINT
+  assert(number_futures >= 1);                  // NOLINT
+  assert(number_futures <= max_number_futures); // NOLINT
+
+  // ensure that at least 4 buffers have to created for unit testing
+  {
+    std::vector<double, recycler::aggressive_recycle_std<double>> buffer1(
+        array_size, double{});
+    std::vector<double, recycler::aggressive_recycle_std<double>> buffer2(
+        array_size, double{});
+    std::vector<double, recycler::aggressive_recycle_std<double>> buffer3(
+        array_size, double{});
+    std::vector<double, recycler::aggressive_recycle_std<double>> buffer4(
+        array_size, double{});
+  }
 
   // Aggressive recycle Test:
   {
