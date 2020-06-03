@@ -37,14 +37,15 @@ public:
   /// Returns and allocated buffer of the requested size - this may be a reused
   /// buffer
   template <typename T, typename Host_Allocator>
-  static T *get(size_t number_elements, bool init_buffer = false) {
+  static T *get(size_t number_elements, bool manage_content_lifetime = false) {
     std::lock_guard<std::mutex> guard(mut);
     if (!recycler_instance) {
       // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
       recycler_instance.reset(new buffer_recycler());
       // destroyer.set_singleton(instance);
     }
-    return buffer_manager<T, Host_Allocator>::get(number_elements, init_buffer);
+    return buffer_manager<T, Host_Allocator>::get(number_elements,
+                                                  manage_content_lifetime);
   }
   /// Marks an buffer as unused and fit for reusage
   template <typename T, typename Host_Allocator>
@@ -139,7 +140,7 @@ private:
       }
       for (auto &buffer_tuple : manager_instance->unused_buffer_list) {
         Host_Allocator alloc;
-        if (!std::get<3>(buffer_tuple)) {
+        if (std::get<3>(buffer_tuple)) {
           util::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
         }
         alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
@@ -148,7 +149,7 @@ private:
     }
 
     /// Tries to recycle or create a buffer of type T and size number_elements.
-    static T *get(size_t number_of_elements, bool init_buffer) {
+    static T *get(size_t number_of_elements, bool manage_content_lifetime) {
       if (!manager_instance) {
         manager_instance.reset(new buffer_manager());
         buffer_recycler::add_total_cleanup_callback(clean);
@@ -166,11 +167,11 @@ private:
 
           // handle the switch from aggressive to non aggressive reusage (or
           // vice-versa)
-          if (init_buffer && !std::get<3>(tuple)) {
+          if (manage_content_lifetime && !std::get<3>(tuple)) {
             util::noexcept_uninitialized_value_construct_n(std::get<0>(tuple),
                                                            number_of_elements);
             std::get<3>(tuple) = true;
-          } else if (!init_buffer && std::get<3>(tuple)) {
+          } else if (!manage_content_lifetime && std::get<3>(tuple)) {
             util::destroy_n(std::get<0>(tuple), std::get<1>(tuple));
             std::get<3>(tuple) = false;
           }
@@ -185,12 +186,13 @@ private:
         Host_Allocator alloc;
         T *buffer = alloc.allocate(number_of_elements);
         manager_instance->buffer_map.insert(
-            {buffer,
-             std::make_tuple(buffer, number_of_elements, 1, init_buffer)});
+            {buffer, std::make_tuple(buffer, number_of_elements, 1,
+                                     manage_content_lifetime)});
         manager_instance->number_creation++;
-        // TODO(daissgr) Wait should this be initialized for !init_buffer
-        util::noexcept_uninitialized_value_construct_n(buffer,
-                                                       number_of_elements);
+        if (manage_content_lifetime) {
+          util::noexcept_uninitialized_value_construct_n(buffer,
+                                                         number_of_elements);
+        }
         return buffer;
       } catch (std::bad_alloc &e) {
         // not enough memory left! Cleanup and attempt again:
@@ -201,13 +203,14 @@ private:
         Host_Allocator alloc;
         T *buffer = alloc.allocate(number_of_elements);
         manager_instance->buffer_map.insert(
-            {buffer,
-             std::make_tuple(buffer, number_of_elements, 1, init_buffer)});
+            {buffer, std::make_tuple(buffer, number_of_elements, 1,
+                                     manage_content_lifetime)});
         manager_instance->number_creation++;
         manager_instance->number_bad_alloc++;
-        // TODO(daissgr) Wait should this be initialized for !init_buffer
-        util::noexcept_uninitialized_value_construct_n(buffer,
-                                                       number_of_elements);
+        if (manage_content_lifetime) {
+          util::noexcept_uninitialized_value_construct_n(buffer,
+                                                         number_of_elements);
+        }
         return buffer;
       }
     }
@@ -226,9 +229,6 @@ private:
       assert(std::get<2>(tuple) >= 1);
       std::get<2>(tuple)--;          // decrease usage counter
       if (std::get<2>(tuple) == 0) { // not used anymore?
-        if (!std::get<3>(tuple)) {
-          util::destroy_n(std::get<0>(tuple), std::get<1>(tuple));
-        }
         // move to the unused_buffer list
         manager_instance->unused_buffer_list.push_front(tuple);
         manager_instance->buffer_map.erase(memory_location);
@@ -264,7 +264,7 @@ private:
     ~buffer_manager() {
       for (auto &buffer_tuple : unused_buffer_list) {
         Host_Allocator alloc;
-        if (!std::get<3>(buffer_tuple)) {
+        if (std::get<3>(buffer_tuple)) {
           util::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
         }
         alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
@@ -272,7 +272,7 @@ private:
       for (auto &map_tuple : buffer_map) {
         auto buffer_tuple = map_tuple.second;
         Host_Allocator alloc;
-        if (!std::get<3>(buffer_tuple)) {
+        if (std::get<3>(buffer_tuple)) {
           util::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
         }
         alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
