@@ -64,7 +64,11 @@ target_include_directories(buffer_manager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/
 ## Tests
 add_executable(allocator_test src/allocator_test.cpp)
 target_link_libraries(allocator_test
-  PRIVATE HPX::hpx buffer_manager)
+  HPX::hpx buffer_manager)
+
+add_executable(allocator_aligned_test src/allocator_aligned_test.cpp)
+target_link_libraries(allocator_aligned_test
+  HPX::hpx buffer_manager)
 
 add_executable(allocator_hpx_test src/allocator_hpx_test.cpp)
 target_link_libraries(allocator_hpx_test
@@ -221,4 +225,57 @@ if (INTEROPT_WITH_CUDA)
   add_test(allocator_kokkos_executor_stream_test.run allocator_kokkos_executor_stream_test)
 endif()
 
+add_test(allocator_aligned_test.run allocator_aligned_test --arraysize 5000000 --passes 200 --outputfile allocator_aligned_test.out)
+set_tests_properties(allocator_aligned_test.run PROPERTIES
+  FIXTURES_SETUP allocator_aligned_test_output
+)
+add_test(allocator_aligned_test.analyse_recycle_rate cat allocator_aligned_test.out)
+set_tests_properties(allocator_aligned_test.analyse_recycle_rate PROPERTIES
+  FIXTURES_REQUIRED allocator_aligned_test_output
+  PASS_REGULAR_EXPRESSION "==> Recycle rate: [ ]* 99.5%"
+)
+add_test(allocator_aligned_test.analyse_marked_buffers_cleanup cat allocator_aligned_test.out)
+set_tests_properties(allocator_aligned_test.analyse_marked_buffers_cleanup PROPERTIES
+  FIXTURES_REQUIRED allocator_aligned_test_output
+  PASS_REGULAR_EXPRESSION "--> Number of buffers that were marked as used upon cleanup:[ ]* 0"
+)
+add_test(allocator_aligned_test.analyse_cleaned_buffers cat allocator_aligned_test.out)
+set_tests_properties(allocator_aligned_test.analyse_cleaned_buffers PROPERTIES
+  FIXTURES_REQUIRED allocator_aligned_test_output
+  PASS_REGULAR_EXPRESSION "--> Number cleaned up buffers:[ ]* 1"
+)
+add_test(allocator_aligned_test.analyse_created_buffers cat allocator_aligned_test.out)
+set_tests_properties(allocator_aligned_test.analyse_created_buffers PROPERTIES
+  FIXTURES_REQUIRED allocator_aligned_test_output
+  PASS_REGULAR_EXPRESSION "--> Number of times a new buffer had to be created for a request:[ ]* 1"
+)
+add_test(allocator_aligned_test.analyse_bad_allocs cat allocator_aligned_test.out)
+set_tests_properties(allocator_aligned_test.analyse_bad_allocs PROPERTIES
+  FIXTURES_REQUIRED allocator_aligned_test_output
+  PASS_REGULAR_EXPRESSION "--> Number of bad_allocs that triggered garbage collection: [ ]* 0"
+)
+if (NOT CMAKE_BUILD_TYPE MATCHES "Debug") # Performance tests only make sense with optimizations on
+  add_test(allocator_aligned_test.performance.analyse_recycle_performance cat allocator_aligned_test.out)
+  set_tests_properties(allocator_aligned_test.performance.analyse_recycle_performance PROPERTIES
+    FIXTURES_REQUIRED allocator_aligned_test_output
+    PASS_REGULAR_EXPRESSION "Test information: Recycler was faster than default allocator!"
+  )
+  add_test(allocator_aligned_test.performance.analyse_aggressive_performance cat allocator_aligned_test.out)
+  set_tests_properties(allocator_aligned_test.performance.analyse_aggressive_performance PROPERTIES
+    FIXTURES_REQUIRED allocator_aligned_test_output
+    PASS_REGULAR_EXPRESSION "Test information: Recycler was faster than default allocator!"
+  )
+endif()
+add_test(allocator_aligned_test.fixture_cleanup ${CMAKE_COMMAND} -E remove allocator_aligned_test.out)
+set_tests_properties(allocator_aligned_test.fixture_cleanup PROPERTIES
+  FIXTURES_CLEANUP allocator_aligned_test_output
+)
+find_program(VALGRIND_COMMAND valgrind)
+if (VALGRIND_COMMAND)
+  add_test(allocator_memcheck.valgrind
+   ${VALGRIND_COMMAND} --trace-children=yes --leak-check=full ./allocator_aligned_test --arraysize 5000000 --passes 200)
+  set_tests_properties(allocator_memcheck.valgrind PROPERTIES
+    PASS_REGULAR_EXPRESSION "ERROR SUMMARY: 0 errors from 0 contexts"
+  )
+endif()
 #set_tests_properties(run_allocator_test PROPERTIES WILL_FAIL TRUE)
