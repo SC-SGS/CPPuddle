@@ -12,21 +12,25 @@
 
 namespace recycler {
 namespace detail {
+
 namespace util {
 
-template <typename T>
-void noexcept_uninitialized_value_construct_n(
-    T *first, size_t number_of_elements) noexcept {
-  T *current = first;
-  for (size_t i = 0; i < number_of_elements; i++, ++current) {
-    ::new (static_cast<void *>(current)) T();
+/// Helper methods for C++14 - this is obsolete for c++17 and only meant as a temporary crutch
+template <typename ForwardIt, typename Size>
+void uninitialized_value_construct_n(ForwardIt first, Size n) {
+  using Value = typename std::iterator_traits<ForwardIt>::value_type;
+  ForwardIt current = first;
+  for (; n > 0; (void)++current, --n) {
+    ::new (static_cast<void *>(std::addressof(*current))) Value();
   }
 }
-template <typename T>
-void destroy_n(T *first, size_t number_of_elements) noexcept {
-  T *current = first;
-  for (size_t i = 0; i < number_of_elements; i++, ++current) {
-    current->~T();
+/// Helper methods for C++14 - this is obsolete for c++17 and only meant as a temporary crutch
+template <typename ForwardIt, typename Size>
+void destroy_n(ForwardIt first, Size n) {
+  using Value = typename std::iterator_traits<ForwardIt>::value_type;
+  ForwardIt current = first;
+  for (; n > 0; (void)++current, --n) {
+    current->~Value();
   }
 }
 } // namespace util
@@ -168,8 +172,8 @@ private:
           // handle the switch from aggressive to non aggressive reusage (or
           // vice-versa)
           if (manage_content_lifetime && !std::get<3>(tuple)) {
-            util::noexcept_uninitialized_value_construct_n(std::get<0>(tuple),
-                                                           number_of_elements);
+            util::uninitialized_value_construct_n(std::get<0>(tuple),
+                                                  number_of_elements);
             std::get<3>(tuple) = true;
           } else if (!manage_content_lifetime && std::get<3>(tuple)) {
             util::destroy_n(std::get<0>(tuple), std::get<1>(tuple));
@@ -190,8 +194,7 @@ private:
                                      manage_content_lifetime)});
         manager_instance->number_creation++;
         if (manage_content_lifetime) {
-          util::noexcept_uninitialized_value_construct_n(buffer,
-                                                         number_of_elements);
+          util::uninitialized_value_construct_n(buffer, number_of_elements);
         }
         return buffer;
       } catch (std::bad_alloc &e) {
@@ -208,8 +211,7 @@ private:
         manager_instance->number_creation++;
         manager_instance->number_bad_alloc++;
         if (manage_content_lifetime) {
-          util::noexcept_uninitialized_value_construct_n(buffer,
-                                                         number_of_elements);
+          util::uninitialized_value_construct_n(buffer, number_of_elements);
         }
         return buffer;
       }
@@ -418,7 +420,7 @@ operator!=(aggressive_recycle_allocator<T, Host_Allocator> const &,
   return false;
 }
 
-} // end namespace detail
+} // namespace detail
 
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_std = detail::recycle_allocator<T, std::allocator<T>>;
