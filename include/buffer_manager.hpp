@@ -12,6 +12,24 @@
 
 namespace recycler {
 namespace detail {
+namespace util {
+
+template <typename T>
+void noexcept_uninitialized_value_construct_n(
+    T *first, size_t number_of_elements) noexcept {
+  T *current = first;
+  for (size_t i = 0; i < number_of_elements; i++, ++current) {
+    ::new (static_cast<void *>(current)) T();
+  }
+}
+template <typename T>
+void destroy_n(T *first, size_t number_of_elements) noexcept {
+  T *current = first;
+  for (size_t i = 0; i < number_of_elements; i++, ++current) {
+    current->~T();
+  }
+}
+} // namespace util
 
 class buffer_recycler {
   // Public interface
@@ -106,6 +124,9 @@ private:
   /// Memory Manager subclass to handle buffers a specific type
   template <typename T, typename Host_Allocator> class buffer_manager {
   private:
+    // Tuple content: Pointer to buffer, buffer_size, reference_counter, Flag
+    // The flag at the end controls whether to buffer content is to be reused as
+    // well
     using buffer_entry_type = std::tuple<T *, size_t, size_t, bool>;
 
   public:
@@ -118,10 +139,8 @@ private:
       }
       for (auto &buffer_tuple : manager_instance->unused_buffer_list) {
         Host_Allocator alloc;
-        if (std::get<3>(buffer_tuple)) {
-          for (size_t i{0}; i < std::get<1>(buffer_tuple); i++) {
-            std::get<0>(buffer_tuple)->~T();
-          }
+        if (!std::get<3>(buffer_tuple)) {
+          util::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
         }
         alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
       }
@@ -148,14 +167,11 @@ private:
           // handle the switch from aggressive to non aggressive reusage (or
           // vice-versa)
           if (init_buffer && !std::get<3>(tuple)) {
-            for (size_t i{0}; i < number_of_elements; i++) {
-              ::new (static_cast<void *>(std::get<0>(tuple))) T{};
-            }
+            util::noexcept_uninitialized_value_construct_n(std::get<0>(tuple),
+                                                           number_of_elements);
             std::get<3>(tuple) = true;
           } else if (!init_buffer && std::get<3>(tuple)) {
-            for (size_t i{0}; i < std::get<1>(tuple); i++) {
-              std::get<0>(tuple)->~T();
-            }
+            util::destroy_n(std::get<0>(tuple), std::get<1>(tuple));
             std::get<3>(tuple) = false;
           }
           manager_instance->buffer_map.insert({std::get<0>(tuple), tuple});
@@ -172,11 +188,9 @@ private:
             {buffer,
              std::make_tuple(buffer, number_of_elements, 1, init_buffer)});
         manager_instance->number_creation++;
-        if (init_buffer) {
-          for (size_t i{0}; i < number_of_elements; i++) {
-            ::new (static_cast<void *>(buffer)) T{};
-          }
-        }
+        // TODO(daissgr) Wait should this be initialized for !init_buffer
+        util::noexcept_uninitialized_value_construct_n(buffer,
+                                                       number_of_elements);
         return buffer;
       } catch (std::bad_alloc &e) {
         // not enough memory left! Cleanup and attempt again:
@@ -191,11 +205,9 @@ private:
              std::make_tuple(buffer, number_of_elements, 1, init_buffer)});
         manager_instance->number_creation++;
         manager_instance->number_bad_alloc++;
-        if (init_buffer) {
-          for (size_t i{0}; i < number_of_elements; i++) {
-            ::new (static_cast<void *>(buffer)) T{};
-          }
-        }
+        // TODO(daissgr) Wait should this be initialized for !init_buffer
+        util::noexcept_uninitialized_value_construct_n(buffer,
+                                                       number_of_elements);
         return buffer;
       }
     }
@@ -214,6 +226,9 @@ private:
       assert(std::get<2>(tuple) >= 1);
       std::get<2>(tuple)--;          // decrease usage counter
       if (std::get<2>(tuple) == 0) { // not used anymore?
+        if (!std::get<3>(tuple)) {
+          util::destroy_n(std::get<0>(tuple), std::get<1>(tuple));
+        }
         // move to the unused_buffer list
         manager_instance->unused_buffer_list.push_front(tuple);
         manager_instance->buffer_map.erase(memory_location);
@@ -249,20 +264,16 @@ private:
     ~buffer_manager() {
       for (auto &buffer_tuple : unused_buffer_list) {
         Host_Allocator alloc;
-        if (std::get<3>(buffer_tuple)) {
-          for (size_t i{0}; i < std::get<1>(buffer_tuple); i++) {
-            std::get<0>(buffer_tuple)->~T();
-          }
+        if (!std::get<3>(buffer_tuple)) {
+          util::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
         }
         alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
       }
       for (auto &map_tuple : buffer_map) {
         auto buffer_tuple = map_tuple.second;
         Host_Allocator alloc;
-        if (std::get<3>(buffer_tuple)) {
-          for (size_t i{0}; i < std::get<1>(buffer_tuple); i++) {
-            std::get<0>(buffer_tuple)->~T();
-          }
+        if (!std::get<3>(buffer_tuple)) {
+          util::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
         }
         alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
       }
