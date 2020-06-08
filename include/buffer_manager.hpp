@@ -15,7 +15,8 @@ namespace detail {
 
 namespace util {
 
-/// Helper methods for C++14 - this is obsolete for c++17 and only meant as a temporary crutch
+/// Helper methods for C++14 - this is obsolete for c++17 and only meant as a
+/// temporary crutch
 template <typename ForwardIt, typename Size>
 void uninitialized_value_construct_n(ForwardIt first, Size n) {
   using Value = typename std::iterator_traits<ForwardIt>::value_type;
@@ -24,7 +25,8 @@ void uninitialized_value_construct_n(ForwardIt first, Size n) {
     ::new (static_cast<void *>(std::addressof(*current))) Value();
   }
 }
-/// Helper methods for C++14 - this is obsolete for c++17 and only meant as a temporary crutch
+/// Helper methods for C++14 - this is obsolete for c++17 and only meant as a
+/// temporary crutch
 template <typename ForwardIt, typename Size>
 void destroy_n(ForwardIt first, Size n) {
   using Value = typename std::iterator_traits<ForwardIt>::value_type;
@@ -46,7 +48,6 @@ public:
     if (!recycler_instance) {
       // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
       recycler_instance.reset(new buffer_recycler());
-      // destroyer.set_singleton(instance);
     }
     return buffer_manager<T, Host_Allocator>::get(number_elements,
                                                   manage_content_lifetime);

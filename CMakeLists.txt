@@ -85,7 +85,7 @@ if (INTEROPT_WITH_CUDA)
 
   add_executable(allocator_cuda_test src/allocator_cuda_test.cu)
   target_link_libraries(allocator_cuda_test
-    PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
+    PRIVATE Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
   target_compile_definitions(allocator_cuda_test PRIVATE INTEROPT_HAVE_CUDA)
 
   add_executable(

@@ -1,7 +1,6 @@
 #ifndef CUDA_BUFFER_UTIL_HPP
 #define CUDA_BUFFER_UTIL_HPP
 
-#if INTEROPT_HAVE_CUDA
 #include "buffer_manager.hpp"
 
 namespace recycler {
@@ -84,5 +83,4 @@ struct cuda_device_buffer {
 };
 
 } // end namespace recycler
-#endif
 #endif
