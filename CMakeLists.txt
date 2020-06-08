@@ -57,8 +57,9 @@ endif()
 
 
 ## Interface targets
-add_library(buffer_manager INTERFACE)
+add_library(buffer_manager SHARED src/buffer_manager_definitions.cpp)
 target_include_directories(buffer_manager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
 
 
 ## Tests
@@ -111,9 +112,12 @@ if (INTEROPT_WITH_CUDA)
 endif()
 
 # install the headers only
+install(TARGETS buffer_manager
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+# install the headers only
 install(
-  DIRECTORY include/
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
 enable_testing()

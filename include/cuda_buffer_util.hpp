@@ -3,6 +3,8 @@
 
 #include "buffer_manager.hpp"
 
+#include <cuda_runtime.h>
+
 namespace recycler {
 
 namespace detail {

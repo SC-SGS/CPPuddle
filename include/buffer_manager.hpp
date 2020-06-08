@@ -336,11 +336,6 @@ public:
   buffer_recycler operator=(buffer_recycler &&other) = delete;
 };
 
-// Instance defintions
-// NOLINTNEXTLINE(misc-definitions-in-headers)
-std::unique_ptr<buffer_recycler> buffer_recycler::recycler_instance{};
-std::mutex buffer_recycler::mut{}; // NOLINT(misc-definitions-in-headers)
-
 template <typename T, typename Host_Allocator>
 std::unique_ptr<buffer_recycler::buffer_manager<T, Host_Allocator>>
     buffer_recycler::buffer_manager<T, Host_Allocator>::manager_instance{};
