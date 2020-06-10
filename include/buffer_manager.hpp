@@ -283,7 +283,8 @@ private:
       // Print performance counters
       size_t number_cleaned = unused_buffer_list.size() + buffer_map.size();
       std::cout << "\nBuffer mananger destructor for buffers of type "
-                << typeid(T).name() << ":" << std::endl
+                << typeid(Host_Allocator).name() << "->" << typeid(T).name()
+                << ":" << std::endl
                 << "----------------------------------------------------"
                 << std::endl
                 << "--> Number of bad_allocs that triggered garbage "

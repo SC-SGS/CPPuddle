@@ -12,7 +12,7 @@
 #include "../include/cuda_buffer_util.hpp"
 #include "../include/cuda_helper.hpp"
 
-constexpr size_t N = 2000000;
+constexpr size_t N = 200000;
 // constexpr size_t chunksize = 20000 ;
 constexpr size_t chunksize = 20000;
 constexpr size_t passes = 10;
