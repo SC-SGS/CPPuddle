@@ -17,7 +17,7 @@
 template <class Interface> class round_robin_pool {
 private:
   using interface_entry = std::tuple<Interface, size_t>;
-  std::vector<interface_entry> pool;
+  std::vector<interface_entry> pool{};
   size_t current_interface{0};
 
 public:
@@ -26,13 +26,49 @@ public:
                                         std::make_tuple(Interface(gpu_id), 0));
   }
   // return a tuple with the interface and its index (to release it later)
-  interface_entry get_interface(void) {
+  interface_entry get_interface() {
     size_t last_interface = current_interface;
     current_interface = (current_interface + 1) % pool.size();
     std::get<1>(pool[last_interface])++;
     return std::make_tuple(std::get<0>(pool[last_interface]), last_interface);
   }
   void release_interface(size_t index) { std::get<1>(pool[index])--; }
+  bool interface_available() { return true; }
+};
+
+template <class Interface> class priority_pool {
+private:
+  using interface_entry = std::tuple<Interface, size_t, size_t>;
+  std::vector<interface_entry> pool{};
+  std::vector<std::reference_wrapper<size_t>> ref_counters{};
+  size_t current_interface{0};
+
+public:
+  priority_pool(size_t gpu_id, size_t number_of_streams) {
+    for (auto i = 0; i < number_of_streams; i++) {
+      pool.push_back(std::make_tuple(Interface(gpu_id), 0, i));
+      ref_counters.push_back(std::get<2>(pool[i]));
+    }
+  }
+  // return a tuple with the interface and its index (to release it later)
+  interface_entry get_interface() {
+    auto interface = pool[0];
+    std::get<1>(interface)++;
+    std::make_heap(std::begin(pool), std::end(pool),
+                   [](const interface_entry &first,
+                      const interface_entry &second) -> bool {
+                     return std::get<1>(first) > std::get<1>(second);
+                   });
+    return std::make_tuple(std::get<0>(interface), std::get<2>(interface));
+  }
+  void release_interface(size_t index) {
+    ref_counters[index]--;
+    std::make_heap(std::begin(pool), std::end(pool),
+                   [](const interface_entry &first,
+                      const interface_entry &second) -> bool {
+                     return std::get<1>(first) > std::get<1>(second);
+                   });
+  }
   bool interface_available() { return true; }
 };
 
@@ -65,7 +101,7 @@ public:
     stream_pool_implementation<Interface, Pool>::release_interface(index);
   }
   template <class Interface, class Pool>
-  static void interface_available(void) noexcept {
+  static void interface_available() noexcept {
     std::lock_guard<std::mutex> guard(mut);
     assert(access_instance); // should already be initialized
     stream_pool_implementation<Interface, Pool>::interface_available();

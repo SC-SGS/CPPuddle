@@ -4,6 +4,7 @@
 #include <hpx/hpx_main.hpp> // we don't need an hpx_main that way?
 
 int main(int argc, char *argv[]) {
+  stream_pool::init<cuda_helper, priority_pool<cuda_helper>>(0, 32);
   stream_pool::init<cuda_helper, round_robin_pool<cuda_helper>>(0, 32);
 
   hpx_stream_interface test(0);
