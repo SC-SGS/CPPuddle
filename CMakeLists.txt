@@ -109,6 +109,19 @@ if (INTEROPT_WITH_CUDA)
   target_link_libraries(minimal_parallel_for
     PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
   target_compile_definitions(minimal_parallel_for PRIVATE INTEROPT_HAVE_CUDA)
+
+  add_library(stream_manager SHARED src/stream_manager_definitions.cpp)
+  target_link_libraries(stream_manager
+    PRIVATE HPX::hpx)
+  target_include_directories(stream_manager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+  add_executable(
+    stream_test
+    src/stream_test.cpp
+    include/stream_manager.hpp)
+  target_link_libraries(stream_test
+    PRIVATE HPX::hpx buffer_manager stream_manager)
+  target_compile_definitions(stream_test PRIVATE INTEROPT_HAVE_CUDA)
 endif()
 
 # install the headers only

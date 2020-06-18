@@ -99,7 +99,7 @@ private:
   /// one buffer_manager
   std::list<std::function<void()>> total_cleanup_callbacks;
   /// Callbacks for partial buffer_manager cleanups - each callback deallocates
-  /// all unsued buffers of a manager
+  /// all unused buffers of a manager
   std::list<std::function<void()>> partial_cleanup_callbacks;
   /// One Mutex to control concurrent access - Since we do not actually ever
   /// return the singleton instance anywhere, this should hopefully suffice We
@@ -127,6 +127,18 @@ public:
 
   // Subclasses
 private:
+
+  // TODO(daissgr) Can I make this class even more generic (use-case: streams)
+  // Essentially for CUDA streams I would need the ability to a) use
+  // the same object multiple times at the same time (assuming that type is
+  // thread-safe) b) have some kind of strategy for samping the next stream
+  // TODO(daissgr) Possible changes to support streams:
+  // unused_buffer -> available ressource
+  // used_buffer -> locked ressource
+  // free method: -> pick available ressource
+  // available ressource: Open datastructure (priority queue for persistently available?)
+  // Sizes should be in
+
   /// Memory Manager subclass to handle buffers a specific type
   template <typename T, typename Host_Allocator> class buffer_manager {
   private:

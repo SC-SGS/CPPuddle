@@ -22,8 +22,7 @@ struct cuda_helper {
 public:
   using future_type = hpx::future<void>;
 
-  // construct a cuBLAS stream
-  cuda_helper(std::size_t device = 0) : target_(device) {
+  explicit cuda_helper(std::size_t device = 0) : target_(device) {
     stream_ = target_.native_handle().get_stream();
   }
 
