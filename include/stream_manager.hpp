@@ -33,7 +33,13 @@ public:
     return std::make_tuple(std::get<0>(pool[last_interface]), last_interface);
   }
   void release_interface(size_t index) { std::get<1>(pool[index])--; }
-  bool interface_available() { return true; }
+  bool interface_available(size_t load_limit) {
+    return std::max(pool,
+                    [](const interface_entry &first,
+                       const interface_entry &second) -> bool {
+                      return std::get<1>(first) < std::get<1>(second);
+                    }) <= load_limit;
+  }
 };
 
 template <class Interface> class priority_pool {
@@ -69,7 +75,9 @@ public:
                      return std::get<1>(first) > std::get<1>(second);
                    });
   }
-  bool interface_available() { return true; }
+  bool interface_available(size_t load_limit) {
+    return std::get<1>(pool[0]) <= load_limit;
+  }
 };
 
 // balancing_round_robin_pool
@@ -101,10 +109,11 @@ public:
     stream_pool_implementation<Interface, Pool>::release_interface(index);
   }
   template <class Interface, class Pool>
-  static void interface_available() noexcept {
+  static bool interface_available(size_t load_limit) noexcept {
     std::lock_guard<std::mutex> guard(mut);
     assert(access_instance); // should already be initialized
-    stream_pool_implementation<Interface, Pool>::interface_available();
+    return stream_pool_implementation<Interface, Pool>::interface_available(
+        load_limit);
   }
 
 private:
@@ -131,9 +140,9 @@ private:
       assert(pool_instance); // should already be initialized
       pool_instance->streampool->release_interface(index);
     }
-    static void interface_available(size_t index) noexcept {
+    static bool interface_available(size_t load_limit) noexcept {
       assert(pool_instance); // should already be initialized
-      pool_instance->streampool->release_interface(index);
+      return pool_instance->streampool->interface_available(load_limit);
     }
 
   private:
