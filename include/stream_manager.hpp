@@ -206,11 +206,6 @@ public:
     interface.memset_async(std::forward<Args>(args)...);
   }
 
-  // get the future to synchronize this cuBLAS stream with
-  // future_type get_future() {
-  //   return target_.get_future();
-  // }
-
 private:
   cuda_helper interface{};
   size_t interface_index{0};

@@ -128,17 +128,6 @@ public:
   // Subclasses
 private:
 
-  // TODO(daissgr) Can I make this class even more generic (use-case: streams)
-  // Essentially for CUDA streams I would need the ability to a) use
-  // the same object multiple times at the same time (assuming that type is
-  // thread-safe) b) have some kind of strategy for samping the next stream
-  // TODO(daissgr) Possible changes to support streams:
-  // unused_buffer -> available ressource
-  // used_buffer -> locked ressource
-  // free method: -> pick available ressource
-  // available ressource: Open datastructure (priority queue for persistently available?)
-  // Sizes should be in
-
   /// Memory Manager subclass to handle buffers a specific type
   template <typename T, typename Host_Allocator> class buffer_manager {
   private:
