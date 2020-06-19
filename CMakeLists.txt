@@ -134,6 +134,8 @@ install(
 )
 
 enable_testing()
+
+# Basic functionality tests
 add_test(allocator_test.run allocator_test --arraysize 5000000 --passes 200 --outputfile allocator_test.out)
 set_tests_properties(allocator_test.run PROPERTIES
   FIXTURES_SETUP allocator_test_output
@@ -188,6 +190,7 @@ if (VALGRIND_COMMAND)
   )
 endif()
 
+# Concurrency tests
 add_test(allocator_concurrency_test.run allocator_hpx_test -t4 --passes 20 --outputfile allocator_concurrency_test.out)
 set_tests_properties(allocator_concurrency_test.run PROPERTIES
   FIXTURES_SETUP allocator_concurrency_output
@@ -235,13 +238,8 @@ set_tests_properties(allocator_concurrency_test.fixture_cleanup PROPERTIES
   FIXTURES_CLEANUP allocator_concurrency_output
 )
 
-if (INTEROPT_WITH_CUDA)
-  add_test(allocator_cuda_test.run allocator_cuda_test)
-  add_test(allocator_kokkos_minimal.run minimal_parallel_for)
-  #add_test(allocator_executor_stream_test.run allocator_executor_stream_test)
-  add_test(allocator_kokkos_executor_stream_test.run allocator_kokkos_executor_stream_test)
-endif()
 
+# Aligned alloc tests
 add_test(allocator_aligned_test.run allocator_aligned_test --arraysize 5000000 --passes 200 --outputfile allocator_aligned_test.out)
 set_tests_properties(allocator_aligned_test.run PROPERTIES
   FIXTURES_SETUP allocator_aligned_test_output
@@ -295,4 +293,12 @@ if (VALGRIND_COMMAND)
     PASS_REGULAR_EXPRESSION "ERROR SUMMARY: 0 errors from 0 contexts"
   )
 endif()
-#set_tests_properties(run_allocator_test PROPERTIES WILL_FAIL TRUE)
+
+# GPU related tests
+if (INTEROPT_WITH_CUDA)
+  add_test(allocator_cuda_test.run allocator_cuda_test)
+  add_test(allocator_kokkos_minimal.run minimal_parallel_for)
+  #add_test(allocator_executor_stream_test.run allocator_executor_stream_test)
+  add_test(allocator_kokkos_executor_stream_test.run allocator_kokkos_executor_stream_test)
+  add_test(stream_test.run stream_test)
+endif()
