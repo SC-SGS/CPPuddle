@@ -40,7 +40,7 @@ public:
                [](const interface_entry &first,
                   const interface_entry &second) -> bool {
                  return std::get<1>(first) < std::get<1>(second);
-               }))) <= load_limit;
+               }))) < load_limit;
   }
   size_t get_current_load() {
     return std::get<1>(*(std::min_element(
@@ -87,7 +87,7 @@ public:
                    });
   }
   bool interface_available(size_t load_limit) {
-    return ref_counters[std::get<1>(pool[0])] <= load_limit;
+    return ref_counters[std::get<1>(pool[0])] < load_limit;
   }
   size_t get_current_load() { return ref_counters[std::get<1>(pool[0])]; }
 };

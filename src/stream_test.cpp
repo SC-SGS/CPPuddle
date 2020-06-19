@@ -92,6 +92,18 @@ int main(int argc, char *argv[]) {
     load = stream_pool::get_current_load<cuda_helper,
                                          priority_pool<cuda_helper>>();
     assert(load == 2);
+
+    // Check availability method:
+    bool avail =
+        stream_pool::interface_available<cuda_helper,
+                                         priority_pool<cuda_helper>>(1);
+    assert(avail == false); // NOLINT
+    avail = stream_pool::interface_available<cuda_helper,
+                                             priority_pool<cuda_helper>>(2);
+    assert(avail == false); // NOLINT
+    avail = stream_pool::interface_available<cuda_helper,
+                                             priority_pool<cuda_helper>>(3);
+    assert(avail == true); // NOLINT
   }
   load0 =
       stream_pool::get_current_load<cuda_helper, priority_pool<cuda_helper>>();
@@ -184,6 +196,18 @@ int main(int argc, char *argv[]) {
     load = stream_pool::get_current_load<cuda_helper,
                                          round_robin_pool<cuda_helper>>();
     assert(load == 2);
+
+    // Check availability method:
+    bool avail =
+        stream_pool::interface_available<cuda_helper,
+                                         round_robin_pool<cuda_helper>>(1);
+    assert(avail == false); // NOLINT
+    avail = stream_pool::interface_available<cuda_helper,
+                                             round_robin_pool<cuda_helper>>(2);
+    assert(avail == false); // NOLINT
+    avail = stream_pool::interface_available<cuda_helper,
+                                             round_robin_pool<cuda_helper>>(3);
+    assert(avail == true); // NOLINT
   }
   load0 = stream_pool::get_current_load<cuda_helper,
                                         round_robin_pool<cuda_helper>>();
