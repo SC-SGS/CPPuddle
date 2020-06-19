@@ -105,8 +105,63 @@ int main(int argc, char *argv[]) {
   {
     auto test1 = stream_pool::get_interface<cuda_helper,
                                             round_robin_pool<cuda_helper>>();
+    auto load1 = stream_pool::get_current_load<cuda_helper,
+                                               round_robin_pool<cuda_helper>>();
+    assert(load1 == 0);
     cuda_helper test1_interface = std::get<0>(test1);
+    size_t test1_index = std::get<1>(test1);
+
+    auto test2 = stream_pool::get_interface<cuda_helper,
+                                            round_robin_pool<cuda_helper>>();
+    auto load2 = stream_pool::get_current_load<cuda_helper,
+                                               round_robin_pool<cuda_helper>>();
+    assert(load2 == 1);
+    cuda_helper test2_interface = std::get<0>(test1);
+    size_t test2_index = std::get<1>(test2);
+
+    auto test3 = stream_pool::get_interface<cuda_helper,
+                                            round_robin_pool<cuda_helper>>();
+    auto load3 = stream_pool::get_current_load<cuda_helper,
+                                               round_robin_pool<cuda_helper>>();
+    assert(load3 == 1);
+    cuda_helper test3_interface = std::get<0>(test1);
+    size_t test3_index = std::get<1>(test3);
+
+    auto test4 = stream_pool::get_interface<cuda_helper,
+                                            round_robin_pool<cuda_helper>>();
+    auto load4 = stream_pool::get_current_load<cuda_helper,
+                                               round_robin_pool<cuda_helper>>();
+    assert(load4 == 2);
+    cuda_helper test4_interface = std::get<0>(test1);
+    size_t test4_index = std::get<1>(test4);
+
+    stream_pool::release_interface<cuda_helper, round_robin_pool<cuda_helper>>(
+        test4_index);
+    load4 = stream_pool::get_current_load<cuda_helper,
+                                          round_robin_pool<cuda_helper>>();
+    assert(load4 == 1);
+
+    stream_pool::release_interface<cuda_helper, round_robin_pool<cuda_helper>>(
+        test3_index);
+    load3 = stream_pool::get_current_load<cuda_helper,
+                                          round_robin_pool<cuda_helper>>();
+    assert(load3 == 1);
+
+    stream_pool::release_interface<cuda_helper, round_robin_pool<cuda_helper>>(
+        test2_index);
+    load2 = stream_pool::get_current_load<cuda_helper,
+                                          round_robin_pool<cuda_helper>>();
+    assert(load2 == 0);
+
+    stream_pool::release_interface<cuda_helper, round_robin_pool<cuda_helper>>(
+        test1_index);
+    load1 = stream_pool::get_current_load<cuda_helper,
+                                          round_robin_pool<cuda_helper>>();
+    assert(load1 == 0);
   }
+  load0 = stream_pool::get_current_load<cuda_helper,
+                                        round_robin_pool<cuda_helper>>();
+  assert(load0 == 0);
   std::cout << "Manual round-robin pool test successfull!" << std::endl;
   std::cout << std::endl;
 }
