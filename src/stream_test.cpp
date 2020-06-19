@@ -164,4 +164,30 @@ int main(int argc, char *argv[]) {
   assert(load0 == 0);
   std::cout << "Manual round-robin pool test successfull!" << std::endl;
   std::cout << std::endl;
+
+  std::cout << "Starting round-robin pool wrapper objects test ..."
+            << std::endl;
+  {
+    hpx_stream_interface_rr test1(0);
+    auto load = stream_pool::get_current_load<cuda_helper,
+                                              round_robin_pool<cuda_helper>>();
+    assert(load == 0);
+    hpx_stream_interface_rr test2(0);
+    load = stream_pool::get_current_load<cuda_helper,
+                                         round_robin_pool<cuda_helper>>();
+    assert(load == 1);
+    hpx_stream_interface_rr test3(0);
+    load = stream_pool::get_current_load<cuda_helper,
+                                         round_robin_pool<cuda_helper>>();
+    assert(load == 1);
+    hpx_stream_interface_rr test4(0);
+    load = stream_pool::get_current_load<cuda_helper,
+                                         round_robin_pool<cuda_helper>>();
+    assert(load == 2);
+  }
+  load0 = stream_pool::get_current_load<cuda_helper,
+                                        round_robin_pool<cuda_helper>>();
+  assert(load0 == 0);
+  std::cout << "Wrapper object round-robin pool test successfull!" << std::endl;
+  std::cout << std::endl;
 }
