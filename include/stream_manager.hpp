@@ -35,18 +35,18 @@ public:
   }
   void release_interface(size_t index) { std::get<1>(pool[index])--; }
   bool interface_available(size_t load_limit) {
-    return std::get<1>(std::min_element(
+    return std::get<1>(*(std::min_element(
                std::begin(pool), std::end(pool),
                [](const interface_entry &first,
                   const interface_entry &second) -> bool {
                  return std::get<1>(first) < std::get<1>(second);
-               })) <= load_limit;
+               }))) <= load_limit;
   }
   size_t get_current_load() {
-    return std::get<1>(std::min_element(
+    return std::get<1>(*(std::min_element(
         std::begin(pool), std::end(pool),
         [](const interface_entry &first, const interface_entry &second)
-            -> bool { return std::get<1>(first) < std::get<1>(second); }));
+            -> bool { return std::get<1>(first) < std::get<1>(second); })));
   }
 };
 
@@ -57,13 +57,6 @@ private:
   std::vector<interface_entry> pool{};
   std::vector<size_t> ref_counters{}; // Ref counters
   size_t current_interface{0};
-
-  void print() {
-    std::cout << "Print ref counters: ";
-    for (const auto i : ref_counters)
-      std::cout << i << " ";
-    std::cout << std::endl;
-  }
 
 public:
   priority_pool(size_t gpu_id, size_t number_of_streams) {
