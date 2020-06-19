@@ -35,18 +35,18 @@ public:
   }
   void release_interface(size_t index) { std::get<1>(pool[index])--; }
   bool interface_available(size_t load_limit) {
-    return std::min(pool,
-                    [](const interface_entry &first,
-                       const interface_entry &second) -> bool {
-                      return std::get<1>(first) < std::get<1>(second);
-                    }) <= load_limit;
+    return std::get<1>(std::min_element(
+               std::begin(pool), std::end(pool),
+               [](const interface_entry &first,
+                  const interface_entry &second) -> bool {
+                 return std::get<1>(first) < std::get<1>(second);
+               })) <= load_limit;
   }
   size_t get_current_load() {
-    return std::min(pool,
-                    [](const interface_entry &first,
-                       const interface_entry &second) -> bool {
-                      return std::get<1>(first) < std::get<1>(second);
-                    });
+    return std::get<1>(std::min_element(
+        std::begin(pool), std::end(pool),
+        [](const interface_entry &first, const interface_entry &second)
+            -> bool { return std::get<1>(first) < std::get<1>(second); }));
   }
 };
 
