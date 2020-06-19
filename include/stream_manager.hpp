@@ -16,7 +16,8 @@
 
 template <class Interface> class round_robin_pool {
 private:
-  using interface_entry = std::tuple<Interface, size_t>;
+  using interface_entry =
+      std::tuple<Interface, size_t>; // interface, ref counter
   std::vector<interface_entry> pool{};
   size_t current_interface{0};
 
@@ -34,55 +35,69 @@ public:
   }
   void release_interface(size_t index) { std::get<1>(pool[index])--; }
   bool interface_available(size_t load_limit) {
-    return std::max(pool,
+    return std::min(pool,
                     [](const interface_entry &first,
                        const interface_entry &second) -> bool {
                       return std::get<1>(first) < std::get<1>(second);
                     }) <= load_limit;
   }
+  size_t get_current_load() {
+    return std::min(pool,
+                    [](const interface_entry &first,
+                       const interface_entry &second) -> bool {
+                      return std::get<1>(first) < std::get<1>(second);
+                    });
+  }
 };
 
 template <class Interface> class priority_pool {
 private:
-  using interface_entry = std::tuple<Interface, size_t, size_t>;
+  using interface_entry =
+      std::tuple<Interface, size_t>; // Interface, ID of ref counter field
   std::vector<interface_entry> pool{};
-  std::vector<std::reference_wrapper<size_t>> ref_counters{};
+  std::vector<size_t> ref_counters{}; // Ref counters
   size_t current_interface{0};
+
+  void print() {
+    std::cout << "Print ref counters: ";
+    for (const auto i : ref_counters)
+      std::cout << i << " ";
+    std::cout << std::endl;
+  }
 
 public:
   priority_pool(size_t gpu_id, size_t number_of_streams) {
     for (auto i = 0; i < number_of_streams; i++) {
-      pool.push_back(std::make_tuple(Interface(gpu_id), 0, i));
-      ref_counters.push_back(std::get<2>(pool[i]));
+      pool.push_back(std::make_tuple(Interface(gpu_id), i));
+      ref_counters.push_back(0);
     }
   }
   // return a tuple with the interface and its index (to release it later)
-  interface_entry get_interface() {
-    auto interface = pool[0];
-    std::get<1>(interface)++;
+  std::tuple<Interface, size_t> get_interface() {
+    auto &interface = pool[0];
+    ref_counters[std::get<1>(interface)]++;
     std::make_heap(std::begin(pool), std::end(pool),
-                   [](const interface_entry &first,
-                      const interface_entry &second) -> bool {
-                     return std::get<1>(first) > std::get<1>(second);
+                   [this](const interface_entry &first,
+                          const interface_entry &second) -> bool {
+                     return ref_counters[std::get<1>(first)] >
+                            ref_counters[std::get<1>(second)];
                    });
-    return std::make_tuple(std::get<0>(interface), std::get<2>(interface));
+    return interface;
   }
   void release_interface(size_t index) {
     ref_counters[index]--;
     std::make_heap(std::begin(pool), std::end(pool),
-                   [](const interface_entry &first,
-                      const interface_entry &second) -> bool {
-                     return std::get<1>(first) > std::get<1>(second);
+                   [this](const interface_entry &first,
+                          const interface_entry &second) -> bool {
+                     return ref_counters[std::get<1>(first)] >
+                            ref_counters[std::get<1>(second)];
                    });
   }
   bool interface_available(size_t load_limit) {
-    return std::get<1>(pool[0]) <= load_limit;
+    return ref_counters[std::get<1>(pool[0])] <= load_limit;
   }
+  size_t get_current_load() { return ref_counters[std::get<1>(pool[0])]; }
 };
-
-// balancing_round_robin_pool
-// priority_pool
-// balancing_priority_pool
 
 /// Access/Concurrency Control for stream pool implementation
 class stream_pool {
@@ -115,6 +130,12 @@ public:
     return stream_pool_implementation<Interface, Pool>::interface_available(
         load_limit);
   }
+  template <class Interface, class Pool>
+  static size_t get_current_load() noexcept {
+    std::lock_guard<std::mutex> guard(mut);
+    assert(access_instance); // should already be initialized
+    return stream_pool_implementation<Interface, Pool>::get_current_load();
+  }
 
 private:
   static std::unique_ptr<stream_pool> access_instance;
@@ -143,6 +164,10 @@ private:
     static bool interface_available(size_t load_limit) noexcept {
       assert(pool_instance); // should already be initialized
       return pool_instance->streampool->interface_available(load_limit);
+    }
+    static size_t get_current_load() noexcept {
+      assert(pool_instance); // should already be initialized
+      return pool_instance->streampool->get_current_load();
     }
 
   private:
@@ -211,6 +236,8 @@ private:
   size_t interface_index{0};
 };
 
-using hpx_stream_interface =
+using hpx_stream_interface_pq =
+    stream_interface<cuda_helper, priority_pool<cuda_helper>>;
+using hpx_stream_interface_rr =
     stream_interface<cuda_helper, round_robin_pool<cuda_helper>>;
 #endif
