@@ -1,9 +1,4 @@
-//  Copyright (c) 2019 AUTHORS
-//
-//  Distributed under the Boost Software License, Version 1.0. (See accompanying
-//  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
-
-// Taken from Octo-Tiger - we should move this file to HPX actually
+// Taken from Octo-Tiger - we should move this file to HPX maybe?
 
 #pragma once
 #include <cuda_runtime.h>

@@ -56,8 +56,6 @@ private:
       std::tuple<Interface, size_t>; // Interface, ID of ref counter field
   std::vector<interface_entry> pool{};
   std::vector<size_t> ref_counters{}; // Ref counters
-  size_t current_interface{0};
-
 public:
   priority_pool(size_t gpu_id, size_t number_of_streams) {
     for (auto i = 0; i < number_of_streams; i++) {
@@ -67,7 +65,7 @@ public:
   }
   // return a tuple with the interface and its index (to release it later)
   std::tuple<Interface, size_t> get_interface() {
-    auto &interface = pool[0];
+    auto interface = pool[0];
     ref_counters[std::get<1>(interface)]++;
     std::make_heap(std::begin(pool), std::end(pool),
                    [this](const interface_entry &first,
@@ -90,6 +88,56 @@ public:
     return ref_counters[std::get<1>(pool[0])] < load_limit;
   }
   size_t get_current_load() { return ref_counters[std::get<1>(pool[0])]; }
+};
+
+template <class Interface, class Pool> class priority_pool_multi_gpu {
+private:
+  using interface_entry = size_t;
+  std::vector<interface_entry> pool{};
+  std::vector<size_t> ref_counters{};
+  std::vector<Pool> gpu_interfaces{};
+  size_t streams_per_gpu{0};
+
+public:
+  priority_pool_multi_gpu(size_t number_of_gpus, size_t number_of_streams)
+      : streams_per_gpu(number_of_streams) {
+    for (auto i = 0; i < number_of_gpus; i++) {
+      pool.push_back(i);
+      ref_counters.push_back(0);
+      gpu_interfaces.push_back(Pool(i, streams_per_gpu));
+    }
+  }
+  // return a tuple with the interface and its index (to release it later)
+  std::tuple<Interface, size_t> get_interface() {
+    auto gpu = pool[0];
+    ref_counters[gpu]++;
+    std::make_heap(std::begin(pool), std::end(pool),
+                   [this](const interface_entry &first,
+                          const interface_entry &second) -> bool {
+                     return ref_counters[first] > ref_counters[second];
+                   });
+    size_t gpu_offset = gpu * streams_per_gpu;
+    auto stream_entry = gpu_interfaces[gpu].get_interface();
+    std::get<1>(stream_entry) += gpu_offset;
+    return stream_entry;
+  }
+  void release_interface(size_t index) {
+    size_t gpu_index = index / streams_per_gpu;
+    size_t stream_index = index % streams_per_gpu;
+    ref_counters[gpu_index]--;
+    std::make_heap(std::begin(pool), std::end(pool),
+                   [this](const interface_entry &first,
+                          const interface_entry &second) -> bool {
+                     return ref_counters[first] > ref_counters[second];
+                   });
+    gpu_interfaces[gpu_index].release_interface(stream_index);
+  }
+  bool interface_available(size_t load_limit) {
+    return gpu_interfaces[pool[0]].interface_available(load_limit);
+  }
+  size_t get_current_load() {
+    return gpu_interfaces[pool[0]].get_current_load();
+  }
 };
 
 /// Access/Concurrency Control for stream pool implementation
@@ -231,6 +279,9 @@ private:
 
 using hpx_stream_interface_pq =
     stream_interface<cuda_helper, priority_pool<cuda_helper>>;
+using hpx_stream_interface_mgpq = stream_interface<
+    cuda_helper,
+    priority_pool_multi_gpu<cuda_helper, priority_pool<cuda_helper>>>;
 using hpx_stream_interface_rr =
     stream_interface<cuda_helper, round_robin_pool<cuda_helper>>;
 #endif

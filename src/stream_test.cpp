@@ -111,6 +111,55 @@ int main(int argc, char *argv[]) {
   std::cout << "Wrapper object priority pool test successfull!" << std::endl;
   std::cout << std::endl;
 
+  std::cout << "Starting multigpu priority pool wrapper objects test ..."
+            << std::endl;
+  stream_pool::init<
+      cuda_helper,
+      priority_pool_multi_gpu<cuda_helper, priority_pool<cuda_helper>>>(1, 2);
+  {
+    hpx_stream_interface_mgpq test1(0);
+    auto load = stream_pool::get_current_load<
+        cuda_helper,
+        priority_pool_multi_gpu<cuda_helper, priority_pool<cuda_helper>>>();
+    assert(load == 0);
+    hpx_stream_interface_mgpq test2(0);
+    load = stream_pool::get_current_load<
+        cuda_helper,
+        priority_pool_multi_gpu<cuda_helper, priority_pool<cuda_helper>>>();
+    assert(load == 1);
+    hpx_stream_interface_mgpq test3(0);
+    load = stream_pool::get_current_load<
+        cuda_helper,
+        priority_pool_multi_gpu<cuda_helper, priority_pool<cuda_helper>>>();
+    assert(load == 1);
+    hpx_stream_interface_mgpq test4(0);
+    load = stream_pool::get_current_load<
+        cuda_helper,
+        priority_pool_multi_gpu<cuda_helper, priority_pool<cuda_helper>>>();
+    assert(load == 2);
+
+    // Check availability method:
+    bool avail = stream_pool::interface_available<
+        cuda_helper,
+        priority_pool_multi_gpu<cuda_helper, priority_pool<cuda_helper>>>(1);
+    assert(avail == false); // NOLINT
+    avail = stream_pool::interface_available<
+        cuda_helper,
+        priority_pool_multi_gpu<cuda_helper, priority_pool<cuda_helper>>>(2);
+    assert(avail == false); // NOLINT
+    avail = stream_pool::interface_available<
+        cuda_helper,
+        priority_pool_multi_gpu<cuda_helper, priority_pool<cuda_helper>>>(3);
+    assert(avail == true); // NOLINT
+  }
+  load0 = stream_pool::get_current_load<
+      cuda_helper,
+      priority_pool_multi_gpu<cuda_helper, priority_pool<cuda_helper>>>();
+  assert(load0 == 0);
+  std::cout << "Multigpu wrapper object priority pool test successfull!"
+            << std::endl;
+  std::cout << std::endl;
+
   // Round robin pool tests:
   std::cout << "Started manual round-robin pool test ..." << std::endl;
   stream_pool::init<cuda_helper, round_robin_pool<cuda_helper>>(0, 2);
