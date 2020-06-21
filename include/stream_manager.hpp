@@ -90,6 +90,57 @@ public:
   size_t get_current_load() { return ref_counters[std::get<1>(pool[0])]; }
 };
 
+template <class Interface, class Pool> class multi_gpu_round_robin_pool {
+private:
+  using interface_entry =
+      std::tuple<Interface, size_t>;          // interface, ref counter
+  using gpu_entry = std::tuple<Pool, size_t>; // interface, ref counter
+  std::vector<gpu_entry> pool{};
+  size_t current_interface{0};
+  size_t streams_per_gpu{0};
+
+public:
+  multi_gpu_round_robin_pool(size_t number_of_gpus, size_t number_of_streams)
+      : streams_per_gpu{number_of_streams} {
+    for (size_t gpu_id = 0; gpu_id < number_of_gpus; gpu_id++) {
+      pool.push_back(std::make_tuple(Pool(gpu_id, number_of_streams), 0));
+    }
+  }
+
+  // return a tuple with the interface and its index (to release it later)
+  interface_entry get_interface() {
+    size_t last_interface = current_interface;
+    current_interface = (current_interface + 1) % pool.size();
+    std::get<1>(pool[last_interface])++;
+    size_t gpu_offset = last_interface * streams_per_gpu;
+    auto stream_entry = std::get<0>(pool[last_interface]).get_interface();
+    std::get<1>(stream_entry) += gpu_offset;
+    return stream_entry;
+  }
+  void release_interface(size_t index) {
+    size_t gpu_index = index / streams_per_gpu;
+    size_t stream_index = index % streams_per_gpu;
+    std::get<1>(pool[gpu_index])--;
+    std::get<0>(pool[gpu_index]).release_interface(stream_index);
+  }
+  bool interface_available(size_t load_limit) {
+    auto &current_min_gpu = std::get<0>(*(std::min_element(
+        std::begin(pool), std::end(pool),
+        [](const gpu_entry &first, const gpu_entry &second) -> bool {
+          return std::get<1>(first) < std::get<1>(second);
+        })));
+    return current_min_gpu.interface_available(load_limit);
+  }
+  size_t get_current_load() {
+    auto &current_min_gpu = std::get<0>(*(std::min_element(
+        std::begin(pool), std::end(pool),
+        [](const gpu_entry &first, const gpu_entry &second) -> bool {
+          return std::get<1>(first) < std::get<1>(second);
+        })));
+    return current_min_gpu.get_current_load();
+  }
+};
+
 template <class Interface, class Pool> class priority_pool_multi_gpu {
 private:
   using interface_entry = size_t;
@@ -284,4 +335,7 @@ using hpx_stream_interface_mgpq = stream_interface<
     priority_pool_multi_gpu<cuda_helper, priority_pool<cuda_helper>>>;
 using hpx_stream_interface_rr =
     stream_interface<cuda_helper, round_robin_pool<cuda_helper>>;
+using hpx_stream_interface_mgrr = stream_interface<
+    cuda_helper,
+    multi_gpu_round_robin_pool<cuda_helper, round_robin_pool<cuda_helper>>>;
 #endif
