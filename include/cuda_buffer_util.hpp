@@ -66,6 +66,7 @@ using recycle_allocator_cuda_device =
 
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 struct cuda_device_buffer {
+  size_t gpu_id{0};
   T *device_side_buffer;
   size_t number_of_elements;
   explicit cuda_device_buffer(size_t number_of_elements)
@@ -73,7 +74,16 @@ struct cuda_device_buffer {
     device_side_buffer =
         recycle_allocator_cuda_device<T>{}.allocate(number_of_elements);
   }
+  explicit cuda_device_buffer(size_t number_of_elements, size_t gpu_id)
+      : gpu_id(gpu_id), number_of_elements(number_of_elements), set_id(true) {
+
+    cudaSetDevice(gpu_id);
+    device_side_buffer =
+        recycle_allocator_cuda_device<T>{}.allocate(number_of_elements);
+  }
   ~cuda_device_buffer() {
+    if (set_id)
+      cudaSetDevice(gpu_id);
     recycle_allocator_cuda_device<T>{}.deallocate(device_side_buffer,
                                                   number_of_elements);
   }
@@ -82,6 +92,9 @@ struct cuda_device_buffer {
   cuda_device_buffer operator=(cuda_device_buffer const &other) = delete;
   cuda_device_buffer(cuda_device_buffer const &&other) = delete;
   cuda_device_buffer operator=(cuda_device_buffer const &&other) = delete;
+
+private:
+  bool set_id{false};
 };
 
 } // end namespace recycler
