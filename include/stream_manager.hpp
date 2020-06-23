@@ -17,36 +17,41 @@
 template <class Interface> class round_robin_pool {
 private:
   using interface_entry =
-      std::tuple<Interface, size_t>; // interface, ref counter
-  std::vector<interface_entry> pool{};
+      std::tuple<Interface &, size_t>; // interface, ref counter
+  std::vector<std::tuple<Interface, size_t>> pool{};
   size_t current_interface{0};
 
 public:
   round_robin_pool(size_t gpu_id, size_t number_of_streams) {
-    pool = std::vector<interface_entry>(number_of_streams,
-                                        std::make_tuple(Interface(gpu_id), 0));
+    pool.reserve(number_of_streams);
+    for (int i = 0; i < number_of_streams; i++)
+      pool.emplace_back(gpu_id, 2);
   }
   // return a tuple with the interface and its index (to release it later)
   interface_entry get_interface() {
     size_t last_interface = current_interface;
     current_interface = (current_interface + 1) % pool.size();
     std::get<1>(pool[last_interface])++;
-    return std::make_tuple(std::get<0>(pool[last_interface]), last_interface);
+    std::tuple<Interface &, size_t> ret(std::get<0>(pool[last_interface]),
+                                        last_interface);
+    return ret;
   }
   void release_interface(size_t index) { std::get<1>(pool[index])--; }
   bool interface_available(size_t load_limit) {
     return std::get<1>(*(std::min_element(
                std::begin(pool), std::end(pool),
-               [](const interface_entry &first,
-                  const interface_entry &second) -> bool {
+               [](const std::tuple<Interface, size_t> &first,
+                  const std::tuple<Interface, size_t> &second) -> bool {
                  return std::get<1>(first) < std::get<1>(second);
                }))) < load_limit;
   }
   size_t get_current_load() {
     return std::get<1>(*(std::min_element(
         std::begin(pool), std::end(pool),
-        [](const interface_entry &first, const interface_entry &second)
-            -> bool { return std::get<1>(first) < std::get<1>(second); })));
+        [](const std::tuple<Interface, size_t> &first,
+           const std::tuple<Interface, size_t> &second) -> bool {
+          return std::get<1>(first) < std::get<1>(second);
+        })));
   }
 };
 
@@ -64,16 +69,18 @@ public:
     }
   }
   // return a tuple with the interface and its index (to release it later)
-  std::tuple<Interface, size_t> get_interface() {
-    auto interface = pool[0];
+  std::tuple<Interface &, size_t> get_interface() {
+    auto &interface = pool[0];
     ref_counters[std::get<1>(interface)]++;
+    // std::tuple<Interface &, size_t> ret(std::get<0>(interface),
+    //                                     std::get<1>(interface);
     std::make_heap(std::begin(pool), std::end(pool),
                    [this](const interface_entry &first,
                           const interface_entry &second) -> bool {
                      return ref_counters[std::get<1>(first)] >
                             ref_counters[std::get<1>(second)];
                    });
-    return interface;
+    return std::make_tuple();
   }
   void release_interface(size_t index) {
     ref_counters[index]--;
@@ -205,7 +212,7 @@ public:
                                                       number_of_streams);
   }
   template <class Interface, class Pool>
-  static std::tuple<Interface, size_t> get_interface() {
+  static std::tuple<Interface &, size_t> get_interface() {
     std::lock_guard<std::mutex> guard(mut);
     assert(access_instance); // should already be initialized
     return stream_pool_implementation<Interface, Pool>::get_interface();
@@ -246,7 +253,7 @@ private:
         pool_instance->streampool.reset(new Pool{gpu_id, number_of_streams});
       }
     }
-    static std::tuple<Interface, size_t> get_interface() {
+    static std::tuple<Interface &, size_t> get_interface() {
       assert(pool_instance); // should already be initialized
       return pool_instance->streampool->get_interface();
     }
@@ -324,8 +331,8 @@ public:
   hpx::future<void> get_future() { return interface.get_future(); }
 
 private:
-  std::tuple<cuda_helper, size_t> t;
-  cuda_helper interface;
+  std::tuple<cuda_helper &, size_t> t;
+  cuda_helper &interface;
   size_t interface_index;
 };
 

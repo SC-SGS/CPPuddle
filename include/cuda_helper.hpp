@@ -17,9 +17,23 @@ struct cuda_helper {
 public:
   using future_type = hpx::future<void>;
 
-  explicit cuda_helper(std::size_t device = 0) : target_(device) {
+  explicit cuda_helper(std::size_t device) : target_(device) {
     stream_ = target_.native_handle().get_stream();
   }
+
+  // cuda_helper(const cuda_helper &other) = delete;
+  // cuda_helper &operator=(const cuda_helper &other) = delete;
+  // cuda_helper(cuda_helper &&other) = delete;
+  // cuda_helper &operator=(cuda_helper &&other) = delete;
+
+  // cuda_helper(const cuda_helper &other) {
+  //   std::cout << "ciop!!" << std::endl;
+  //   // throw "";
+  // }
+  // cuda_helper &operator=(const cuda_helper &other) {
+  //   std::cout << "ciop!!" << std::endl;
+  //   // throw "";
+  // }
 
   ~cuda_helper() = default;
 
