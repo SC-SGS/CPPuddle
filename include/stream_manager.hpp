@@ -323,6 +323,9 @@ public:
   template <typename... Args> void memset_async(Args &&... args) {
     interface.memset_async(std::forward<Args>(args)...);
   }
+  template <typename future_type> future_type get_future() {
+    return interface.get_future();
+  }
 
 private:
   cuda_helper interface{};
