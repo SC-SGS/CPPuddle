@@ -124,11 +124,14 @@ if (INTEROPT_WITH_CUDA)
   target_compile_definitions(stream_test PRIVATE INTEROPT_HAVE_CUDA)
 endif()
 
-# install the headers only
+# install libs with the defitions:
 install(TARGETS buffer_manager
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
-# install the headers only
+install(TARGETS stream_manager
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+# install all headers
 install(
   DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
