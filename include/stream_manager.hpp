@@ -296,11 +296,9 @@ std::unique_ptr<stream_pool::stream_pool_implementation<Interface, Pool>>
 
 template <class Interface, class Pool> class stream_interface {
 public:
-  explicit stream_interface(std::size_t device_id) {
-    auto tmp_interface_tuple = stream_pool::get_interface<Interface, Pool>();
-    interface = std::get<0>(tmp_interface_tuple);
-    interface_index = std::get<1>(tmp_interface_tuple);
-  }
+  explicit stream_interface(std::size_t device_id)
+      : t(stream_pool::get_interface<Interface, Pool>()),
+        interface(std::get<0>(t)), interface_index(std::get<1>(t)) {}
 
   stream_interface(const stream_interface &other) = delete;
   stream_interface &operator=(const stream_interface &other) = delete;
@@ -323,13 +321,12 @@ public:
   template <typename... Args> void memset_async(Args &&... args) {
     interface.memset_async(std::forward<Args>(args)...);
   }
-  template <typename future_type> future_type get_future() {
-    return interface.get_future();
-  }
+  hpx::future<void> get_future() { return interface.get_future(); }
 
 private:
-  cuda_helper interface{};
-  size_t interface_index{0};
+  std::tuple<cuda_helper, size_t> t;
+  cuda_helper interface;
+  size_t interface_index;
 };
 
 using hpx_stream_interface_pq =

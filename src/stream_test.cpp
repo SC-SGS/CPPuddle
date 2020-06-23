@@ -26,6 +26,7 @@ int main(int argc, char *argv[]) {
                                                priority_pool<cuda_helper>>();
     assert(load2 == 1);
     cuda_helper test2_interface = std::get<0>(test2);
+    auto fut = test2_interface.get_future();
     size_t test2_index = std::get<1>(test2);
 
     auto test3 =
@@ -83,6 +84,7 @@ int main(int argc, char *argv[]) {
     hpx_stream_interface_pq test2(0);
     load = stream_pool::get_current_load<cuda_helper,
                                          priority_pool<cuda_helper>>();
+    auto fut = test2.get_future();
     assert(load == 1);
     hpx_stream_interface_pq test3(0);
     load = stream_pool::get_current_load<cuda_helper,
