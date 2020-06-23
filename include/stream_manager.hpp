@@ -93,8 +93,6 @@ public:
 
 template <class Interface, class Pool> class multi_gpu_round_robin_pool {
 private:
-  using interface_entry =
-      std::tuple<Interface, size_t>;          // interface, ref counter
   using gpu_entry = std::tuple<Pool, size_t>; // interface, ref counter
   std::vector<gpu_entry> pool{};
   size_t current_interface{0};
@@ -109,12 +107,13 @@ public:
   }
 
   // return a tuple with the interface and its index (to release it later)
-  interface_entry get_interface() {
+  std::tuple<Interface &, size_t> get_interface() {
     size_t last_interface = current_interface;
     current_interface = (current_interface + 1) % pool.size();
     std::get<1>(pool[last_interface])++;
     size_t gpu_offset = last_interface * streams_per_gpu;
-    auto stream_entry = std::get<0>(pool[last_interface]).get_interface();
+    std::tuple<Interface &, size_t> stream_entry =
+        std::get<0>(pool[last_interface]).get_interface();
     std::get<1>(stream_entry) += gpu_offset;
     return stream_entry;
   }
