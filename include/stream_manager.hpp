@@ -102,6 +102,7 @@ public:
   multi_gpu_round_robin_pool(size_t number_of_gpus, size_t number_of_streams)
       : streams_per_gpu{number_of_streams} {
     for (size_t gpu_id = 0; gpu_id < number_of_gpus; gpu_id++) {
+      // TODO(daissgr) why not emplace back?
       pool.push_back(std::make_tuple(Pool(gpu_id, number_of_streams), 0));
     }
   }
@@ -143,8 +144,7 @@ public:
 
 template <class Interface, class Pool> class priority_pool_multi_gpu {
 private:
-  using interface_entry = size_t;
-  std::vector<interface_entry> pool{};
+  std::vector<size_t> priorities{};
   std::vector<size_t> ref_counters{};
   std::vector<Pool> gpu_interfaces{};
   size_t streams_per_gpu{0};
@@ -153,18 +153,17 @@ public:
   priority_pool_multi_gpu(size_t number_of_gpus, size_t number_of_streams)
       : streams_per_gpu(number_of_streams) {
     for (auto i = 0; i < number_of_gpus; i++) {
-      pool.push_back(i);
-      ref_counters.push_back(0);
-      gpu_interfaces.push_back(Pool(i, streams_per_gpu));
+      priorities.emplace_back(i);
+      ref_counters.emplace_back(0);
+      gpu_interfaces.emplace_back(i, streams_per_gpu);
     }
   }
   // return a tuple with the interface and its index (to release it later)
-  std::tuple<Interface, size_t> get_interface() {
-    auto gpu = pool[0];
+  std::tuple<Interface &, size_t> get_interface() {
+    auto gpu = priorities[0];
     ref_counters[gpu]++;
-    std::make_heap(std::begin(pool), std::end(pool),
-                   [this](const interface_entry &first,
-                          const interface_entry &second) -> bool {
+    std::make_heap(std::begin(priorities), std::end(priorities),
+                   [this](const size_t &first, const size_t &second) -> bool {
                      return ref_counters[first] > ref_counters[second];
                    });
     size_t gpu_offset = gpu * streams_per_gpu;
@@ -176,18 +175,17 @@ public:
     size_t gpu_index = index / streams_per_gpu;
     size_t stream_index = index % streams_per_gpu;
     ref_counters[gpu_index]--;
-    std::make_heap(std::begin(pool), std::end(pool),
-                   [this](const interface_entry &first,
-                          const interface_entry &second) -> bool {
+    std::make_heap(std::begin(priorities), std::end(priorities),
+                   [this](const size_t &first, const size_t &second) -> bool {
                      return ref_counters[first] > ref_counters[second];
                    });
     gpu_interfaces[gpu_index].release_interface(stream_index);
   }
   bool interface_available(size_t load_limit) {
-    return gpu_interfaces[pool[0]].interface_available(load_limit);
+    return gpu_interfaces[priorities[0]].interface_available(load_limit);
   }
   size_t get_current_load() {
-    return gpu_interfaces[pool[0]].get_current_load();
+    return gpu_interfaces[priorities[0]].get_current_load();
   }
 };
 
