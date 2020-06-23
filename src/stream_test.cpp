@@ -274,61 +274,60 @@ int main(int argc, char *argv[]) {
   std::cout << "Wrapper object round-robin pool test successfull!" << std::endl;
   std::cout << std::endl;
 
-  //   std::cout << "Starting multigpu round robin pool wrapper objects test
-  //   ..."
-  //             << std::endl;
-  //   stream_pool::init<
+  // std::cout << "Starting multigpu round robin pool wrapper objects test... "
+  //           << std::endl;
+  // stream_pool::init<
+  //     cuda_helper,
+  //     multi_gpu_round_robin_pool<cuda_helper,
+  //     round_robin_pool<cuda_helper>>>( 1, 2);
+  // {
+  //   hpx_stream_interface_mgrr test1(0);
+  //   auto load = stream_pool::get_current_load<
+  //       cuda_helper, multi_gpu_round_robin_pool<
+  //                        cuda_helper, round_robin_pool<cuda_helper>>>();
+  //   assert(load == 0);
+  //   hpx_stream_interface_mgrr test2(0);
+  //   load = stream_pool::get_current_load<
+  //       cuda_helper, multi_gpu_round_robin_pool<
+  //                        cuda_helper, round_robin_pool<cuda_helper>>>();
+  //   assert(load == 1);
+  //   hpx_stream_interface_mgrr test3(0);
+  //   load = stream_pool::get_current_load<
+  //       cuda_helper, multi_gpu_round_robin_pool<
+  //                        cuda_helper, round_robin_pool<cuda_helper>>>();
+  //   assert(load == 1);
+  //   hpx_stream_interface_mgrr test4(0);
+  //   load = stream_pool::get_current_load<
+  //       cuda_helper, multi_gpu_round_robin_pool<
+  //                        cuda_helper, round_robin_pool<cuda_helper>>>();
+  //   assert(load == 2);
+
+  //   // Check availability method:
+  //   bool avail = stream_pool::interface_available<
   //       cuda_helper,
   //       multi_gpu_round_robin_pool<cuda_helper,
-  //       round_robin_pool<cuda_helper>>>( 1, 2);
-  //   {
-  //     hpx_stream_interface_mgrr test1(0);
-  //     auto load = stream_pool::get_current_load<
-  //         cuda_helper, multi_gpu_round_robin_pool<
-  //                          cuda_helper, round_robin_pool<cuda_helper>>>();
-  //     assert(load == 0);
-  //     hpx_stream_interface_mgrr test2(0);
-  //     load = stream_pool::get_current_load<
-  //         cuda_helper, multi_gpu_round_robin_pool<
-  //                          cuda_helper, round_robin_pool<cuda_helper>>>();
-  //     assert(load == 1);
-  //     hpx_stream_interface_mgrr test3(0);
-  //     load = stream_pool::get_current_load<
-  //         cuda_helper, multi_gpu_round_robin_pool<
-  //                          cuda_helper, round_robin_pool<cuda_helper>>>();
-  //     assert(load == 1);
-  //     hpx_stream_interface_mgrr test4(0);
-  //     load = stream_pool::get_current_load<
-  //         cuda_helper, multi_gpu_round_robin_pool<
-  //                          cuda_helper, round_robin_pool<cuda_helper>>>();
-  //     assert(load == 2);
-
-  //     // Check availability method:
-  //     bool avail = stream_pool::interface_available<
-  //         cuda_helper,
-  //         multi_gpu_round_robin_pool<cuda_helper,
-  //         round_robin_pool<cuda_helper>>>( 1);
-  //     assert(avail == false); // NOLINT
-  //     avail = stream_pool::interface_available<
-  //         cuda_helper,
-  //         multi_gpu_round_robin_pool<cuda_helper,
-  //         round_robin_pool<cuda_helper>>>( 2);
-  //     assert(avail == false); // NOLINT
-  //     avail = stream_pool::interface_available<
-  //         cuda_helper,
-  //         multi_gpu_round_robin_pool<cuda_helper,
-  //         round_robin_pool<cuda_helper>>>( 3);
-  //     assert(avail == true); // NOLINT
-  //   }
-  //   load0 = stream_pool::get_current_load<
+  //       round_robin_pool<cuda_helper>>>( 1);
+  //   assert(avail == false); // NOLINT
+  //   avail = stream_pool::interface_available<
   //       cuda_helper,
   //       multi_gpu_round_robin_pool<cuda_helper,
-  //       round_robin_pool<cuda_helper>>>();
-  //   assert(load0 == 0);
-  //   std::cout << "Multigpu wrapper object round robin pool test successfull!"
-  //             << std::endl;
-  //   std::cout << std::endl;
+  //       round_robin_pool<cuda_helper>>>( 2);
+  //   assert(avail == false); // NOLINT
+  //   avail = stream_pool::interface_available<
+  //       cuda_helper,
+  //       multi_gpu_round_robin_pool<cuda_helper,
+  //       round_robin_pool<cuda_helper>>>( 3);
+  //   assert(avail == true); // NOLINT
+  // }
+  // load0 = stream_pool::get_current_load<
+  //     cuda_helper,
+  //     multi_gpu_round_robin_pool<cuda_helper,
+  //     round_robin_pool<cuda_helper>>>();
+  // assert(load0 == 0);
+  // std::cout << "Multigpu wrapper object round robin pool test successfull!"
+  //           << std::endl;
+  // std::cout << std::endl;
 
-  test_pool_memcpy<cuda_helper, round_robin_pool<cuda_helper>>();
-  test_pool_memcpy<cuda_helper, priority_pool<cuda_helper>>();
+  test_pool_memcpy<cuda_helper, round_robin_pool<cuda_helper>>(0, 2);
+  test_pool_memcpy<cuda_helper, priority_pool<cuda_helper>>(0, 2);
 }

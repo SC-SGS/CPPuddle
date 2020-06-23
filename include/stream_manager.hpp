@@ -16,8 +16,6 @@
 
 template <class Interface> class round_robin_pool {
 private:
-  using interface_entry =
-      std::tuple<Interface &, size_t>; // interface, ref counter
   std::vector<std::tuple<Interface, size_t>> pool{};
   size_t current_interface{0};
 
@@ -28,7 +26,7 @@ public:
       pool.emplace_back(gpu_id, 0);
   }
   // return a tuple with the interface and its index (to release it later)
-  interface_entry get_interface() {
+  std::tuple<Interface &, size_t> get_interface() {
     size_t last_interface = current_interface;
     current_interface = (current_interface + 1) % pool.size();
     std::get<1>(pool[last_interface])++;
@@ -249,7 +247,7 @@ private:
         pool_instance->streampool.reset(new Pool{gpu_id, number_of_streams});
       }
     }
-    static std::tuple<Interface &, size_t> get_interface() {
+    static std::tuple<Interface &, size_t> get_interface() noexcept {
       assert(pool_instance); // should already be initialized
       return pool_instance->streampool->get_interface();
     }
@@ -277,10 +275,10 @@ private:
     // Bunch of constructors we don't need
     stream_pool_implementation(stream_pool_implementation const &other) =
         delete;
-    stream_pool_implementation
+    stream_pool_implementation &
     operator=(stream_pool_implementation const &other) = delete;
     stream_pool_implementation(stream_pool_implementation &&other) = delete;
-    stream_pool_implementation
+    stream_pool_implementation &
     operator=(stream_pool_implementation &&other) = delete;
   };
 
