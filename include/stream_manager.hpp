@@ -196,6 +196,7 @@ class stream_pool {
 public:
   template <class Interface, class Pool>
   static void init(size_t gpu_id, size_t number_of_streams) {
+    std::lock_guard<std::mutex> guard(mut);
     if (!access_instance) {
       // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
       access_instance.reset(new stream_pool());
