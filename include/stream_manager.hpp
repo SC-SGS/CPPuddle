@@ -25,7 +25,7 @@ public:
   round_robin_pool(size_t gpu_id, size_t number_of_streams) {
     pool.reserve(number_of_streams);
     for (int i = 0; i < number_of_streams; i++)
-      pool.emplace_back(gpu_id, 2);
+      pool.emplace_back(gpu_id, 0);
   }
   // return a tuple with the interface and its index (to release it later)
   interface_entry get_interface() {
@@ -57,44 +57,40 @@ public:
 
 template <class Interface> class priority_pool {
 private:
-  using interface_entry =
-      std::tuple<Interface, size_t>; // Interface, ID of ref counter field
-  std::vector<interface_entry> pool{};
+  std::vector<Interface> pool{};
   std::vector<size_t> ref_counters{}; // Ref counters
+  std::vector<size_t> priorities{};   // Ref counters
 public:
   priority_pool(size_t gpu_id, size_t number_of_streams) {
+    pool.reserve(number_of_streams);
     for (auto i = 0; i < number_of_streams; i++) {
-      pool.push_back(std::make_tuple(Interface(gpu_id), i));
-      ref_counters.push_back(0);
+      pool.emplace_back(gpu_id);
+      ref_counters.emplace_back(0);
+      priorities.emplace_back(i);
     }
   }
   // return a tuple with the interface and its index (to release it later)
   std::tuple<Interface &, size_t> get_interface() {
-    auto &interface = pool[0];
-    ref_counters[std::get<1>(interface)]++;
-    // std::tuple<Interface &, size_t> ret(std::get<0>(interface),
-    //                                     std::get<1>(interface);
-    std::make_heap(std::begin(pool), std::end(pool),
-                   [this](const interface_entry &first,
-                          const interface_entry &second) -> bool {
-                     return ref_counters[std::get<1>(first)] >
-                            ref_counters[std::get<1>(second)];
+    auto &interface = pool[priorities[0]];
+    ref_counters[priorities[0]]++;
+    std::tuple<Interface &, size_t> ret(interface, priorities[0]);
+    std::make_heap(std::begin(priorities), std::end(priorities),
+                   [this](const size_t &first, const size_t &second) -> bool {
+                     return ref_counters[first] > ref_counters[second];
                    });
-    return std::make_tuple();
+    return ret;
   }
   void release_interface(size_t index) {
     ref_counters[index]--;
-    std::make_heap(std::begin(pool), std::end(pool),
-                   [this](const interface_entry &first,
-                          const interface_entry &second) -> bool {
-                     return ref_counters[std::get<1>(first)] >
-                            ref_counters[std::get<1>(second)];
+    std::make_heap(std::begin(priorities), std::end(priorities),
+                   [this](const size_t &first, const size_t &second) -> bool {
+                     return ref_counters[first] > ref_counters[second];
                    });
   }
   bool interface_available(size_t load_limit) {
-    return ref_counters[std::get<1>(pool[0])] < load_limit;
+    return ref_counters[priorities[0]] < load_limit;
   }
-  size_t get_current_load() { return ref_counters[std::get<1>(pool[0])]; }
+  size_t get_current_load() { return ref_counters[priorities[0]]; }
 };
 
 template <class Interface, class Pool> class multi_gpu_round_robin_pool {

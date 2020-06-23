@@ -1,5 +1,3 @@
-#include "../include/buffer_manager.hpp"
-#include "../include/cuda_buffer_util.hpp"
 #include "../include/cuda_helper.hpp"
 #include "../include/stream_manager.hpp"
 #include <hpx/hpx_main.hpp> // we don't need an hpx_main that way?
@@ -8,6 +6,7 @@
 #undef NDEBUG
 #include <cassert> // reinclude the header to update the definition of assert()
 
+#include "../include/stream_test.hpp"
 int main(int argc, char *argv[]) {
 
   //   std::cout << "Starting priority pool manual test ..." << std::endl;
@@ -345,21 +344,6 @@ int main(int argc, char *argv[]) {
   //             << std::endl;
   //   std::cout << std::endl;
 
-  std::vector<double, recycler::recycle_allocator_cuda_host<double>> hostbuffer(
-      512);
-  recycler::cuda_device_buffer<double> devicebuffer(512);
-  stream_pool::init<cuda_helper, round_robin_pool<cuda_helper>>(0, 2);
-  std::cout << stream_pool::get_current_load<cuda_helper,
-                                             round_robin_pool<cuda_helper>>()
-            << std::endl;
-  {
-    auto test1 = stream_pool::get_interface<cuda_helper,
-                                            round_robin_pool<cuda_helper>>();
-    cuda_helper test1_interface = std::get<0>(test1);
-    test1_interface.copy_async(devicebuffer.device_side_buffer,
-                               hostbuffer.data(), 512 * sizeof(double),
-                               cudaMemcpyHostToDevice);
-    auto fut1 = test1_interface.get_future();
-    fut1.get();
-  }
+  test_pool_memcpy<cuda_helper, round_robin_pool<cuda_helper>>();
+  test_pool_memcpy<cuda_helper, priority_pool<cuda_helper>>();
 }
