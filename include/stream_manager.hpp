@@ -237,7 +237,7 @@ private:
   template <class Interface, class Pool> class stream_pool_implementation {
   public:
     static void init(size_t gpu_id, size_t number_of_streams) {
-      if (!pool_instance) {
+      if (!pool_instance && number_of_streams > 0) {
         // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
         pool_instance.reset(new stream_pool_implementation());
         // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
@@ -253,10 +253,14 @@ private:
       pool_instance->streampool->release_interface(index);
     }
     static bool interface_available(size_t load_limit) noexcept {
+      if (!pool_instance)
+        return false;
       assert(pool_instance); // should already be initialized
       return pool_instance->streampool->interface_available(load_limit);
     }
     static size_t get_current_load() noexcept {
+      if (!pool_instance)
+        return 0;
       assert(pool_instance); // should already be initialized
       return pool_instance->streampool->get_current_load();
     }
