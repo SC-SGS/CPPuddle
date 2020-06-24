@@ -113,7 +113,7 @@ if (INTEROPT_WITH_CUDA)
   add_library(stream_manager SHARED src/stream_manager_definitions.cpp)
   target_link_libraries(stream_manager
     PRIVATE HPX::hpx)
-  target_include_directories(stream_manager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  target_include_directories(stream_manager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
   add_executable(
     stream_test

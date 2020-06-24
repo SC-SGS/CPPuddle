@@ -21,6 +21,7 @@ public:
     stream_ = target_.native_handle().get_stream();
   }
 
+  // TODO(daissgr) Copying is unstable: Delete copy?
   // cuda_helper(const cuda_helper &other) = delete;
   // cuda_helper &operator=(const cuda_helper &other) = delete;
   // cuda_helper(cuda_helper &&other) = delete;

@@ -6,7 +6,7 @@
 #undef NDEBUG
 #include <cassert> // reinclude the header to update the definition of assert()
 
-#include "../include/stream_test.hpp"
+#include "stream_test.hpp"
 int main(int argc, char *argv[]) {
 
   std::cout << "Starting priority pool manual test ..." << std::endl;
