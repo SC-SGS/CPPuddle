@@ -17,7 +17,7 @@ struct cuda_helper {
 public:
   using future_type = hpx::future<void>;
 
-  explicit cuda_helper(std::size_t device) : target_(device) {
+  explicit cuda_helper(std::size_t device) : target_(device), gpu_id(device) {
     stream_ = target_.native_handle().get_stream();
   }
 
@@ -101,8 +101,10 @@ public:
                 << target.native_handle().processor_family() << "\n";
     }
   }
+  inline const size_t get_gpu_id() noexcept { return gpu_id; }
 
 private:
   cudaStream_t stream_;
   hpx::compute::cuda::target target_;
+  size_t gpu_id;
 };

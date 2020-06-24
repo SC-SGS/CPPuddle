@@ -24,7 +24,7 @@ void test_pool_memcpy(const size_t gpu_parameter,
   }
 
   {
-    stream_interface<Interface, Pool> test1_interface(0);
+    stream_interface<Interface, Pool> test1_interface;
     test1_interface.copy_async(devicebuffer.device_side_buffer,
                                hostbuffer.data(), 512 * sizeof(double),
                                cudaMemcpyHostToDevice);
@@ -90,17 +90,17 @@ void test_pool_wrappers(const size_t gpu_parameter, size_t stream_parameter) {
   // init ppol
   stream_pool::init<Interface, Pool>(gpu_parameter, stream_parameter);
   {
-    wrapper_type test1(0);
+    wrapper_type test1;
     auto load = stream_pool::get_current_load<Interface, Pool>();
     assert(load == 0);
-    wrapper_type test2(0);
+    wrapper_type test2;
     load = stream_pool::get_current_load<Interface, Pool>();
     auto fut = test2.get_future();
     assert(load == 1);
-    wrapper_type test3(0);
+    wrapper_type test3;
     load = stream_pool::get_current_load<Interface, Pool>();
     assert(load == 1);
-    wrapper_type test4(0);
+    wrapper_type test4;
     load = stream_pool::get_current_load<Interface, Pool>();
     assert(load == 2);
     // Check availability method:

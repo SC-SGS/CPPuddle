@@ -294,7 +294,7 @@ std::unique_ptr<stream_pool::stream_pool_implementation<Interface, Pool>>
 
 template <class Interface, class Pool> class stream_interface {
 public:
-  explicit stream_interface(std::size_t device_id)
+  explicit stream_interface()
       : t(stream_pool::get_interface<Interface, Pool>()),
         interface(std::get<0>(t)), interface_index(std::get<1>(t)) {}
 
@@ -320,6 +320,7 @@ public:
     interface.memset_async(std::forward<Args>(args)...);
   }
   hpx::future<void> get_future() { return interface.get_future(); }
+  inline const size_t get_gpu_id() noexcept { return interface.get_gpu_id(); }
 
 private:
   std::tuple<cuda_helper &, size_t> t;
