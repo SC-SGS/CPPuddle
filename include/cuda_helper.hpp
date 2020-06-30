@@ -79,7 +79,7 @@ public:
   }
 
   // get the future to synchronize this cuBLAS stream with
-  future_type get_future() { return target_.get_future(); }
+  future_type get_future() { return target_.get_future_with_callback(); }
 
   // return a reference to the compute::cuda object owned by this class
   hpx::compute::cuda::target &target() { return target_; }

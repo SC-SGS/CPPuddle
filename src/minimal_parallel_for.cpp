@@ -34,12 +34,6 @@ int main(int argc, char *argv[]) {
   constexpr size_t passes = 1;
   for (size_t pass = 0; pass < passes; pass++) {
     recycled_host_view<double> hostView(view_size_0, view_size_1);
-
-    // works - usage counter goes up to 9 for the hostView
-    // auto host_space = hpx::kokkos::make_execution_space<Kokkos::Serial>();
-
-    // broken - usage counter goes up to 13 for the hostView - goes only down to
-    // 2
     auto host_space =
         hpx::kokkos::make_execution_space<Kokkos::DefaultHostExecutionSpace>();
     auto policy_host = get_iteration_policy(host_space, hostView);
