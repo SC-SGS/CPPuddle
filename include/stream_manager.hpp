@@ -16,40 +16,35 @@
 
 template <class Interface> class round_robin_pool {
 private:
-  std::vector<std::tuple<Interface, size_t>> pool{};
+  std::vector<Interface> pool{};
+  std::vector<size_t> ref_counters{};
   size_t current_interface{0};
 
 public:
   round_robin_pool(size_t gpu_id, size_t number_of_streams) {
     pool.reserve(number_of_streams);
-    for (int i = 0; i < number_of_streams; i++)
-      pool.emplace_back(gpu_id, 0);
+    ref_counters.reserve(number_of_streams);
+    for (int i = 0; i < number_of_streams; i++) {
+      pool.emplace_back(gpu_id, false);
+      ref_counters.emplace_back(0);
+    }
   }
   // return a tuple with the interface and its index (to release it later)
   std::tuple<Interface &, size_t> get_interface() {
     size_t last_interface = current_interface;
     current_interface = (current_interface + 1) % pool.size();
-    std::get<1>(pool[last_interface])++;
-    std::tuple<Interface &, size_t> ret(std::get<0>(pool[last_interface]),
-                                        last_interface);
+    ref_counters[last_interface]++;
+    std::tuple<Interface &, size_t> ret(pool[last_interface], last_interface);
     return ret;
   }
-  void release_interface(size_t index) { std::get<1>(pool[index])--; }
+  void release_interface(size_t index) { ref_counters[index]--; }
   bool interface_available(size_t load_limit) {
-    return std::get<1>(*(std::min_element(
-               std::begin(pool), std::end(pool),
-               [](const std::tuple<Interface, size_t> &first,
-                  const std::tuple<Interface, size_t> &second) -> bool {
-                 return std::get<1>(first) < std::get<1>(second);
-               }))) < load_limit;
+    return *(std::min_element(std::begin(ref_counters),
+                              std::end(ref_counters))) < load_limit;
   }
   size_t get_current_load() {
-    return std::get<1>(*(std::min_element(
-        std::begin(pool), std::end(pool),
-        [](const std::tuple<Interface, size_t> &first,
-           const std::tuple<Interface, size_t> &second) -> bool {
-          return std::get<1>(first) < std::get<1>(second);
-        })));
+    return *(
+        std::min_element(std::begin(ref_counters), std::end(ref_counters)));
   }
 };
 
@@ -62,7 +57,7 @@ public:
   priority_pool(size_t gpu_id, size_t number_of_streams) {
     pool.reserve(number_of_streams);
     for (auto i = 0; i < number_of_streams; i++) {
-      pool.emplace_back(gpu_id);
+      pool.emplace_back(gpu_id, false);
       ref_counters.emplace_back(0);
       priorities.emplace_back(i);
     }
@@ -310,20 +305,16 @@ public:
     stream_pool::release_interface<Interface, Pool>(interface_index);
   }
 
-  // template <typename... Args> cudaError_t pass_through(Args &&... args) {
-  //   return interface.pass_through(std::forward<Args>(args)...);
-  // }
-  // template <typename... Args> void execute(Args &&... args) {
-  //   return interface.execute(std::forward<Args>(args)...);
-  // }
+  template <typename F, typename... Ts>
+  inline decltype(auto) post(F &&f, Ts &&... ts) {
+    return interface.post(std::forward<F>(f), std::forward<Ts>(ts)...);
+  }
 
-  // template <typename... Args> void copy_async(Args &&... args) {
-  //   interface.copy_async(std::forward<Args>(args)...);
-  // }
-  // template <typename... Args> void memset_async(Args &&... args) {
-  //   interface.memset_async(std::forward<Args>(args)...);
-  // }
-  // hpx::future<void> get_future() { return interface.get_future(); }
+  template <typename F, typename... Ts>
+  inline decltype(auto) async_execute(F &&f, Ts &&... ts) {
+    return interface.async_execute(std::forward<F>(f), std::forward<Ts>(ts)...);
+  }
+
   inline const size_t get_gpu_id() noexcept { return interface.get_gpu_id(); }
 
 private:

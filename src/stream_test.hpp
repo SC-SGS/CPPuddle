@@ -10,28 +10,31 @@ void test_pool_memcpy(const size_t gpu_parameter,
       512);
   recycler::cuda_device_buffer<double> devicebuffer(512);
   stream_pool::init<Interface, Pool>(gpu_parameter, stream_parameter);
+  // without interface wrapper
   {
     auto test1 = stream_pool::get_interface<Interface, Pool>();
     Interface test1_interface = std::get<0>(test1);
-    test1_interface.copy_async(devicebuffer.device_side_buffer,
-                               hostbuffer.data(), 512 * sizeof(double),
-                               cudaMemcpyHostToDevice);
-    test1_interface.copy_async(hostbuffer.data(),
-                               devicebuffer.device_side_buffer,
-                               512 * sizeof(double), cudaMemcpyDeviceToHost);
-    auto fut1 = test1_interface.get_future();
+    size_t interface_id = std::get<1>(test1);
+    test1_interface.post(cudaMemcpyAsync, devicebuffer.device_side_buffer,
+                         hostbuffer.data(), 512 * sizeof(double),
+                         cudaMemcpyHostToDevice);
+    auto fut1 = test1_interface.async_execute(
+        cudaMemcpyAsync, hostbuffer.data(), devicebuffer.device_side_buffer,
+        512 * sizeof(double), cudaMemcpyDeviceToHost);
     fut1.get();
+    stream_pool::release_interface<Interface, Pool>(interface_id);
   }
 
+  // with interface wrapper
   {
     stream_interface<Interface, Pool> test1_interface;
-    test1_interface.copy_async(devicebuffer.device_side_buffer,
-                               hostbuffer.data(), 512 * sizeof(double),
-                               cudaMemcpyHostToDevice);
-    test1_interface.copy_async(hostbuffer.data(),
-                               devicebuffer.device_side_buffer,
-                               512 * sizeof(double), cudaMemcpyDeviceToHost);
-    auto fut1 = test1_interface.get_future();
+    // hpx::cuda::cuda_executor test1_interface(0, false);
+    test1_interface.post(cudaMemcpyAsync, devicebuffer.device_side_buffer,
+                         hostbuffer.data(), 512 * sizeof(double),
+                         cudaMemcpyHostToDevice);
+    auto fut1 = test1_interface.async_execute(
+        cudaMemcpyAsync, hostbuffer.data(), devicebuffer.device_side_buffer,
+        512 * sizeof(double), cudaMemcpyDeviceToHost);
     fut1.get();
   }
 }
