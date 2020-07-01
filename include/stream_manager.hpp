@@ -12,8 +12,6 @@
 #include <hpx/compute/cuda/target.hpp>
 #include <hpx/include/compute.hpp>
 
-#include "cuda_helper.hpp"
-
 template <class Interface> class round_robin_pool {
 private:
   std::vector<Interface> pool{};

@@ -1,4 +1,3 @@
-#include "../include/cuda_helper.hpp"
 #include "../include/stream_manager.hpp"
 #include <hpx/async_cuda/cuda_executor.hpp>
 #include <hpx/hpx_main.hpp> // we don't need an hpx_main that way?

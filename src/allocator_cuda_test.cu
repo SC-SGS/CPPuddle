@@ -4,45 +4,26 @@
 #include <random>
 #include <typeinfo>
 
+#include <hpx/async_cuda/cuda_executor.hpp>
 #include <hpx/hpx_main.hpp> // we don't need an hpx_main that way?
 #include <hpx/include/async.hpp>
 #include <hpx/include/lcos.hpp>
 
+#include <cuda_runtime.h>
+
 #include "../include/buffer_manager.hpp"
 #include "../include/cuda_buffer_util.hpp"
-#include "../include/cuda_helper.hpp"
+
+using executor = hpx::cuda::cuda_executor;
 
 constexpr size_t N = 200000;
 // constexpr size_t chunksize = 20000 ;
 constexpr size_t chunksize = 20000;
 constexpr size_t passes = 10;
 
-template <class T, size_t N> class cuda_channel {
-private:
-  std::vector<T, recycler::recycle_allocator_cuda_host<T>> host_side_buffer;
-
-public:
-  recycler::cuda_device_buffer<T> device_side_buffer;
-  cuda_channel(void) : host_side_buffer(N), device_side_buffer(N) {}
-  void cp_from_device(cuda_helper &interface) {
-    interface.copy_async(host_side_buffer.data(),
-                         device_side_buffer.device_side_buffer, N * sizeof(T),
-                         cudaMemcpyDeviceToHost);
-  }
-  void cp_to_device(cuda_helper &interface) {
-    interface.copy_async(device_side_buffer.device_side_buffer,
-                         host_side_buffer.data(), N * sizeof(T),
-                         cudaMemcpyHostToDevice);
-  }
-
-  const T &operator[](size_t index) const { return host_side_buffer[index]; }
-  T &operator[](size_t index) { return host_side_buffer[index]; }
-};
-
-__global__ void saxpy(int n, float a, float *x, float *y) {
+__global__ void hello(void) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
-  if (i < n)
-    y[i] = a * x[i] + y[i];
+  printf("%i", i);
 }
 
 __global__ void mv(const size_t startindex, const size_t chunksize,
@@ -62,12 +43,22 @@ __global__ void mv(const size_t startindex, const size_t chunksize,
 
 // #pragma nv_exec_check_disable
 int main(int argc, char *argv[]) {
-  thread_local cuda_helper cuda_interface(0); // one stream per HPX thread
+  // executor cuda_interface(0, false); // one stream per HPX thread
+  // dim3 const grid_spec(1, 1, 1);
+  // dim3 const threads_per_block(1, 1, 1);
+  // void *args[] = {};
+  // std::cout << " starting kernel..." << std::endl;
+  // auto fut =
+  //     cuda_interface.async_execute(cudaLaunchKernel<decltype(hello)>, hello,
+  //                                  grid_spec, threads_per_block, args, 0);
+  // std::cout << " kernel started..." << std::endl;
+  // fut.get();
+  // std::cin.get();
 
   // Generate Problem: Repeated (unpotizmized) Matrix-Vec
   std::random_device
       rd; // Will be used to obtain a seed for the random number engine
-  std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
+  std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with
   std::uniform_real_distribution<> dis(-1.0, 1.0);
 
   std::vector<double> mult_vector(N + chunksize);
@@ -104,36 +95,42 @@ int main(int argc, char *argv[]) {
           [row_index, &erg_vector, mult_vector, &problemsize, &chunk,
            &cpu_side_function](hpx::shared_future<void> &&f) {
             // Recycle communication channels
-            cuda_channel<double, chunksize> input;
-            cuda_channel<double, chunksize> erg;
+            executor cuda_interface(0, false);
+            std::vector<double, recycler::recycle_allocator_cuda_host<double>>
+                input_host(N + 128);
+            recycler::cuda_device_buffer<double> input_device(N + 128);
+            std::vector<double, recycler::recycle_allocator_cuda_host<double>>
+                erg_host(N + 128);
+            recycler::cuda_device_buffer<double> erg_device(N + 128);
             // Copy into input array
             for (size_t i = 0; i < chunksize; i++) {
-              input[i] = mult_vector[row_index + i];
+              input_host[i] = mult_vector[row_index + i];
             }
-            input.cp_to_device(cuda_interface);
-            // Launch execution
+            cuda_interface.post(
+                cudaMemcpyAsync, input_device.device_side_buffer,
+                input_host.data(), N * sizeof(double), cudaMemcpyHostToDevice);
             size_t row = row_index;
             dim3 const grid_spec((chunksize + 127) / 128, 1, 1);
-            dim3 const threads_per_block(128, 0, 0);
+            dim3 const threads_per_block(128, 1, 1);
             void *args[] = {&row, &chunk, &problemsize,
-                            &(input.device_side_buffer),
-                            &(erg.device_side_buffer)};
-            cuda_interface.execute(reinterpret_cast<void const *>(&mv),
-                                   grid_spec, threads_per_block, args, 0);
-            // Copy results back
-            erg.cp_from_device(cuda_interface);
-            // Jump away
-            auto fut = cuda_interface.get_future();
+                            &(input_device.device_side_buffer),
+                            &(erg_device.device_side_buffer)};
+            cuda_interface.post(cudaLaunchKernel<decltype(mv)>, mv, grid_spec,
+                                threads_per_block, args, 0);
+            auto fut = cuda_interface.async_execute(
+                cudaMemcpyAsync, erg_host.data(), erg_device.device_side_buffer,
+                N * sizeof(double), cudaMemcpyHostToDevice);
             fut.get();
             // To CPU side function
-            cpu_side_function(erg, chunk);
+            cpu_side_function(erg_host, chunk);
             for (size_t i = 0; i < chunksize; i++) {
-              std::cerr << row_index + i << " " << i << ";";
-              erg_vector[row_index + i] = input[i];
+              erg_vector[row_index + i] = input_host[i];
             }
           });
     }
   }
+  auto when = hpx::when_all(futs);
+  when.wait();
   auto end = std::chrono::high_resolution_clock::now();
   std::cout << "\n==>Mults took "
             << std::chrono::duration_cast<std::chrono::milliseconds>(end -
