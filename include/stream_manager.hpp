@@ -310,36 +310,36 @@ public:
     stream_pool::release_interface<Interface, Pool>(interface_index);
   }
 
-  template <typename... Args> cudaError_t pass_through(Args &&... args) {
-    return interface.pass_through(std::forward<Args>(args)...);
-  }
-  template <typename... Args> void execute(Args &&... args) {
-    return interface.execute(std::forward<Args>(args)...);
-  }
+  // template <typename... Args> cudaError_t pass_through(Args &&... args) {
+  //   return interface.pass_through(std::forward<Args>(args)...);
+  // }
+  // template <typename... Args> void execute(Args &&... args) {
+  //   return interface.execute(std::forward<Args>(args)...);
+  // }
 
-  template <typename... Args> void copy_async(Args &&... args) {
-    interface.copy_async(std::forward<Args>(args)...);
-  }
-  template <typename... Args> void memset_async(Args &&... args) {
-    interface.memset_async(std::forward<Args>(args)...);
-  }
-  hpx::future<void> get_future() { return interface.get_future(); }
+  // template <typename... Args> void copy_async(Args &&... args) {
+  //   interface.copy_async(std::forward<Args>(args)...);
+  // }
+  // template <typename... Args> void memset_async(Args &&... args) {
+  //   interface.memset_async(std::forward<Args>(args)...);
+  // }
+  // hpx::future<void> get_future() { return interface.get_future(); }
   inline const size_t get_gpu_id() noexcept { return interface.get_gpu_id(); }
 
 private:
-  std::tuple<cuda_helper &, size_t> t;
-  cuda_helper &interface;
+  std::tuple<Interface &, size_t> t;
+  Interface &interface;
   size_t interface_index;
 };
 
-using hpx_stream_interface_pq =
-    stream_interface<cuda_helper, priority_pool<cuda_helper>>;
-using hpx_stream_interface_mgpq = stream_interface<
-    cuda_helper,
-    priority_pool_multi_gpu<cuda_helper, priority_pool<cuda_helper>>>;
-using hpx_stream_interface_rr =
-    stream_interface<cuda_helper, round_robin_pool<cuda_helper>>;
-using hpx_stream_interface_mgrr = stream_interface<
-    cuda_helper,
-    multi_gpu_round_robin_pool<cuda_helper, round_robin_pool<cuda_helper>>>;
+// using hpx_stream_interface_pq =
+//     stream_interface<cuda_helper, priority_pool<cuda_helper>>;
+// using hpx_stream_interface_mgpq = stream_interface<
+//     cuda_helper,
+//     priority_pool_multi_gpu<cuda_helper, priority_pool<cuda_helper>>>;
+// using hpx_stream_interface_rr =
+//     stream_interface<cuda_helper, round_robin_pool<cuda_helper>>;
+// using hpx_stream_interface_mgrr = stream_interface<
+//     cuda_helper,
+//     multi_gpu_round_robin_pool<cuda_helper, round_robin_pool<cuda_helper>>>;
 #endif

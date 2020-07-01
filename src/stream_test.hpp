@@ -53,7 +53,7 @@ void test_pool_ref_counting(const size_t gpu_parameter,
     auto load2 = stream_pool::get_current_load<Interface, Pool>();
     assert(load2 == 1);
     Interface test2_interface = std::get<0>(test2);
-    auto fut = test2_interface.get_future();
+    // auto fut = test2_interface.get_future();
     size_t test2_index = std::get<1>(test2);
     auto test3 = stream_pool::get_interface<Interface, Pool>();
     auto load3 = stream_pool::get_current_load<Interface, Pool>();
@@ -95,7 +95,7 @@ void test_pool_wrappers(const size_t gpu_parameter, size_t stream_parameter) {
     assert(load == 0);
     wrapper_type test2;
     load = stream_pool::get_current_load<Interface, Pool>();
-    auto fut = test2.get_future();
+    // auto fut = test2.get_future();
     assert(load == 1);
     wrapper_type test3;
     load = stream_pool::get_current_load<Interface, Pool>();
