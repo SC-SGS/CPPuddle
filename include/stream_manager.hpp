@@ -45,6 +45,9 @@ public:
     return *(
         std::min_element(std::begin(ref_counters), std::end(ref_counters)));
   }
+  size_t get_next_device_id() {
+    return 0; // single gpu pool
+  }
 };
 
 template <class Interface> class priority_pool {
@@ -84,6 +87,9 @@ public:
     return ref_counters[priorities[0]] < load_limit;
   }
   size_t get_current_load() { return ref_counters[priorities[0]]; }
+  size_t get_next_device_id() {
+    return 0; // single gpu pool
+  }
 };
 
 template <class Interface, class Pool> class multi_gpu_round_robin_pool {
@@ -138,6 +144,7 @@ public:
         })));
     return current_min_gpu.get_current_load();
   }
+  size_t get_next_device_id() { return current_interface; }
 };
 
 template <class Interface, class Pool> class priority_pool_multi_gpu {
@@ -188,6 +195,7 @@ public:
   size_t get_current_load() {
     return gpu_interfaces[priorities[0]].get_current_load();
   }
+  size_t get_next_device_id() { return priorities[0]; }
 };
 
 /// Access/Concurrency Control for stream pool implementation
@@ -232,6 +240,12 @@ public:
     assert(access_instance); // should already be initialized
     return stream_pool_implementation<Interface, Pool>::get_current_load();
   }
+  template <class Interface, class Pool>
+  static size_t get_next_device_id() noexcept {
+    std::lock_guard<std::mutex> guard(mut);
+    assert(access_instance); // should already be initialized
+    return stream_pool_implementation<Interface, Pool>::get_next_device_id();
+  }
 
 private:
   static std::unique_ptr<stream_pool> access_instance;
@@ -269,7 +283,6 @@ private:
     static bool interface_available(size_t load_limit) noexcept {
       if (!pool_instance)
         return false;
-      assert(pool_instance); // should already be initialized
       return pool_instance->streampool->interface_available(load_limit);
     }
     static size_t get_current_load() noexcept {
@@ -277,6 +290,11 @@ private:
         return 0;
       assert(pool_instance); // should already be initialized
       return pool_instance->streampool->get_current_load();
+    }
+    static size_t get_next_device_id() noexcept {
+      if (!pool_instance)
+        return 0;
+      return pool_instance->streampool->get_next_device_id();
     }
 
   private:
