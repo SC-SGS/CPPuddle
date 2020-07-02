@@ -11,82 +11,86 @@ int main(int argc, char *argv[]) {
 
   std::cout << "Starting ref counting tests ..." << std::endl;
   test_pool_ref_counting<hpx::cuda::cuda_executor,
-                         priority_pool<hpx::cuda::cuda_executor>>(0, 2);
+                         priority_pool<hpx::cuda::cuda_executor>>(2, 0, false);
   test_pool_ref_counting<hpx::cuda::cuda_executor,
-                         round_robin_pool<hpx::cuda::cuda_executor>>(0, 2);
+                         round_robin_pool<hpx::cuda::cuda_executor>>(2, 0,
+                                                                     false);
   test_pool_ref_counting<
       hpx::cuda::cuda_executor,
       multi_gpu_round_robin_pool<hpx::cuda::cuda_executor,
                                  round_robin_pool<hpx::cuda::cuda_executor>>>(
-      1, 2);
+      2, 1, false);
   test_pool_ref_counting<
       hpx::cuda::cuda_executor,
       priority_pool_multi_gpu<hpx::cuda::cuda_executor,
-                              priority_pool<hpx::cuda::cuda_executor>>>(1, 2);
+                              priority_pool<hpx::cuda::cuda_executor>>>(2, 1,
+                                                                        false);
   test_pool_ref_counting<
       hpx::cuda::cuda_executor,
       multi_gpu_round_robin_pool<hpx::cuda::cuda_executor,
-                                 priority_pool<hpx::cuda::cuda_executor>>>(1,
-                                                                           2);
+                                 priority_pool<hpx::cuda::cuda_executor>>>(
+      2, 1, false);
   test_pool_ref_counting<
       hpx::cuda::cuda_executor,
       priority_pool_multi_gpu<hpx::cuda::cuda_executor,
-                              round_robin_pool<hpx::cuda::cuda_executor>>>(1,
-                                                                           2);
+                              round_robin_pool<hpx::cuda::cuda_executor>>>(
+      2, 1, false);
   std::cout << "Finished ref counting tests!" << std::endl;
 
   std::cout << "Starting wrapper objects tests ..." << std::endl;
   test_pool_wrappers<hpx::cuda::cuda_executor,
-                     priority_pool<hpx::cuda::cuda_executor>>(0, 2);
+                     priority_pool<hpx::cuda::cuda_executor>>(2, 0, false);
   test_pool_wrappers<hpx::cuda::cuda_executor,
-                     round_robin_pool<hpx::cuda::cuda_executor>>(0, 2);
+                     round_robin_pool<hpx::cuda::cuda_executor>>(2, 0, false);
   test_pool_wrappers<
       hpx::cuda::cuda_executor,
       multi_gpu_round_robin_pool<hpx::cuda::cuda_executor,
                                  round_robin_pool<hpx::cuda::cuda_executor>>>(
-      1, 2);
+      2, 1, false);
   test_pool_wrappers<
       hpx::cuda::cuda_executor,
       priority_pool_multi_gpu<hpx::cuda::cuda_executor,
-                              priority_pool<hpx::cuda::cuda_executor>>>(1, 2);
+                              priority_pool<hpx::cuda::cuda_executor>>>(2, 1,
+                                                                        false);
 
   test_pool_wrappers<
       hpx::cuda::cuda_executor,
       multi_gpu_round_robin_pool<hpx::cuda::cuda_executor,
-                                 priority_pool<hpx::cuda::cuda_executor>>>(1,
-                                                                           2);
+                                 priority_pool<hpx::cuda::cuda_executor>>>(
+      2, 1, false);
   test_pool_wrappers<
       hpx::cuda::cuda_executor,
       priority_pool_multi_gpu<hpx::cuda::cuda_executor,
-                              round_robin_pool<hpx::cuda::cuda_executor>>>(1,
-                                                                           2);
+                              round_robin_pool<hpx::cuda::cuda_executor>>>(
+      2, 1, false);
   std::cout << "Finished wrapper objects tests!" << std::endl;
 
   std::cout << "Starting memcpy tests... " << std::endl;
   test_pool_memcpy<hpx::cuda::cuda_executor,
-                   round_robin_pool<hpx::cuda::cuda_executor>>(0, 2);
+                   round_robin_pool<hpx::cuda::cuda_executor>>(2, 0, false);
   test_pool_memcpy<
       hpx::cuda::cuda_executor,
       multi_gpu_round_robin_pool<hpx::cuda::cuda_executor,
                                  round_robin_pool<hpx::cuda::cuda_executor>>>(
-      1, 2);
+      2, 1, false);
   test_pool_memcpy<hpx::cuda::cuda_executor,
-                   priority_pool<hpx::cuda::cuda_executor>>(0, 2);
+                   priority_pool<hpx::cuda::cuda_executor>>(2, 0, false);
   test_pool_memcpy<
       hpx::cuda::cuda_executor,
       priority_pool_multi_gpu<hpx::cuda::cuda_executor,
-                              priority_pool<hpx::cuda::cuda_executor>>>(1, 2);
+                              priority_pool<hpx::cuda::cuda_executor>>>(2, 1,
+                                                                        false);
 
   // combo pool
   test_pool_memcpy<
       hpx::cuda::cuda_executor,
       multi_gpu_round_robin_pool<hpx::cuda::cuda_executor,
-                                 priority_pool<hpx::cuda::cuda_executor>>>(1,
-                                                                           2);
+                                 priority_pool<hpx::cuda::cuda_executor>>>(
+      2, 1, false);
   test_pool_memcpy<
       hpx::cuda::cuda_executor,
       priority_pool_multi_gpu<hpx::cuda::cuda_executor,
-                              round_robin_pool<hpx::cuda::cuda_executor>>>(1,
-                                                                           2);
+                              round_robin_pool<hpx::cuda::cuda_executor>>>(
+      2, 1, false);
   std::cout << "Finished memcpy tests! " << std::endl;
 }

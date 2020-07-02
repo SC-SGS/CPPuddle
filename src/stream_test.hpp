@@ -3,13 +3,12 @@
 #include "../include/buffer_manager.hpp"
 #include "../include/cuda_buffer_util.hpp"
 
-template <typename Interface, typename Pool>
-void test_pool_memcpy(const size_t gpu_parameter,
-                      const size_t stream_parameter) {
+template <typename Interface, typename Pool, typename... Ts>
+void test_pool_memcpy(const size_t stream_parameter, Ts &&... ts) {
   std::vector<double, recycler::recycle_allocator_cuda_host<double>> hostbuffer(
       512);
   recycler::cuda_device_buffer<double> devicebuffer(512);
-  stream_pool::init<Interface, Pool>(gpu_parameter, stream_parameter);
+  stream_pool::init<Interface, Pool>(stream_parameter, std::forward<Ts>(ts)...);
   // without interface wrapper
   {
     auto test1 = stream_pool::get_interface<Interface, Pool>();
@@ -37,14 +36,14 @@ void test_pool_memcpy(const size_t gpu_parameter,
         512 * sizeof(double), cudaMemcpyDeviceToHost);
     fut1.get();
   }
+  stream_pool::cleanup<Interface, Pool>();
 }
 
-template <typename Interface, typename Pool>
-void test_pool_ref_counting(const size_t gpu_parameter,
-                            size_t stream_parameter) {
+template <typename Interface, typename Pool, typename... Ts>
+void test_pool_ref_counting(const size_t stream_parameter, Ts &&... ts) {
 
   // init ppol
-  stream_pool::init<Interface, Pool>(gpu_parameter, stream_parameter);
+  stream_pool::init<Interface, Pool>(stream_parameter, std::forward<Ts>(ts)...);
   {
     // Allocating
     auto test1 = stream_pool::get_interface<Interface, Pool>();
@@ -85,13 +84,14 @@ void test_pool_ref_counting(const size_t gpu_parameter,
   // Clear
   auto load0 = stream_pool::get_current_load<Interface, Pool>();
   assert(load0 == 0);
+  stream_pool::cleanup<Interface, Pool>();
 }
 
-template <typename Interface, typename Pool>
-void test_pool_wrappers(const size_t gpu_parameter, size_t stream_parameter) {
+template <typename Interface, typename Pool, typename... Ts>
+void test_pool_wrappers(const size_t stream_parameter, Ts &&... ts) {
   using wrapper_type = stream_interface<Interface, Pool>;
   // init ppol
-  stream_pool::init<Interface, Pool>(gpu_parameter, stream_parameter);
+  stream_pool::init<Interface, Pool>(stream_parameter, std::forward<Ts>(ts)...);
   {
     wrapper_type test1;
     auto load = stream_pool::get_current_load<Interface, Pool>();
@@ -116,6 +116,7 @@ void test_pool_wrappers(const size_t gpu_parameter, size_t stream_parameter) {
   }
   auto load0 = stream_pool::get_current_load<Interface, Pool>();
   assert(load0 == 0);
+  stream_pool::cleanup<Interface, Pool>();
 }
 
 #endif
