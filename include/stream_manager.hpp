@@ -354,10 +354,17 @@ public:
 
   inline const size_t get_gpu_id() noexcept { return interface.get_gpu_id(); }
 
+  // allow implict conversion 
+  operator Interface &() { // NOLINT
+    return interface;
+  }
+
 private:
   std::tuple<Interface &, size_t> t;
-  Interface &interface;
   size_t interface_index;
+
+public:
+  Interface &interface;
 };
 
 #endif
