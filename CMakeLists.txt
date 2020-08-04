@@ -9,6 +9,7 @@ find_package(Kokkos 3.0.0 REQUIRED)
 find_package(HPXKokkos REQUIRED) # No version yet.
 
 option(INTEROPT_WITH_CUDA "Enable CUDA" ON)
+option(INTEROPT_WITH_TESTS "Build tests" OFF)
 
 if (INTEROPT_WITH_CUDA)
    enable_language(CUDA) 
@@ -90,6 +91,7 @@ install(EXPORT CPPuddle DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CPPuddle/)
 
 
 ## Tests
+if (INTEROPT_WITH_TESTS)
 add_executable(allocator_test src/allocator_test.cpp)
 target_link_libraries(allocator_test
   HPX::hpx buffer_manager)
@@ -315,4 +317,6 @@ if (INTEROPT_WITH_CUDA)
   #add_test(allocator_executor_stream_test.run allocator_executor_stream_test)
   add_test(allocator_kokkos_executor_stream_test.run allocator_kokkos_executor_stream_test)
   add_test(stream_test.run stream_test)
+endif()
+
 endif()
