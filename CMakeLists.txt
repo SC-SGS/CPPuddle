@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 
-project(hpx_kokkos_example CXX) 
+project(CPPuddle CXX) # Some random project name
 
 # TODO: We actually require unreleased features. The minimum versions need to
 # be updated when they are released.
@@ -58,7 +58,34 @@ endif()
 
 ## Interface targets
 add_library(buffer_manager SHARED src/buffer_manager_definitions.cpp)
-target_include_directories(buffer_manager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(buffer_manager INTERFACE
+ $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+ $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+ )
+
+add_library(stream_manager SHARED src/stream_manager_definitions.cpp)
+target_link_libraries(stream_manager
+    PRIVATE HPX::hpx)
+target_include_directories(stream_manager INTERFACE 
+$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> 
+$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}> 
+)
+
+# install libs with the defitions:
+install(TARGETS buffer_manager EXPORT CPPuddle
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} 
+)
+install(TARGETS stream_manager EXPORT CPPuddle
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}  
+)
+# install all headers
+install(
+  DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(FILES CPPuddle-config.cmake DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(EXPORT CPPuddle DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
 
 
 
@@ -110,11 +137,6 @@ if (INTEROPT_WITH_CUDA)
     PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
   target_compile_definitions(minimal_parallel_for PRIVATE INTEROPT_HAVE_CUDA)
 
-  add_library(stream_manager SHARED src/stream_manager_definitions.cpp)
-  target_link_libraries(stream_manager
-    PRIVATE HPX::hpx)
-  target_include_directories(stream_manager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src)
-
   add_executable(
     stream_test
     src/stream_test.cpp
@@ -124,17 +146,6 @@ if (INTEROPT_WITH_CUDA)
   target_compile_definitions(stream_test PRIVATE INTEROPT_HAVE_CUDA)
 endif()
 
-# install libs with the defitions:
-install(TARGETS buffer_manager
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-)
-install(TARGETS stream_manager
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-)
-# install all headers
-install(
-  DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
 
 enable_testing()
 
