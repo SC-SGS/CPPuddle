@@ -83,8 +83,8 @@ install(
   DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-install(FILES CPPuddle-config.cmake DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(EXPORT CPPuddle DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(FILES cppuddle-config.cmake DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CPPuddle/)
+install(EXPORT CPPuddle DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CPPuddle/)
 
 
 
