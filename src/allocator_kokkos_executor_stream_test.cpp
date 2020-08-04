@@ -83,13 +83,14 @@ template <typename Viewtype, typename Policytype>
 KOKKOS_INLINE_FUNCTION void
 kernel_add_kokkos(const Viewtype &first, const Viewtype &second,
                   Viewtype &output, const Policytype &policy) {
-  Kokkos::parallel_for("kernel add", policy, KOKKOS_LAMBDA(int j, int k) {
-    // useless loop to make the computation last longer in the profiler
-    for (volatile double i = 0.; i < 100.;) {
-      ++i;
-    }
-    output(j, k) = first(j, k) + second(j, k);
-  });
+  Kokkos::parallel_for(
+      "kernel add", policy, KOKKOS_LAMBDA(int j, int k) {
+        // useless loop to make the computation last longer in the profiler
+        for (volatile double i = 0.; i < 100.;) {
+          ++i;
+        }
+        output(j, k) = first(j, k) + second(j, k);
+      });
 }
 
 void stream_executor_test() {

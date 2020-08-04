@@ -1,11 +1,15 @@
-
+#define USE_HPX_MAIN
 #include <chrono>
 #include <cstdio>
 #include <random>
 #include <typeinfo>
 
 #include <hpx/async_cuda/cuda_executor.hpp>
-#include <hpx/hpx_main.hpp> // we don't need an hpx_main that way?
+#ifdef USE_HPX_MAIN
+#include <hpx/hpx_init.hpp>
+#else
+#include <hpx/hpx_main.hpp>
+#endif
 #include <hpx/include/async.hpp>
 #include <hpx/include/lcos.hpp>
 
@@ -14,7 +18,7 @@
 #include "../include/buffer_manager.hpp"
 #include "../include/cuda_buffer_util.hpp"
 
-using executor = hpx::cuda::cuda_executor;
+using executor = hpx::cuda::experimental::cuda_executor;
 
 constexpr size_t N = 200000;
 // constexpr size_t chunksize = 20000 ;
@@ -42,8 +46,12 @@ __global__ void mv(const size_t startindex, const size_t chunksize,
 }
 
 // #pragma nv_exec_check_disable
+#ifdef USE_HPX_MAIN
+int hpx_main(int argc, char *argv[]) {
+#else
 int main(int argc, char *argv[]) {
-  // executor cuda_interface(0, false); // one stream per HPX thread
+#endif
+  executor cuda_interface(0, false); // one stream per HPX thread
   // dim3 const grid_spec(1, 1, 1);
   // dim3 const threads_per_block(1, 1, 1);
   // void *args[] = {};
@@ -53,6 +61,7 @@ int main(int argc, char *argv[]) {
   //                                  grid_spec, threads_per_block, args, 0);
   // std::cout << " kernel started..." << std::endl;
   // fut.get();
+  // std::cout << " kernel finished..." << std::endl;
   // std::cin.get();
 
   // Generate Problem: Repeated (unpotizmized) Matrix-Vec
@@ -138,5 +147,12 @@ int main(int argc, char *argv[]) {
                    .count()
             << "ms" << std::endl;
 
-  return 0;
+  return hpx::finalize();
 }
+
+#ifdef USE_HPX_MAIN
+int main(int argc, char *argv[]) {
+  std::vector<std::string> cfg = {"hpx.commandline.allow_unknown=1"};
+  return hpx::init(argc, argv, cfg);
+}
+#endif
