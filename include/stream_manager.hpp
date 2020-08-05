@@ -1,6 +1,7 @@
 #ifndef STREAM_MANAGER_HPP
 #define STREAM_MANAGER_HPP
 
+#include <algorithm>
 #include <cassert>
 #include <iostream>
 #include <memory>
@@ -8,9 +9,9 @@
 #include <queue>
 #include <type_traits>
 
-#include <cuda_runtime.h>
-#include <hpx/compute/cuda/target.hpp>
-#include <hpx/include/compute.hpp>
+//#include <cuda_runtime.h>
+// #include <hpx/compute/cuda/target.hpp>
+// #include <hpx/include/compute.hpp>
 
 template <class Interface> class round_robin_pool {
 private:
@@ -354,7 +355,7 @@ public:
 
   inline const size_t get_gpu_id() noexcept { return interface.get_gpu_id(); }
 
-  // allow implict conversion 
+  // allow implict conversion
   operator Interface &() { // NOLINT
     return interface;
   }
