@@ -65,7 +65,7 @@ endif()
 if (CPPUDDLE_WITH_CLANG_FORMAT)
   file(GLOB_RECURSE
       ALL_CXX_SOURCE_FILES
-      src/*.cpp include/*.hpp src/*.cu
+      src/*.cpp tests/*.cpp test/*.cu tests/*.hpp src/*.hpp include/*.hpp src/*.cu
       )
   find_program(CLANG_FORMAT "clang-format")
   if(CLANG_FORMAT)
@@ -113,30 +113,30 @@ install(EXPORT CPPuddle NAMESPACE CPPuddle:: DESTINATION ${CMAKE_INSTALL_LIBDIR}
 
 ## Add target for tests and tests definitions
 if (CPPUDDLE_WITH_TESTS)
-  add_executable(allocator_test src/allocator_test.cpp)
+  add_executable(allocator_test tests/allocator_test.cpp)
   target_link_libraries(allocator_test
   ${Boost_LIBRARIES} buffer_manager)
 
-  add_executable(allocator_aligned_test src/allocator_aligned_test.cpp)
+  add_executable(allocator_aligned_test tests/allocator_aligned_test.cpp)
   target_link_libraries(allocator_aligned_test
   ${Boost_LIBRARIES} buffer_manager)
 
   if (CPPUDDLE_WITH_HPX)
 
-    add_executable(allocator_hpx_test src/allocator_hpx_test.cpp)
+    add_executable(allocator_hpx_test tests/allocator_hpx_test.cpp)
     target_link_libraries(allocator_hpx_test
       PRIVATE HPX::hpx buffer_manager)
 
     if (CPPUDDLE_WITH_CUDA)
 
-      add_executable(allocator_cuda_test src/allocator_cuda_test.cu)
+      add_executable(allocator_cuda_test tests/allocator_cuda_test.cu)
       target_link_libraries(allocator_cuda_test
         PRIVATE Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
       target_compile_definitions(allocator_cuda_test PRIVATE CPPUDDLE_HAVE_CUDA)
 
       add_executable(
         stream_test
-        src/stream_test.cpp
+        tests/stream_test.cpp
         include/stream_manager.hpp)
       target_link_libraries(stream_test
         PRIVATE HPX::hpx buffer_manager stream_manager)
@@ -146,7 +146,7 @@ if (CPPUDDLE_WITH_TESTS)
 
         add_executable(
           allocator_kokkos_test
-          src/allocator_kokkos_test.cpp
+          tests/allocator_kokkos_test.cpp
           include/buffer_manager.hpp)
         target_link_libraries(allocator_kokkos_test
           PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
@@ -154,21 +154,21 @@ if (CPPUDDLE_WITH_TESTS)
 
         add_executable(
           allocator_kokkos_executor_stream_test
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_kokkos_executor_stream_test.cpp)
+          ${CMAKE_CURRENT_SOURCE_DIR}/tests/allocator_kokkos_executor_stream_test.cpp)
         target_link_libraries(allocator_kokkos_executor_stream_test
           PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
         target_compile_definitions(allocator_kokkos_executor_stream_test PRIVATE CPPUDDLE_HAVE_CUDA)
 
         add_executable(
           allocator_executor_stream_test
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/allocator_executor_stream_test.cpp)
+          ${CMAKE_CURRENT_SOURCE_DIR}/tests/allocator_executor_stream_test.cpp)
         target_link_libraries(allocator_executor_stream_test
           PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
         target_compile_definitions(allocator_executor_stream_test PRIVATE CPPUDDLE_HAVE_CUDA)
 
         add_executable(
           minimal_parallel_for
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/minimal_parallel_for.cpp)
+          ${CMAKE_CURRENT_SOURCE_DIR}/tests/minimal_parallel_for.cpp)
         target_link_libraries(minimal_parallel_for
           PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
         target_compile_definitions(minimal_parallel_for PRIVATE CPPUDDLE_HAVE_CUDA)
