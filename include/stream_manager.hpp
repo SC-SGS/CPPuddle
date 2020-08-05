@@ -282,19 +282,22 @@ private:
       pool_instance->streampool->release_interface(index);
     }
     static bool interface_available(size_t load_limit) noexcept {
-      if (!pool_instance)
+      if (!pool_instance) {
         return false;
+      }
       return pool_instance->streampool->interface_available(load_limit);
     }
     static size_t get_current_load() noexcept {
-      if (!pool_instance)
+      if (!pool_instance) {
         return 0;
+      }
       assert(pool_instance); // should already be initialized
       return pool_instance->streampool->get_current_load();
     }
     static size_t get_next_device_id() noexcept {
-      if (!pool_instance)
+      if (!pool_instance) {
         return 0;
+      }
       return pool_instance->streampool->get_next_device_id();
     }
 
