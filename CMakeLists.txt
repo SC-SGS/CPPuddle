@@ -16,7 +16,7 @@ if (CPPUDDLE_WITH_CUDA)
 endif ()
 
 if (CPPUDDLE_WITH_HPX)
-  find_package(HPX 1.4.1 REQUIRED)
+  find_package(HPX REQUIRED)
 endif()
 if (CPPUDDLE_WITH_TESTS)
   find_package(Boost REQUIRED program_options)
@@ -85,7 +85,7 @@ endif()
 add_library(buffer_manager SHARED src/buffer_manager_definitions.cpp)
 target_include_directories(buffer_manager INTERFACE
  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
- $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+ $<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>
  )
 
 add_library(stream_manager SHARED src/stream_manager_definitions.cpp)
@@ -93,23 +93,23 @@ target_link_libraries(stream_manager
     PRIVATE )
 target_include_directories(stream_manager INTERFACE 
 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> 
-$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}> 
+$<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include> 
 )
 
 # install libs with the defitions:
 install(TARGETS buffer_manager EXPORT CPPuddle
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} 
+  LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib 
 )
 install(TARGETS stream_manager EXPORT CPPuddle
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}  
+  LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib  
 )
 # install all headers
 install(
-  DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_PREFIX}/include
 )
 
-install(FILES cppuddle-config.cmake DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CPPuddle/)
-install(EXPORT CPPuddle NAMESPACE CPPuddle:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CPPuddle/)
+install(FILES cppuddle-config.cmake DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/cmake/CPPuddle/)
+install(EXPORT CPPuddle NAMESPACE CPPuddle:: DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/cmake/CPPuddle/)
 
 ## Add target for tests and tests definitions
 if (CPPUDDLE_WITH_TESTS)
