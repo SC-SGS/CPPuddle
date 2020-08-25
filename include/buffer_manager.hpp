@@ -56,18 +56,18 @@ public:
   template <typename T, typename Host_Allocator>
   static void mark_unused(T *p, size_t number_elements) {
     std::lock_guard<std::mutex> guard(mut);
-    assert(recycler_instance); // instance should be already initialized by the
-                               // first call to get
-    return buffer_manager<T, Host_Allocator>::mark_unused(p, number_elements);
+    if (recycler_instance) // if the instance was already destroyed all buffers
+                           // are destroyed anyway
+      return buffer_manager<T, Host_Allocator>::mark_unused(p, number_elements);
   }
   /// Increase the reference coutner of a buffer
   template <typename T, typename Host_Allocator>
   static void increase_usage_counter(T *p, size_t number_elements) noexcept {
     std::lock_guard<std::mutex> guard(mut);
-    assert(recycler_instance); // instance should be already initialized by the
-                               // first call to get
-    return buffer_manager<T, Host_Allocator>::increase_usage_counter(
-        p, number_elements);
+    if (recycler_instance) // if the instance was already destroyed all buffers
+                           // are destroyed anyway
+      return buffer_manager<T, Host_Allocator>::increase_usage_counter(
+          p, number_elements);
   }
   /// Deallocated all buffers, no matter whether they are marked as used or not
   static void clean_all() {
@@ -127,7 +127,6 @@ public:
 
   // Subclasses
 private:
-
   /// Memory Manager subclass to handle buffers a specific type
   template <typename T, typename Host_Allocator> class buffer_manager {
   private:
@@ -311,7 +310,7 @@ private:
                 << static_cast<float>(number_recycling) / number_allocation *
                        100.0f
                 << "%" << std::endl;
-      assert(buffer_map.size() == 0); // Were there any buffers still used?
+      // assert(buffer_map.size() == 0); // Were there any buffers still used?
       unused_buffer_list.clear();
       buffer_map.clear();
     }
