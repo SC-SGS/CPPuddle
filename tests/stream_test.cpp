@@ -149,6 +149,7 @@ int main(int argc, char *argv[]) {
             round_robin_pool<hpx::cuda::experimental::cuda_executor>>>(2, 1,
                                                                        true);
   }
+  recycler::force_cleanup();
   std::cout << "Finished memcpy tests! " << std::endl;
   return hpx::finalize();
 }

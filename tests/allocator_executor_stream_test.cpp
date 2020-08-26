@@ -111,4 +111,5 @@ int main(int argc, char *argv[]) {
                                                                      begin)
                    .count()
             << "ms" << std::endl;
+  recycler::force_cleanup();
 }

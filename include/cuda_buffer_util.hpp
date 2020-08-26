@@ -4,6 +4,8 @@
 #include "buffer_manager.hpp"
 
 #include <cuda_runtime.h>
+#include <stdexcept>
+#include <string>
 
 namespace recycler {
 
@@ -16,10 +18,27 @@ template <class T> struct cuda_pinned_allocator {
   explicit cuda_pinned_allocator(cuda_pinned_allocator<U> const &) noexcept {}
   T *allocate(std::size_t n) {
     T *data;
-    cudaMallocHost(reinterpret_cast<void **>(&data), n * sizeof(T));
+    cudaError_t error =
+        cudaMallocHost(reinterpret_cast<void **>(&data), n * sizeof(T));
+    if (error != cudaSuccess) {
+      std::string msg =
+          std::string(
+              "cuda_pinned_allocator failed due to cudaMallocHost failure : ") +
+          std::string(cudaGetErrorString(error));
+      throw std::runtime_error(msg);
+    }
     return data;
   }
-  void deallocate(T *p, std::size_t n) { cudaFreeHost(p); }
+  void deallocate(T *p, std::size_t n) {
+    cudaError_t error = cudaFreeHost(p);
+    if (error != cudaSuccess) {
+      std::string msg =
+          std::string(
+              "cuda_pinned_allocator failed due to cudaFreeHost failure : ") +
+          std::string(cudaGetErrorString(error));
+      throw std::runtime_error(msg);
+    }
+  }
 };
 template <class T, class U>
 constexpr bool operator==(cuda_pinned_allocator<T> const &,
@@ -39,10 +58,26 @@ template <class T> struct cuda_device_allocator {
   explicit cuda_device_allocator(cuda_device_allocator<U> const &) noexcept {}
   T *allocate(std::size_t n) {
     T *data;
-    cudaMalloc(&data, n * sizeof(T));
+    cudaError_t error = cudaMalloc(&data, n * sizeof(T));
+    if (error != cudaSuccess) {
+      std::string msg =
+          std::string(
+              "cuda_device_allocator failed due to cudaMalloc failure : ") +
+          std::string(cudaGetErrorString(error));
+      throw std::runtime_error(msg);
+    }
     return data;
   }
-  void deallocate(T *p, std::size_t n) { cudaFree(p); }
+  void deallocate(T *p, std::size_t n) {
+    cudaError_t error = cudaFree(p);
+    if (error != cudaSuccess) {
+      std::string msg =
+          std::string(
+              "cuda_device_allocator failed due to cudaFree failure : ") +
+          std::string(cudaGetErrorString(error));
+      throw std::runtime_error(msg);
+    }
+  }
 };
 template <class T, class U>
 constexpr bool operator==(cuda_device_allocator<T> const &,

@@ -147,6 +147,8 @@ int main(int argc, char *argv[]) {
                    .count()
             << "ms" << std::endl;
 
+  recycler::force_cleanup(); // depending on the driver we cannot rely on the cleanup during the static exit time
+                             // as the cuda runtime may already be unloaded
   return hpx::finalize();
 }
 
