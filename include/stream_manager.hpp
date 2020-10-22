@@ -356,7 +356,7 @@ public:
     return interface.async_execute(std::forward<F>(f), std::forward<Ts>(ts)...);
   }
 
-  inline const size_t get_gpu_id() noexcept { return interface.get_gpu_id(); }
+  inline size_t get_gpu_id() noexcept { return interface.get_gpu_id(); }
 
   // allow implict conversion
   operator Interface &() { // NOLINT

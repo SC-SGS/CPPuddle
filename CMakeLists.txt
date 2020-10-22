@@ -2,9 +2,8 @@ cmake_minimum_required(VERSION 3.13)
 
 project(CPPuddle CXX C) # Some random project name
 
-
-
 option(CPPUDDLE_WITH_TESTS "Build tests/examples" OFF)
+option(CPPUDDLE_WITH_COUNTERS "Turns on allocations counters. Useful for extended testing" OFF)
 option(CPPUDDLE_WITH_CUDA "Enable CUDA tests/examples" OFF)
 option(CPPUDDLE_WITH_HPX "Enable HPX examples" OFF)
 option(CPPUDDLE_WITH_KOKKOS "Enable KOKKOS tests/examples" OFF)
@@ -180,6 +179,10 @@ if (CPPUDDLE_WITH_TESTS)
     endif() # end with CUDA
   endif() # end with HPX
 
+  if (CPPUDDLE_WITH_COUNTERS)
+    add_compile_definitions(CPPUDDLE_HAVE_COUNTERS)
+  endif()
+
   enable_testing()
 
   # Basic functionality tests
@@ -187,31 +190,33 @@ if (CPPUDDLE_WITH_TESTS)
   set_tests_properties(allocator_test.run PROPERTIES
     FIXTURES_SETUP allocator_test_output
   )
-  add_test(allocator_test.analyse_recycle_rate cat allocator_test.out)
-  set_tests_properties(allocator_test.analyse_recycle_rate PROPERTIES
-    FIXTURES_REQUIRED allocator_test_output
-    PASS_REGULAR_EXPRESSION "==> Recycle rate: [ ]* 99.5%"
-  )
-  add_test(allocator_test.analyse_marked_buffers_cleanup cat allocator_test.out)
-  set_tests_properties(allocator_test.analyse_marked_buffers_cleanup PROPERTIES
-    FIXTURES_REQUIRED allocator_test_output
-    PASS_REGULAR_EXPRESSION "--> Number of buffers that were marked as used upon cleanup:[ ]* 0"
-  )
-  add_test(allocator_test.analyse_cleaned_buffers cat allocator_test.out)
-  set_tests_properties(allocator_test.analyse_cleaned_buffers PROPERTIES
-    FIXTURES_REQUIRED allocator_test_output
-    PASS_REGULAR_EXPRESSION "--> Number cleaned up buffers:[ ]* 1"
-  )
-  add_test(allocator_test.analyse_created_buffers cat allocator_test.out)
-  set_tests_properties(allocator_test.analyse_created_buffers PROPERTIES
-    FIXTURES_REQUIRED allocator_test_output
-    PASS_REGULAR_EXPRESSION "--> Number of times a new buffer had to be created for a request:[ ]* 1"
-  )
-  add_test(allocator_test.analyse_bad_allocs cat allocator_test.out)
-  set_tests_properties(allocator_test.analyse_bad_allocs PROPERTIES
-    FIXTURES_REQUIRED allocator_test_output
-    PASS_REGULAR_EXPRESSION "--> Number of bad_allocs that triggered garbage collection: [ ]* 0"
-  )
+  if (CPPUDDLE_WITH_COUNTERS)
+    add_test(allocator_test.analyse_recycle_rate cat allocator_test.out)
+    set_tests_properties(allocator_test.analyse_recycle_rate PROPERTIES
+      FIXTURES_REQUIRED allocator_test_output
+      PASS_REGULAR_EXPRESSION "==> Recycle rate: [ ]* 99.5%"
+    )
+    add_test(allocator_test.analyse_marked_buffers_cleanup cat allocator_test.out)
+    set_tests_properties(allocator_test.analyse_marked_buffers_cleanup PROPERTIES
+      FIXTURES_REQUIRED allocator_test_output
+      PASS_REGULAR_EXPRESSION "--> Number of buffers that were marked as used upon cleanup:[ ]* 0"
+    )
+    add_test(allocator_test.analyse_cleaned_buffers cat allocator_test.out)
+    set_tests_properties(allocator_test.analyse_cleaned_buffers PROPERTIES
+      FIXTURES_REQUIRED allocator_test_output
+      PASS_REGULAR_EXPRESSION "--> Number cleaned up buffers:[ ]* 1"
+    )
+    add_test(allocator_test.analyse_created_buffers cat allocator_test.out)
+    set_tests_properties(allocator_test.analyse_created_buffers PROPERTIES
+      FIXTURES_REQUIRED allocator_test_output
+      PASS_REGULAR_EXPRESSION "--> Number of times a new buffer had to be created for a request:[ ]* 1"
+    )
+    add_test(allocator_test.analyse_bad_allocs cat allocator_test.out)
+    set_tests_properties(allocator_test.analyse_bad_allocs PROPERTIES
+      FIXTURES_REQUIRED allocator_test_output
+      PASS_REGULAR_EXPRESSION "--> Number of bad_allocs that triggered garbage collection: [ ]* 0"
+    )
+  endif()
   if (NOT CMAKE_BUILD_TYPE MATCHES "Debug") # Performance tests only make sense with optimizations on
     add_test(allocator_test.performance.analyse_recycle_performance cat allocator_test.out)
     set_tests_properties(allocator_test.performance.analyse_recycle_performance PROPERTIES
@@ -242,31 +247,33 @@ if (CPPUDDLE_WITH_TESTS)
   set_tests_properties(allocator_aligned_test.run PROPERTIES
     FIXTURES_SETUP allocator_aligned_test_output
   )
-  add_test(allocator_aligned_test.analyse_recycle_rate cat allocator_aligned_test.out)
-  set_tests_properties(allocator_aligned_test.analyse_recycle_rate PROPERTIES
-    FIXTURES_REQUIRED allocator_aligned_test_output
-    PASS_REGULAR_EXPRESSION "==> Recycle rate: [ ]* 99.5%"
-  )
-  add_test(allocator_aligned_test.analyse_marked_buffers_cleanup cat allocator_aligned_test.out)
-  set_tests_properties(allocator_aligned_test.analyse_marked_buffers_cleanup PROPERTIES
-    FIXTURES_REQUIRED allocator_aligned_test_output
-    PASS_REGULAR_EXPRESSION "--> Number of buffers that were marked as used upon cleanup:[ ]* 0"
-  )
-  add_test(allocator_aligned_test.analyse_cleaned_buffers cat allocator_aligned_test.out)
-  set_tests_properties(allocator_aligned_test.analyse_cleaned_buffers PROPERTIES
-    FIXTURES_REQUIRED allocator_aligned_test_output
-    PASS_REGULAR_EXPRESSION "--> Number cleaned up buffers:[ ]* 1"
-  )
-  add_test(allocator_aligned_test.analyse_created_buffers cat allocator_aligned_test.out)
-  set_tests_properties(allocator_aligned_test.analyse_created_buffers PROPERTIES
-    FIXTURES_REQUIRED allocator_aligned_test_output
-    PASS_REGULAR_EXPRESSION "--> Number of times a new buffer had to be created for a request:[ ]* 1"
-  )
-  add_test(allocator_aligned_test.analyse_bad_allocs cat allocator_aligned_test.out)
-  set_tests_properties(allocator_aligned_test.analyse_bad_allocs PROPERTIES
-    FIXTURES_REQUIRED allocator_aligned_test_output
-    PASS_REGULAR_EXPRESSION "--> Number of bad_allocs that triggered garbage collection: [ ]* 0"
-  )
+  if (CPPUDDLE_WITH_COUNTERS)
+    add_test(allocator_aligned_test.analyse_recycle_rate cat allocator_aligned_test.out)
+    set_tests_properties(allocator_aligned_test.analyse_recycle_rate PROPERTIES
+      FIXTURES_REQUIRED allocator_aligned_test_output
+      PASS_REGULAR_EXPRESSION "==> Recycle rate: [ ]* 99.5%"
+    )
+    add_test(allocator_aligned_test.analyse_marked_buffers_cleanup cat allocator_aligned_test.out)
+    set_tests_properties(allocator_aligned_test.analyse_marked_buffers_cleanup PROPERTIES
+      FIXTURES_REQUIRED allocator_aligned_test_output
+      PASS_REGULAR_EXPRESSION "--> Number of buffers that were marked as used upon cleanup:[ ]* 0"
+    )
+    add_test(allocator_aligned_test.analyse_cleaned_buffers cat allocator_aligned_test.out)
+    set_tests_properties(allocator_aligned_test.analyse_cleaned_buffers PROPERTIES
+      FIXTURES_REQUIRED allocator_aligned_test_output
+      PASS_REGULAR_EXPRESSION "--> Number cleaned up buffers:[ ]* 1"
+    )
+    add_test(allocator_aligned_test.analyse_created_buffers cat allocator_aligned_test.out)
+    set_tests_properties(allocator_aligned_test.analyse_created_buffers PROPERTIES
+      FIXTURES_REQUIRED allocator_aligned_test_output
+      PASS_REGULAR_EXPRESSION "--> Number of times a new buffer had to be created for a request:[ ]* 1"
+    )
+    add_test(allocator_aligned_test.analyse_bad_allocs cat allocator_aligned_test.out)
+    set_tests_properties(allocator_aligned_test.analyse_bad_allocs PROPERTIES
+      FIXTURES_REQUIRED allocator_aligned_test_output
+      PASS_REGULAR_EXPRESSION "--> Number of bad_allocs that triggered garbage collection: [ ]* 0"
+    )
+  endif()
   if (NOT CMAKE_BUILD_TYPE MATCHES "Debug") # Performance tests only make sense with optimizations on
     add_test(allocator_aligned_test.performance.analyse_recycle_performance cat allocator_aligned_test.out)
     set_tests_properties(allocator_aligned_test.performance.analyse_recycle_performance PROPERTIES
@@ -299,31 +306,33 @@ if (CPPUDDLE_WITH_TESTS)
       FIXTURES_SETUP allocator_concurrency_output
       PROCESSORS 4
     )
-    add_test(allocator_concurrency_test.analyse_recycle_rate cat allocator_concurrency_test.out)
-    set_tests_properties(allocator_concurrency_test.analyse_recycle_rate PROPERTIES
-      FIXTURES_REQUIRED allocator_concurrency_output
-      PASS_REGULAR_EXPRESSION "==> Recycle rate: [ ]* 99.844%"
-    )
-    add_test(allocator_concurrency_test.analyse_marked_buffers_cleanup cat allocator_concurrency_test.out)
-    set_tests_properties(allocator_concurrency_test.analyse_marked_buffers_cleanup PROPERTIES
-      FIXTURES_REQUIRED allocator_concurrency_output
-      PASS_REGULAR_EXPRESSION "--> Number of buffers that were marked as used upon cleanup:[ ]* 0"
-    )
-    add_test(allocator_concurrency_test.analyse_cleaned_buffers cat allocator_concurrency_test.out)
-    set_tests_properties(allocator_concurrency_test.analyse_cleaned_buffers PROPERTIES
-      FIXTURES_REQUIRED allocator_concurrency_output
-      PASS_REGULAR_EXPRESSION "--> Number cleaned up buffers:[ ]* 4"
-    )
-    add_test(allocator_concurrency_test.analyse_created_buffers cat allocator_concurrency_test.out)
-    set_tests_properties(allocator_concurrency_test.analyse_created_buffers PROPERTIES
-      FIXTURES_REQUIRED allocator_concurrency_output
-      PASS_REGULAR_EXPRESSION "--> Number of times a new buffer had to be created for a request:[ ]* 4"
-    )
-    add_test(allocator_concurrency_test.analyse_bad_allocs cat allocator_concurrency_test.out)
-    set_tests_properties(allocator_concurrency_test.analyse_bad_allocs PROPERTIES
-      FIXTURES_REQUIRED allocator_concurrency_output
-      PASS_REGULAR_EXPRESSION "--> Number of bad_allocs that triggered garbage collection: [ ]* 0"
-    )
+    if (CPPUDDLE_WITH_COUNTERS)
+      add_test(allocator_concurrency_test.analyse_recycle_rate cat allocator_concurrency_test.out)
+      set_tests_properties(allocator_concurrency_test.analyse_recycle_rate PROPERTIES
+        FIXTURES_REQUIRED allocator_concurrency_output
+        PASS_REGULAR_EXPRESSION "==> Recycle rate: [ ]* 99.844%"
+      )
+      add_test(allocator_concurrency_test.analyse_marked_buffers_cleanup cat allocator_concurrency_test.out)
+      set_tests_properties(allocator_concurrency_test.analyse_marked_buffers_cleanup PROPERTIES
+        FIXTURES_REQUIRED allocator_concurrency_output
+        PASS_REGULAR_EXPRESSION "--> Number of buffers that were marked as used upon cleanup:[ ]* 0"
+      )
+      add_test(allocator_concurrency_test.analyse_cleaned_buffers cat allocator_concurrency_test.out)
+      set_tests_properties(allocator_concurrency_test.analyse_cleaned_buffers PROPERTIES
+        FIXTURES_REQUIRED allocator_concurrency_output
+        PASS_REGULAR_EXPRESSION "--> Number cleaned up buffers:[ ]* 4"
+      )
+      add_test(allocator_concurrency_test.analyse_created_buffers cat allocator_concurrency_test.out)
+      set_tests_properties(allocator_concurrency_test.analyse_created_buffers PROPERTIES
+        FIXTURES_REQUIRED allocator_concurrency_output
+        PASS_REGULAR_EXPRESSION "--> Number of times a new buffer had to be created for a request:[ ]* 4"
+      )
+      add_test(allocator_concurrency_test.analyse_bad_allocs cat allocator_concurrency_test.out)
+      set_tests_properties(allocator_concurrency_test.analyse_bad_allocs PROPERTIES
+        FIXTURES_REQUIRED allocator_concurrency_output
+        PASS_REGULAR_EXPRESSION "--> Number of bad_allocs that triggered garbage collection: [ ]* 0"
+      )
+    endif()
     if (NOT CMAKE_BUILD_TYPE MATCHES "Debug") # Performance tests only make sense with optimizations on
       add_test(allocator_concurrency_test.performance.analyse_recycle_performance cat allocator_concurrency_test.out)
       set_tests_properties(allocator_concurrency_test.performance.analyse_recycle_performance PROPERTIES

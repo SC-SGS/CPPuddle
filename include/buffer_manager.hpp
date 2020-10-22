@@ -56,18 +56,20 @@ public:
   template <typename T, typename Host_Allocator>
   static void mark_unused(T *p, size_t number_elements) {
     std::lock_guard<std::mutex> guard(mut);
-    if (recycler_instance) // if the instance was already destroyed all buffers
-                           // are destroyed anyway
+    if (recycler_instance) { // if the instance was already destroyed all buffers
+                             // are destroyed anyway
       return buffer_manager<T, Host_Allocator>::mark_unused(p, number_elements);
+    }
   }
   /// Increase the reference coutner of a buffer
   template <typename T, typename Host_Allocator>
   static void increase_usage_counter(T *p, size_t number_elements) noexcept {
     std::lock_guard<std::mutex> guard(mut);
-    if (recycler_instance) // if the instance was already destroyed all buffers
-                           // are destroyed anyway
+    if (recycler_instance) { // if the instance was already destroyed all buffers
+                             // are destroyed anyway
       return buffer_manager<T, Host_Allocator>::increase_usage_counter(
           p, number_elements);
+    }
   }
   /// Deallocated all buffers, no matter whether they are marked as used or not
   static void clean_all() {
@@ -161,7 +163,9 @@ private:
         buffer_recycler::add_partial_cleanup_callback(
             clean_unused_buffers_only);
       }
+#ifdef CPPUDDLE_HAVE_COUNTERS
       manager_instance->number_allocation++;
+#endif
       // Check for unused buffers we can recycle:
       for (auto iter = manager_instance->unused_buffer_list.begin();
            iter != manager_instance->unused_buffer_list.end(); iter++) {
@@ -181,7 +185,9 @@ private:
             std::get<3>(tuple) = false;
           }
           manager_instance->buffer_map.insert({std::get<0>(tuple), tuple});
+#ifdef CPPUDDLE_HAVE_COUNTERS
           manager_instance->number_recycling++;
+#endif
           return std::get<0>(tuple);
         }
       }
@@ -193,7 +199,9 @@ private:
         manager_instance->buffer_map.insert(
             {buffer, std::make_tuple(buffer, number_of_elements, 1,
                                      manage_content_lifetime)});
+#ifdef CPPUDDLE_HAVE_COUNTERS
         manager_instance->number_creation++;
+#endif
         if (manage_content_lifetime) {
           util::uninitialized_value_construct_n(buffer, number_of_elements);
         }
@@ -209,8 +217,10 @@ private:
         manager_instance->buffer_map.insert(
             {buffer, std::make_tuple(buffer, number_of_elements, 1,
                                      manage_content_lifetime)});
+#ifdef CPPUDDLE_HAVE_COUNTERS
         manager_instance->number_creation++;
         manager_instance->number_bad_alloc++;
+#endif
         if (manage_content_lifetime) {
           util::uninitialized_value_construct_n(buffer, number_of_elements);
         }
@@ -223,7 +233,9 @@ private:
       // method comes from the buffer recycler We can forego the instance
       // existence check here
       assert(manager_instance);
+#ifdef CPPUDDLE_HAVE_COUNTERS
       manager_instance->number_dealloacation++;
+#endif
       auto it = manager_instance->buffer_map.find(memory_location);
       assert(it != manager_instance->buffer_map.end());
       auto &tuple = it->second;
@@ -254,9 +266,11 @@ private:
     std::unordered_map<T *, buffer_entry_type> buffer_map{};
     /// List with all buffers currently not used
     std::list<buffer_entry_type> unused_buffer_list{};
+#ifdef CPPUDDLE_HAVE_COUNTERS
     /// Performance counters
     size_t number_allocation{0}, number_dealloacation{0};
     size_t number_recycling{0}, number_creation{0}, number_bad_alloc{0};
+#endif
     /// Singleton instance
     static std::unique_ptr<buffer_manager<T, Host_Allocator>> manager_instance;
     /// default, private constructor - not automatically constructed due to the
@@ -280,6 +294,7 @@ private:
         }
         alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
       }
+#ifdef CPPUDDLE_HAVE_COUNTERS
       // Print performance counters
       size_t number_cleaned = unused_buffer_list.size() + buffer_map.size();
       std::cout << "\nBuffer mananger destructor for buffers of type "
@@ -311,6 +326,7 @@ private:
                        100.0f
                 << "%" << std::endl;
       // assert(buffer_map.size() == 0); // Were there any buffers still used?
+#endif 
       unused_buffer_list.clear();
       buffer_map.clear();
     }
