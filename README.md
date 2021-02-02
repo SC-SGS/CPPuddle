@@ -16,8 +16,8 @@ We currently test it in the experimental build of [Octo-Tiger](https://github.co
 
 #### Requirements
 
-- c++14
-- CMake (min 3.11)
+- C++14
+- CMake (>= 3.11)
 - Optional (for the header-only utilities / test): CUDA, Boost, [HPX](https://github.com/STEllAR-GROUP/hpx), [Kokkos](https://github.com/kokkos/kokkos), [HPX-Kokkos](https://github.com/STEllAR-GROUP/hpx-kokkos)
 
 The submodules can be used to obtain the optional dependencies! Otherwise the git submodules and additional buildscripts in scripts/ can safely be ignored!
