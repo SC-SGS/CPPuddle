@@ -14,7 +14,7 @@ In this use-case, allocating GPU buffers for all sub-grids in advance would have
 
 #### Tools provided by this repository
 
-- Allocators that reuse previousely allocated buffers if available (works with normal heap memory, pinned memory, aligned memory, CUDA device memory, and Kokkos Views).
+- Allocators that reuse previousely allocated buffers if available (works with normal heap memory, pinned memory, aligned memory, CUDA device memory, and Kokkos Views). Note that separate buffers do not coexist on a single chunk of continuous memory, but use different allocations. 
 - Executor pools and various scheduling policies (round robin, priority queue, multi-gpu), which rely on reference counting to gauge the current load of a executor instead of querying the device itself.
 
 #### Requirements
@@ -23,7 +23,7 @@ In this use-case, allocating GPU buffers for all sub-grids in advance would have
 - CMake (>= 3.11)
 - Optional (for the header-only utilities / test): CUDA, Boost, [HPX](https://github.com/STEllAR-GROUP/hpx), [Kokkos](https://github.com/kokkos/kokkos), [HPX-Kokkos](https://github.com/STEllAR-GROUP/hpx-kokkos)
 
-The submodules can be used to obtain the optional dependencies which are required for testing the header-only utilities. If these tests are not required, the submoduled (and the respective buildscripts in /scripts) can be ignored safely.
+The submodules can be used to obtain the optional dependencies which are required for testing the header-only utilities. If these tests are not required, the submodule (and the respective buildscripts in /scripts) can be ignored safely.
 
 #### Build / Install
 
@@ -32,7 +32,7 @@ The submodules can be used to obtain the optional dependencies which are require
   cmake --build /path/to/build -- -j4 VERBOSE=1                                                                                                                                                                                                          
   cmake --build /path/to/build --target install  
 ```
-If installed correctly, it can be used in other cmake-based projects via
+If installed correctly, cppuddle can be used in other cmake-based projects via
 ```
 find_package(CPPuddle REQUIRED)
 ```
