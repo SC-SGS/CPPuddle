@@ -2,6 +2,8 @@
 
 WARNING: This repo is work in progress and should not be relied on for production use!
 
+![ctests](https://github.com/SC-SGS/CPPuddle/workflows/ctests/badge.svg)
+
 #### Purpose
 
 This repository was initially created to explore how to best use HPX and Kokkos together!
