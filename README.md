@@ -10,7 +10,7 @@ This repository was initially created to explore how to best use HPX and Kokkos 
 For fine-grained GPU tasks, we needed a way to avoid excessive allocations of one-usage GPU buffers (as allocations block the device for all streams) and creation/deletion of GPU executors (as those are usually tied to a stream which is expensive to create as well).
 
 We currently test it in the experimental build of [Octo-Tiger](https://github.com/STEllAR-GROUP/octotiger), together with [HPX-Kokkos](https://github.com/STEllAR-GROUP/hpx-kokkos).
-In this use-case, allocating GPU buffers for all sub-grids in advance would have wasted a lot of memory. On the other hand, unified memory would have caused of unnecessary GPU to CPU page migrations (as the old input data gets overwritten anyway). Allocating buffers on-the-fly would have blocked the device. Hence, we currently test this buffer management solution!
+In this use-case, allocating GPU buffers for all sub-grids in advance would have wasted a lot of memory. On the other hand, unified memory would have caused unnecessary GPU to CPU page migrations (as the old input data gets overwritten anyway). Allocating buffers on-the-fly would have blocked the device. Hence, we currently test this buffer management solution!
 
 #### Tools provided by this repository
 
