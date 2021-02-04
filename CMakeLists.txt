@@ -12,7 +12,7 @@ option(CPPUDDLE_WITH_COUNTERS "Turns on allocations counters. Useful for extende
 option(CPPUDDLE_WITH_CUDA "Enable CUDA tests/examples" OFF)
 option(CPPUDDLE_WITH_HPX "Enable HPX examples" OFF)
 option(CPPUDDLE_WITH_KOKKOS "Enable KOKKOS tests/examples" OFF)
-option(CPPUDDLE_WITH_CLANG_TIDY "Enable clang tidy warnings" ON)
+option(CPPUDDLE_WITH_CLANG_TIDY "Enable clang tidy warnings" OFF)
 option(CPPUDDLE_WITH_CLANG_FORMAT "Enable clang format target" OFF)
 
 if (CPPUDDLE_WITH_CUDA)
