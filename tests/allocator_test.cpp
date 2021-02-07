@@ -66,16 +66,19 @@ int main(int argc, char *argv[]) {
 
   // Aggressive recycle Test:
   {
-    auto begin = std::chrono::high_resolution_clock::now();
+    std::cout << "\nStarting run with aggressive recycle allocator: " << std::endl;
     for (size_t pass = 0; pass < passes; pass++) {
+      auto begin = std::chrono::high_resolution_clock::now();
       std::vector<double, recycler::aggressive_recycle_std<double>> test1(
           array_size, double{});
+      auto end = std::chrono::high_resolution_clock::now();
+      aggressive_duration +=
+          std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
+              .count();
+      // Print last element - Causes the compiler to not optimize out the entire loop
+      std::cout << test1[array_size - 1] << " "; 
     }
-    auto end = std::chrono::high_resolution_clock::now();
-    aggressive_duration =
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-            .count();
-    std::cout << "\n==> Aggressive recycle allocation test took "
+    std::cout << "\n\n==> Aggressive recycle allocation test took "
               << aggressive_duration << "ms" << std::endl;
   }
   recycler::force_cleanup(); // Cleanup all buffers and the managers for better
@@ -83,16 +86,18 @@ int main(int argc, char *argv[]) {
 
   // Recycle Test:
   {
-    auto begin = std::chrono::high_resolution_clock::now();
+    std::cout << "\nStarting run with recycle allocator: " << std::endl;
     for (size_t pass = 0; pass < passes; pass++) {
-      std::vector<double, recycler::recycle_std<double>> test1(array_size,
-                                                               double{});
+      auto begin = std::chrono::high_resolution_clock::now();
+      std::vector<double, recycler::recycle_std<double>> test1(array_size, double{});
+      auto end = std::chrono::high_resolution_clock::now();
+      recycle_duration +=
+          std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
+              .count();
+      // Print last element - Causes the compiler to not optimize out the entire loop
+      std::cout << test1[array_size - 1] << " "; 
     }
-    auto end = std::chrono::high_resolution_clock::now();
-    recycle_duration =
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-            .count();
-    std::cout << "\n==> Recycle allocation test took " << recycle_duration
+    std::cout << "\n\n==> Recycle allocation test took " << recycle_duration
               << "ms" << std::endl;
   }
   recycler::force_cleanup(); // Cleanup all buffers and the managers for better
@@ -100,15 +105,18 @@ int main(int argc, char *argv[]) {
 
   // Same test using std::allocator:
   {
-    auto begin = std::chrono::high_resolution_clock::now();
+    std::cout << "\nStarting run with std::allocator: " << std::endl;
     for (size_t pass = 0; pass < passes; pass++) {
+      auto begin = std::chrono::high_resolution_clock::now();
       std::vector<double> test2(array_size, double{});
+      auto end = std::chrono::high_resolution_clock::now();
+      default_duration +=
+          std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
+              .count();
+      // Print last element - Causes the compiler to not optimize out the entire loop
+      std::cout << test2[array_size - 1] << " "; 
     }
-    auto end = std::chrono::high_resolution_clock::now();
-    default_duration =
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-            .count();
-    std::cout << "\n==> Non-recycle allocation test took " << default_duration
+    std::cout << "\n\n==> Non-recycle allocation test took " << default_duration
               << "ms" << std::endl;
   }
 
