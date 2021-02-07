@@ -2,13 +2,18 @@ name: ctests
 
 on: [push]
 
-env:
-  BUILD_TYPE: Release
+#env:
+#  BUILD_TYPE: Release
 
 jobs:
-  build:
+  build-and-test:
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler_variant: ['g++', 'clang++']
+        build_type: ['Release', 'RelWithDebInfo', 'Debug']
 
     steps:
     - uses: actions/checkout@v2
@@ -16,7 +21,7 @@ jobs:
     - name: Install Test Dependencies
       # Need program options to pass test parameters to test executables
       # Need valgrind for memory leak tests
-      run: sudo apt-get update && sudo apt-get install -yq libboost-program-options-dev valgrind
+      run: sudo apt-get update && sudo apt-get install -yq libboost-program-options-dev valgrind clang
       
     - name: Create Build Environment
       run: cmake -E make_directory ${{github.workspace}}/build
@@ -24,7 +29,7 @@ jobs:
     - name: Configure CMake
       shell: bash
       working-directory: ${{github.workspace}}/build
-      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCPPUDDLE_WITH_TESTS=ON -DCPPUDDLE_WITH_COUNTERS=ON
+      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_CXX_COMPILER=${{ matrix.compiler_variant }} -DCPPUDDLE_WITH_TESTS=ON -DCPPUDDLE_WITH_COUNTERS=ON
 
     - name: Build
       working-directory: ${{github.workspace}}/build
