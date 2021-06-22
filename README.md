@@ -2,7 +2,7 @@
 
 WARNING: This repository is a work in progress and should not be relied on for production use!
 
-![ctests](https://github.com/SC-SGS/CPPuddle/workflows/ctests/badge.svg)
+[![ctests](https://github.com/SC-SGS/CPPuddle/actions/workflows/cmake.yml/badge.svg)](https://github.com/SC-SGS/CPPuddle/actions/workflows/cmake.yml)
 
 #### Purpose
 
