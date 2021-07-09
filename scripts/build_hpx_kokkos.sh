@@ -14,9 +14,9 @@ case $(hostname) in
         ;;
 esac
 
-SOURCE_DIR=${SCRIPTS_DIR}/../external_dependencies/kokkos-hpx-interop
-BUILD_DIR=${SCRIPTS_DIR}/../external_dependencies/build/kokkos-hpx-interop-${CMAKE_BUILD_TYPE}
-INSTALL_DIR=${SCRIPTS_DIR}/../external_dependencies/install/kokkos-hpx-interop-${CMAKE_BUILD_TYPE}
+SOURCE_DIR=${SCRIPTS_DIR}/../external_dependencies/hpx-kokkos
+BUILD_DIR=${SCRIPTS_DIR}/../external_dependencies/build/hpx-kokkos-${CMAKE_BUILD_TYPE}
+INSTALL_DIR=${SCRIPTS_DIR}/../external_dependencies/install/hpx-kokkos-${CMAKE_BUILD_TYPE}
 
 mkdir -p ${BUILD_DIR}
 pushd ${BUILD_DIR}

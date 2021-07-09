@@ -1,9 +1,9 @@
-[submodule "external_dependencies/kokkos"]
-	path = external_dependencies/kokkos
-	url = git@github.com:msimberg/kokkos.git
 [submodule "external_dependencies/hpx"]
 	path = external_dependencies/hpx
 	url = https://github.com/STEllAR-GROUP/hpx.git
-[submodule "external_dependencies/kokkos-hpx-interop"]
-    path = external_dependencies/kokkos-hpx-interop
-    url = git@github.com:msimberg/kokkos-hpx-interop.git
+[submodule "external_dependencies/kokkos"]
+	path = external_dependencies/kokkos
+	url = https://github.com/kokkos/kokkos.git
+[submodule "external_dependencies/hpx-kokkos"]
+	path = external_dependencies/hpx-kokkos
+	url = https://github.com/STEllAR-GROUP/hpx-kokkos

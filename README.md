@@ -3,6 +3,8 @@
 WARNING: This repository is a work in progress and should not be relied on for production use!
 
 [![ctests](https://github.com/SC-SGS/CPPuddle/actions/workflows/cmake.yml/badge.svg)](https://github.com/SC-SGS/CPPuddle/actions/workflows/cmake.yml)
+[![Build Status](https://simsgs.informatik.uni-stuttgart.de/jenkins/buildStatus/icon?style=flat&subject=jenkins-ctest&job=CPPuddle)](https://simsgs.informatik.uni-stuttgart.de/jenkins/view/Octo-Tiger%20and%20Dependencies/job/CPPuddle/)
+
 
 #### Purpose
 

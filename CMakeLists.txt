@@ -27,7 +27,7 @@ if (CPPUDDLE_WITH_TESTS)
 endif()
 if (CPPUDDLE_WITH_KOKKOS)
   # Find packages
-  find_package(Kokkos 3.0.0 REQUIRED)
+  find_package(Kokkos 3.3.0 REQUIRED)
   find_package(HPXKokkos REQUIRED) 
 
   # Check that everything required is actyivated

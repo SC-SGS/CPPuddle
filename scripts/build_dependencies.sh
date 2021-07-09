@@ -15,5 +15,5 @@ case $(hostname) in
 esac
 
 ${SCRIPTS_DIR}/build_hpx.sh
-${SCRIPTS_DIR}/build_kokkos.sh
-${SCRIPTS_DIR}/build_hpx_kokkos.sh
+#${SCRIPTS_DIR}/build_kokkos.sh
+#${SCRIPTS_DIR}/build_hpx_kokkos.sh
