@@ -48,7 +48,7 @@ pipeline {
                 dir('CPPuddle') {
                     sh '''
                         module load cuda
-                        cd CPPuddle/build/Release
+                        cd build/Release
                         ctest -j18
                     '''
                 }
