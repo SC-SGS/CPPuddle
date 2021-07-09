@@ -23,35 +23,33 @@ pipeline {
         stage('build-submodules') {
             steps {
                 dir('CPPuddle') {
-			sh '''
-			cd CPPuddle
-			git submodule update --init --recursive
-			./scripts/build_dependencies.sh
-			'''
-		}
+                    sh '''
+                        git submodule update --init --recursive
+                        ./scripts/build_dependencies.sh
+                        '''
+                }
             }
-	}
+        }
         stage('build CPPuddle') {
             steps {
                 dir('CPPuddle') {
-			sh '''
-			cd CPPuddle
-			./scripts/configure_build_directory.sh
-			cd build/Release
-			make -j18
-			'''
-		}
+                    sh '''
+                    ./scripts/configure_build_directory.sh
+                    cd build/Release
+                    make -j18
+                    '''
+                }
             }
-	}
+        }
         stage('Run Tests') {
             steps {
                 dir('CPPuddle') {
-			sh '''
-			cd CPPuddle/build/Release
-			ctest -j18
-			'''
-		}
+                    sh '''
+                    cd CPPuddle/build/Release
+                    ctest -j18
+                    '''
+                }
             }
-	}
+        }
     }
 }
