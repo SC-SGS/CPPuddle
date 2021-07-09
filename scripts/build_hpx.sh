@@ -19,9 +19,6 @@ BUILD_DIR=${SCRIPTS_DIR}/../external_dependencies/build/hpx-${CMAKE_BUILD_TYPE}
 INSTALL_DIR=${SCRIPTS_DIR}/../external_dependencies/install/hpx-${CMAKE_BUILD_TYPE}
 
 HPX_MALLOC=system
-if [[ "${CMAKE_BUILD_TYPE}" == "Release" ]]; then
-    HPX_MALLOC=jemalloc
-fi
 
 # NOTE: We do not use nvcc_wrapper to build all of HPX.
 mkdir -p ${BUILD_DIR}
