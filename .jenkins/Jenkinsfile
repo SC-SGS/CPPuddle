@@ -1,0 +1,57 @@
+#!groovy
+pipeline {
+    agent { label 'pcsgs04' }
+
+    options {
+        buildDiscarder(
+            logRotator(
+                daysToKeepStr: "21",
+                numToKeepStr: "50",
+                artifactDaysToKeepStr: "21",
+                artifactNumToKeepStr: "50"
+            )
+        )
+    }
+    stages {
+        stage('checkout') {
+            steps {
+                dir('CPPuddle') {
+			checkout scm
+                }
+            }
+        }
+        stage('build-submodules') {
+            steps {
+                dir('CPPuddle') {
+			sh '''
+			cd CPPuddle
+			git submodule update --init --recursive
+			./scripts/build_dependencies.sh
+			'''
+		}
+            }
+	}
+        stage('build CPPuddle') {
+            steps {
+                dir('CPPuddle') {
+			sh '''
+			cd CPPuddle
+			./scripts/configure_build_directory.sh
+			cd build/Release
+			make -j18
+			'''
+		}
+            }
+	}
+        stage('Run Tests') {
+            steps {
+                dir('CPPuddle') {
+			sh '''
+			cd CPPuddle/build/Release
+			ctest -j18
+			'''
+		}
+            }
+	}
+    }
+}
