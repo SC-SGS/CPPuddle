@@ -2,16 +2,6 @@
 pipeline {
     agent { label 'pcsgs05' }
 
-    options {
-        buildDiscarder(
-            logRotator(
-                daysToKeepStr: "21",
-                numToKeepStr: "50",
-                artifactDaysToKeepStr: "21",
-                artifactNumToKeepStr: "50"
-            )
-        )
-    }
     environment {
         GITHUB_TOKEN = credentials('GITHUB_TOKEN_OCTOTIGER')
     }
