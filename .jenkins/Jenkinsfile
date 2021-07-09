@@ -38,7 +38,7 @@ pipeline {
                         module load cuda 
                         ./scripts/configure_build_directory.sh
                         cd build/Release
-                        make -j18
+                        make -j2
                     '''
                 }
             }
@@ -49,7 +49,7 @@ pipeline {
                     sh '''
                         module load cuda
                         cd build/Release
-                        ctest -j18
+                        ctest -j2
                     '''
                 }
             }
