@@ -1,6 +1,6 @@
 #!groovy
 pipeline {
-    agent { label 'pcsgs04' }
+    agent { label 'pcsgs05' }
 
     options {
         buildDiscarder(
