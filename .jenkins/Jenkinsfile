@@ -16,7 +16,7 @@ pipeline {
         stage('checkout') {
             steps {
                 dir('CPPuddle') {
-			checkout scm
+                    checkout scm
                 }
             }
         }
@@ -24,29 +24,31 @@ pipeline {
             steps {
                 dir('CPPuddle') {
                     sh '''
+                        module load cuda
                         git submodule update --init --recursive
                         ./scripts/build_dependencies.sh
-                        '''
-                }
-            }
-        }
-        stage('build CPPuddle') {
-            steps {
-                dir('CPPuddle') {
-                    sh '''
-                    ./scripts/configure_build_directory.sh
-                    cd build/Release
-                    make -j18
                     '''
                 }
             }
         }
-        stage('Run Tests') {
+        stage('build cppuddle') {
             steps {
                 dir('CPPuddle') {
                     sh '''
-                    cd CPPuddle/build/Release
-                    ctest -j18
+                        ./scripts/configure_build_directory.sh
+                        cd build/Release
+                        make -j18
+                    '''
+                }
+            }
+        }
+        stage('run tests') {
+            steps {
+                dir('CPPuddle') {
+                    sh '''
+                        nvcc --help
+                        cd CPPuddle/build/Release
+                        ctest -j18
                     '''
                 }
             }
