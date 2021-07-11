@@ -3,7 +3,12 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
+#define USE_HPX_MAIN
+#ifdef USE_HPX_MAIN
+#include <hpx/hpx_init.hpp>
+#else
 #include <hpx/hpx_main.hpp>
+#endif
 #include <hpx/include/async.hpp>
 #include <hpx/include/lcos.hpp>
 
@@ -100,58 +105,62 @@ kernel_add_kokkos(const Viewtype &first, const Viewtype &second,
 void stream_executor_test() {
   // auto totalTimer = scoped_timer("total stream executor");
 
-  const int numIterations = 40;
-  static double d = 0;
-  ++d;
-  double t = d;
+  // const int numIterations = 40;
+  // static double d = 0;
+  // ++d;
+  // double t = d;
 
-  recycled_host_view<double> hostView(view_size_0, view_size_1);
-  recycled_pinned_view<double> pinnedView(view_size_0, view_size_1);
-  recycled_device_view<double> deviceView(view_size_0, view_size_1);
+  // recycled_host_view<double> hostView(view_size_0, view_size_1);
+  // recycled_pinned_view<double> pinnedView(view_size_0, view_size_1);
+  // recycled_device_view<double> deviceView(view_size_0, view_size_1);
 
-  {
-    auto host_space =
-        hpx::kokkos::make_execution_space<Kokkos::DefaultHostExecutionSpace>();
-    auto policy_host = get_iteration_policy(host_space, pinnedView);
+  // {
+  //   auto host_space =
+  //       hpx::kokkos::make_execution_space<Kokkos::DefaultHostExecutionSpace>();
+  //   auto policy_host = get_iteration_policy(host_space, pinnedView);
 
-    auto copy_finished = hpx::kokkos::parallel_for_async(
-        "pinned host init", policy_host, KOKKOS_LAMBDA(int n, int o) {
-          hostView(n, o) = t;
-          pinnedView(n, o) = hostView(n, o);
-        });
+  //   auto copy_finished = hpx::kokkos::parallel_for_async(
+  //       "pinned host init", policy_host, KOKKOS_LAMBDA(int n, int o) {
+  //         hostView(n, o) = t;
+  //         pinnedView(n, o) = hostView(n, o);
+  //       });
 
-    // auto stream_space = hpx::kokkos::make_execution_space();
-    auto stream_space = hpx::kokkos::make_execution_space<Kokkos::Cuda>();
-    auto policy_stream = get_iteration_policy(stream_space, pinnedView);
+  //   // auto stream_space = hpx::kokkos::make_execution_space();
+  //   auto stream_space = hpx::kokkos::make_execution_space<Kokkos::Cuda>();
+  //   auto policy_stream = get_iteration_policy(stream_space, pinnedView);
 
-    // TODO(pollinta): How to make a nice continuation from HPX future to CUDA
-    // stream (i.e. without using wait)?
-    copy_finished.wait();
+  //   // TODO(pollinta): How to make a nice continuation from HPX future to CUDA
+  //   // stream (i.e. without using wait)?
+  //   copy_finished.wait();
 
-    // All of the following deep copies and kernels are sequenced because they
-    // use the same instance. It is enough to wait for the last future. // The
-    // views must have compatible layouts to actually use cudaMemcpyAsync.
-    hpx::kokkos::deep_copy_async(stream_space, deviceView, pinnedView);
+  //   // All of the following deep copies and kernels are sequenced because they
+  //   // use the same instance. It is enough to wait for the last future. // The
+  //   // views must have compatible layouts to actually use cudaMemcpyAsync.
+  //   hpx::kokkos::deep_copy_async(stream_space, deviceView, pinnedView);
 
-    {
-      // auto totalTimer = scoped_timer("async device");
-      for (int i = 0; i < numIterations; ++i) {
-        kernel_add_kokkos(deviceView, deviceView, deviceView, policy_stream);
-      }
-    }
+  //   {
+  //     // auto totalTimer = scoped_timer("async device");
+  //     for (int i = 0; i < numIterations; ++i) {
+  //       kernel_add_kokkos(deviceView, deviceView, deviceView, policy_stream);
+  //     }
+  //   }
 
-    hpx::kokkos::deep_copy_async(stream_space, pinnedView, deviceView);
-    hpx::kokkos::deep_copy_async(stream_space, hostView, pinnedView).wait();
+  //   hpx::kokkos::deep_copy_async(stream_space, pinnedView, deviceView);
+  //   hpx::kokkos::deep_copy_async(stream_space, hostView, pinnedView).wait();
 
-    // test values in hostView
-    // printf("%f %f hd ", hostView.data()[0], t);
-    assert(std::abs(hostView.data()[0] - t * (static_cast<unsigned long>(1)
-                                              << numIterations)) < 1e-6);
-  }
+  //   // test values in hostView
+  //   // printf("%f %f hd ", hostView.data()[0], t);
+  //   assert(std::abs(hostView.data()[0] - t * (static_cast<unsigned long>(1)
+  //                                             << numIterations)) < 1e-6);
+  // }
 }
 
 // #pragma nv_exec_check_disable
+#ifdef USE_HPX_MAIN
+int hpx_main(int argc, char *argv[]) {
+#else
 int main(int argc, char *argv[]) {
+#endif
   hpx::kokkos::ScopeGuard g(argc, argv);
 
   /** Stress test for safe concurrency and performance:
@@ -184,4 +193,12 @@ int main(int argc, char *argv[]) {
                    .count()
             << "ms" << std::endl;
   recycler::force_cleanup();
+  return hpx::finalize();
 }
+
+#ifdef USE_HPX_MAIN
+int main(int argc, char *argv[]) {
+  std::vector<std::string> cfg = {"hpx.commandline.allow_unknown=1"};
+  return hpx::init(argc, argv, cfg);
+}
+#endif

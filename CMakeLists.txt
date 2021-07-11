@@ -27,7 +27,7 @@ if (CPPUDDLE_WITH_TESTS)
 endif()
 if (CPPUDDLE_WITH_KOKKOS)
   # Find packages
-  find_package(Kokkos 3.3.0 REQUIRED)
+  find_package(Kokkos 3.0.0 REQUIRED)
   find_package(HPXKokkos REQUIRED) 
 
   # Check that everything required is actyivated
@@ -119,17 +119,17 @@ install(EXPORT CPPuddle NAMESPACE CPPuddle:: DESTINATION ${CMAKE_INSTALL_PREFIX}
 if (CPPUDDLE_WITH_TESTS)
   add_executable(allocator_test tests/allocator_test.cpp)
   target_link_libraries(allocator_test
-  ${Boost_LIBRARIES} buffer_manager)
+  ${Boost_LIBRARIES} Boost::boost Boost::program_options buffer_manager)
 
   add_executable(allocator_aligned_test tests/allocator_aligned_test.cpp)
   target_link_libraries(allocator_aligned_test
-  ${Boost_LIBRARIES} buffer_manager)
+  ${Boost_LIBRARIES} Boost::boost Boost::program_options buffer_manager)
 
   if (CPPUDDLE_WITH_HPX)
 
     add_executable(allocator_hpx_test tests/allocator_hpx_test.cpp)
     target_link_libraries(allocator_hpx_test
-      PRIVATE HPX::hpx buffer_manager)
+      PRIVATE Boost::boost Boost::program_options HPX::hpx buffer_manager)
 
     if (CPPUDDLE_WITH_CUDA)
 
@@ -360,9 +360,8 @@ if (CPPUDDLE_WITH_TESTS)
       add_test(allocator_cuda_test.run allocator_cuda_test)
       add_test(stream_test.run stream_test)
       if (CPPUDDLE_WITH_KOKKOS)
+        add_test(allocator_kokkos_test.run allocator_kokkos_test)
         add_test(allocator_kokkos_minimal.run minimal_parallel_for)
-        #add_test(allocator_executor_stream_test.run allocator_executor_stream_test)
-        add_test(allocator_kokkos_executor_stream_test.run allocator_kokkos_executor_stream_test)
       endif() # end with KOKKOS
     endif() # end with CUDA
   endif() # end with hpx
