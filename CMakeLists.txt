@@ -157,13 +157,6 @@ if (CPPUDDLE_WITH_TESTS)
         target_compile_definitions(allocator_kokkos_test PRIVATE HPX_WITH_CUDA CPPUDDLE_HAVE_CUDA)
 
         add_executable(
-          allocator_kokkos_executor_stream_test
-          ${CMAKE_CURRENT_SOURCE_DIR}/tests/allocator_kokkos_executor_stream_test.cpp)
-        target_link_libraries(allocator_kokkos_executor_stream_test
-          PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
-        target_compile_definitions(allocator_kokkos_executor_stream_test PRIVATE HPX_WITH_CUDA CPPUDDLE_HAVE_CUDA)
-
-        add_executable(
           allocator_executor_stream_test
           ${CMAKE_CURRENT_SOURCE_DIR}/tests/allocator_executor_stream_test.cpp)
         target_link_libraries(allocator_executor_stream_test
