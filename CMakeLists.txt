@@ -164,14 +164,14 @@ if (CPPUDDLE_WITH_TESTS)
         target_compile_definitions(allocator_executor_stream_test PRIVATE HPX_WITH_CUDA CPPUDDLE_HAVE_CUDA)
 
         add_hpx_executable(
-          minimal_parallel_for
+          allocator_kokkos_executor_for_loop_test
           DEPENDENCIES
           HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager
           SOURCES
-          ${CMAKE_CURRENT_SOURCE_DIR}/tests/minimal_parallel_for.cpp)
-       # target_link_libraries(minimal_parallel_for
+          ${CMAKE_CURRENT_SOURCE_DIR}/tests/allocator_kokkos_executor_for_loop_test.cpp)
+       # target_link_libraries(allocator_kokkos_executor_for_loop_test
        #   PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
-        target_compile_definitions(minimal_parallel_for PRIVATE HPX_WITH_CUDA CPPUDDLE_HAVE_CUDA)
+        target_compile_definitions(allocator_kokkos_executor_for_loop_test PRIVATE HPX_WITH_CUDA CPPUDDLE_HAVE_CUDA)
 
       endif() # end WITH KOKKOS
     endif() # end with CUDA
@@ -354,7 +354,7 @@ if (CPPUDDLE_WITH_TESTS)
       add_test(stream_test.run stream_test)
       if (CPPUDDLE_WITH_KOKKOS)
         add_test(allocator_kokkos_test.run allocator_kokkos_test)
-        add_test(allocator_kokkos_minimal.run minimal_parallel_for)
+        add_test(allocator_kokkos_executor_for_loop_test.run allocator_kokkos_executor_for_loop_test)
       endif() # end with KOKKOS
     endif() # end with CUDA
   endif() # end with hpx
