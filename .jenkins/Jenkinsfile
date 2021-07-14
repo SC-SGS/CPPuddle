@@ -39,7 +39,8 @@ pipeline {
                     sh '''
                         module load cuda
                         git submodule update --init --recursive
-                        ./scripts/build_dependencies.sh
+                        ./scripts/clean_dependencies.sh
+                        ./scripts/build_dependencies.sh Release gcc
                     '''
                 }
             }
@@ -50,8 +51,8 @@ pipeline {
                     sh '''
                         module load cuda 
                         ./scripts/configure_build_directory.sh
-                        cd build/Release
-                        make -j4
+                        cd build/gcc-Release
+                        make -j8
                     '''
                 }
             }
@@ -61,8 +62,8 @@ pipeline {
                 dir('CPPuddle') {
                     sh '''
                         module load cuda
-                        cd build/Release
-                        ctest -j4
+                        cd build/gcc-Release
+                        ctest -j8
                     '''
                 }
             }

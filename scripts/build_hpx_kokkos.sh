@@ -1,26 +1,20 @@
 #!/usr/bin/env bash
 
+if [ -z "${APPEND_DIRNAME}" ]; then
+  echo "build_hpx_kokkos.sh is meant to be called via build_dependencies.sh which sets the correct variables and loads the machine configs"
+  echo "Exiting..."
+  exit 1
+fi
+
 set -euxo
 
-# Stolen from https://stackoverflow.com/questions/59895/how-to-get-the-source-directory-of-a-bash-script-from-within-the-script-itself#59916
-SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-
-case $(hostname) in
-    pcsgs*)
-        source ${SCRIPTS_DIR}/spack_env.sh
-        ;;
-    *)
-        source ${SCRIPTS_DIR}/daint_env.sh
-        ;;
-esac
-
 SOURCE_DIR=${SCRIPTS_DIR}/../external_dependencies/hpx-kokkos
-BUILD_DIR=${SCRIPTS_DIR}/../external_dependencies/build/hpx-kokkos-${CMAKE_BUILD_TYPE}
-INSTALL_DIR=${SCRIPTS_DIR}/../external_dependencies/install/hpx-kokkos-${CMAKE_BUILD_TYPE}
+BUILD_DIR=${SCRIPTS_DIR}/../external_dependencies/build/hpx-kokkos-${APPEND_DIRNAME}
+INSTALL_DIR=${SCRIPTS_DIR}/../external_dependencies/install/hpx-kokkos-${APPEND_DIRNAME}
 
 mkdir -p ${BUILD_DIR}
 pushd ${BUILD_DIR}
-cmake -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} ${SOURCE_DIR}
+cmake -DHPX_KOKKOS_ENABLE_TESTS=OFF -DHPX_KOKKOS_ENABLE_BENCHMARKS=OFF -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} ${SOURCE_DIR}
 make -j$(nproc) install
 popd
 
