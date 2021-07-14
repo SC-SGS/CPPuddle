@@ -153,7 +153,7 @@ if (CPPUDDLE_WITH_TESTS)
           tests/allocator_kokkos_test.cpp
           include/buffer_manager.hpp)
         target_link_libraries(allocator_kokkos_test
-          PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
+          PRIVATE Boost::boost Boost::program_options HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
         target_compile_definitions(allocator_kokkos_test PRIVATE HPX_WITH_CUDA CPPUDDLE_HAVE_CUDA)
 
         add_executable(
@@ -299,7 +299,7 @@ if (CPPUDDLE_WITH_TESTS)
 
   if (CPPUDDLE_WITH_HPX)
     # Concurrency tests
-    add_test(allocator_concurrency_test.run allocator_hpx_test -t4 --passes 20 --outputfile allocator_concurrency_test.out)
+    add_test(allocator_concurrency_test.run allocator_hpx_test -t8 --passes 20 --outputfile allocator_concurrency_test.out)
     set_tests_properties(allocator_concurrency_test.run PROPERTIES
       FIXTURES_SETUP allocator_concurrency_output
       PROCESSORS 4
@@ -353,7 +353,36 @@ if (CPPUDDLE_WITH_TESTS)
       add_test(allocator_cuda_test.run allocator_cuda_test)
       add_test(stream_test.run stream_test)
       if (CPPUDDLE_WITH_KOKKOS)
-        add_test(allocator_kokkos_test.run allocator_kokkos_test)
+        add_test(allocator_kokkos_test.run allocator_kokkos_test --outputfile allocator_kokkos_test.out)
+        set_tests_properties(allocator_kokkos_test.run PROPERTIES
+          FIXTURES_SETUP allocator_kokkos_output
+        )
+
+        add_test(allocator_kokkos_test.analyse_recycle_rate cat allocator_kokkos_test.out)
+        set_tests_properties(allocator_kokkos_test.analyse_recycle_rate PROPERTIES
+          FIXTURES_REQUIRED allocator_kokkos_output
+          PASS_REGULAR_EXPRESSION "==> Recycle rate: [ ]* 99%"
+        )
+        add_test(allocator_kokkos_test.analyse_marked_buffers_cleanup cat allocator_kokkos_test.out)
+        set_tests_properties(allocator_kokkos_test.analyse_marked_buffers_cleanup PROPERTIES
+          FIXTURES_REQUIRED allocator_kokkos_output
+          PASS_REGULAR_EXPRESSION "--> Number of buffers that were marked as used upon cleanup:[ ]* 0"
+        )
+        add_test(allocator_kokkos_test.analyse_cleaned_buffers cat allocator_kokkos_test.out)
+        set_tests_properties(allocator_kokkos_test.analyse_cleaned_buffers PROPERTIES
+          FIXTURES_REQUIRED allocator_kokkos_output
+          PASS_REGULAR_EXPRESSION "--> Number cleaned up buffers:[ ]* 2"
+        )
+        add_test(allocator_kokkos_test.analyse_created_buffers cat allocator_kokkos_test.out)
+        set_tests_properties(allocator_kokkos_test.analyse_created_buffers PROPERTIES
+          FIXTURES_REQUIRED allocator_kokkos_output
+          PASS_REGULAR_EXPRESSION "--> Number of times a new buffer had to be created for a request:[ ]* 2"
+        )
+        add_test(allocator_kokkos_test.analyse_bad_allocs cat allocator_kokkos_test.out)
+        set_tests_properties(allocator_kokkos_test.analyse_bad_allocs PROPERTIES
+          FIXTURES_REQUIRED allocator_kokkos_output
+          PASS_REGULAR_EXPRESSION "--> Number of bad_allocs that triggered garbage collection: [ ]* 0"
+        )
         add_test(allocator_kokkos_executor_for_loop_test.run allocator_kokkos_executor_for_loop_test)
       endif() # end with KOKKOS
     endif() # end with CUDA

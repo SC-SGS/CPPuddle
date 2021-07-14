@@ -16,7 +16,9 @@
 #include "../include/buffer_manager.hpp"
 #include "../include/cuda_buffer_util.hpp"
 #include "../include/kokkos_buffer_util.hpp"
+#include <boost/program_options.hpp>
 #include <hpx/timing/high_resolution_timer.hpp>
+#include <boost/program_options.hpp>
 #include <memory>
 
 using kokkos_array =
@@ -32,6 +34,37 @@ using recycled_host_view =
 
 // #pragma nv_exec_check_disable
 int main(int argc, char *argv[]) {
+
+  std::string filename{};
+  try {
+    boost::program_options::options_description desc{"Options"};
+    desc.add_options()("help", "Help screen")(
+        "outputfile",
+        boost::program_options::value<std::string>(&filename)->default_value(
+            ""),
+        "Redirect stdout/stderr to this file");
+
+    boost::program_options::variables_map vm;
+    boost::program_options::parsed_options options =
+        parse_command_line(argc, argv, desc);
+    boost::program_options::store(options, vm);
+    boost::program_options::notify(vm);
+    if (vm.count("help") == 0u) {
+      std::cout << "Running with parameters:" << std::endl
+                << " --filename = " << filename << std::endl;
+    } else {
+      std::cout << desc << std::endl;
+      return EXIT_SUCCESS;
+    }
+  } catch (const boost::program_options::error &ex) {
+    std::cerr << "CLI argument problem found: " << ex.what() << '\n';
+  }
+  if (!filename.empty()) {
+    freopen(filename.c_str(), "w", stdout); // NOLINT
+    freopen(filename.c_str(), "w", stderr); // NOLINT
+  }
+
+
   hpx::kokkos::ScopeGuard scopeGuard(argc, argv);
   Kokkos::print_configuration(std::cout);
 
