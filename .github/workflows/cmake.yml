@@ -13,7 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         compiler_variant: ['g++', 'clang++']
-        build_type: ['Release', 'RelWithDebInfo', 'Debug']
+        build_type: ['Release', 'Debug']
 
     steps:
     - uses: actions/checkout@v2
