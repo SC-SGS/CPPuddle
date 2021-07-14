@@ -6,9 +6,85 @@ pipeline {
         GITHUB_TOKEN = credentials('GITHUB_TOKEN_OCTOTIGER')
     }
     stages {
-        stage('init') {
+        stage('checkout') {
             steps {
                 dir('CPPuddle') {
+                    checkout scm
+                    sh '''
+                        git submodule update --init --recursive
+                        ./scripts/clean_dependencies.sh
+                    '''
+                }
+            }
+        }
+        stage('build-and-test') {
+            matrix {
+                axes {
+                    axis {
+                        name 'build_type'
+                        values 'Release', 'Debug'
+                    }
+                    axis {
+                        name 'compiler'
+                        values 'gcc', 'clang'
+                    }
+                }
+                stage('init') {
+                    steps {
+                        dir('CPPuddle') {
+                            sh '''
+                                github_token=$(echo ${GITHUB_TOKEN} | cut -f2 -d':')
+                                curl --verbose\
+                                    --request POST \
+                                    --url "https://api.github.com/repos/SC-SGS/CPPuddle/statuses/$GIT_COMMIT" \
+                                    --header "Content-Type: application/json" \
+                                    --header "authorization: Bearer ${github_token}" \
+                                    --data "{
+                                        \\"state\\": \\"pending\\",
+                                        \\"context\\": \\"jenkins-${compiler}-${build_type}-ctest\\",
+                                        \\"description\\": \\"Jenkins CI Job: jenkins-${compiler}-${build_type}-ctest\\",
+                                        \\"target_url\\": \\"https://simsgs.informatik.uni-stuttgart.de/jenkins/job/CPPuddle/$BUILD_NUMBER/console\\"
+                                }"
+                            '''
+                        }
+                    }
+                }
+                stage('build-submodules') {
+                    steps {
+                        dir('CPPuddle') {
+                            sh '''
+                                module load cuda
+                                ./scripts/build_dependencies.sh ${build_type} ${compiler}
+                            '''
+                        }
+                    }
+                }
+                stage('build cppuddle') {
+                    steps {
+                        dir('CPPuddle') {
+                            sh '''
+                                module load cuda 
+                                ./scripts/configure_build_directory.sh ${build_type} ${compiler}
+                                cd build/${compiler}-${build_type}
+                                make -j8
+                            '''
+                        }
+                    }
+                }
+                stage('run tests') {
+                    steps {
+                        dir('CPPuddle') {
+                            sh '''
+                                module load cuda
+                                cd build/${compiler}-${build_type}
+                                ctest -j8
+                            '''
+                        }
+                    }
+                }
+            }
+            post {
+                success {
                     sh '''
                         github_token=$(echo ${GITHUB_TOKEN} | cut -f2 -d':')
                         curl --verbose\
@@ -17,106 +93,46 @@ pipeline {
                             --header "Content-Type: application/json" \
                             --header "authorization: Bearer ${github_token}" \
                             --data "{
-                                \\"state\\": \\"pending\\",
-                                \\"context\\": \\"jenkins-ctest\\",
-                                \\"description\\": \\"Jenkins CI Job: jenkins-ctest\\",
+                                \\"state\\": \\"success\\",
+                                \\"context\\": \\"jenkins-${compiler}-${build_type}-ctest\\",
+                                \\"description\\": \\"Jenkins CI Job: jenkins-${compiler}-${build_type}-ctest\\",
+                                \\"target_url\\": \\"https://simsgs.informatik.uni-stuttgart.de/jenkins/job/CPPuddle/$BUILD_NUMBER/console\\"
+                        }"
+                    '''
+                }
+                failure {
+                    sh '''
+                        github_token=$(echo ${GITHUB_TOKEN} | cut -f2 -d':')
+                        curl --verbose\
+                            --request POST \
+                            --url "https://api.github.com/repos/SC-SGS/CPPuddle/statuses/$GIT_COMMIT" \
+                            --header "Content-Type: application/json" \
+                            --header "authorization: Bearer ${github_token}" \
+                            --data "{
+                                \\"state\\": \\"failure\\",
+                                \\"context\\": \\"jenkins-${compiler}-${build_type}-ctest\\",
+                                \\"description\\": \\"Jenkins CI Job: jenkins-${compiler}-${build_type}-ctest\\",
+                                \\"target_url\\": \\"https://simsgs.informatik.uni-stuttgart.de/jenkins/job/CPPuddle/$BUILD_NUMBER/console\\"
+                        }"
+                    '''
+                }
+                aborted {
+                    sh '''
+                        github_token=$(echo ${GITHUB_TOKEN} | cut -f2 -d':')
+                        curl --verbose\
+                            --request POST \
+                            --url "https://api.github.com/repos/SC-SGS/CPPuddle/statuses/$GIT_COMMIT" \
+                            --header "Content-Type: application/json" \
+                            --header "authorization: Bearer ${github_token}" \
+                            --data "{
+                                \\"state\\": \\"error\\",
+                                \\"context\\": \\"jenkins-${compiler}-${build_type}-ctest\\",
+                                \\"description\\": \\"Jenkins CI Job: jenkins-${compiler}-${build_type}-ctest\\",
                                 \\"target_url\\": \\"https://simsgs.informatik.uni-stuttgart.de/jenkins/job/CPPuddle/$BUILD_NUMBER/console\\"
                         }"
                     '''
                 }
             }
-        }
-        stage('checkout') {
-            steps {
-                dir('CPPuddle') {
-                    checkout scm
-                }
-            }
-        }
-        stage('build-submodules') {
-            steps {
-                dir('CPPuddle') {
-                    sh '''
-                        module load cuda
-                        git submodule update --init --recursive
-                        ./scripts/clean_dependencies.sh
-                        ./scripts/build_dependencies.sh Release gcc
-                    '''
-                }
-            }
-        }
-        stage('build cppuddle') {
-            steps {
-                dir('CPPuddle') {
-                    sh '''
-                        module load cuda 
-                        ./scripts/configure_build_directory.sh
-                        cd build/gcc-Release
-                        make -j8
-                    '''
-                }
-            }
-        }
-        stage('run tests') {
-            steps {
-                dir('CPPuddle') {
-                    sh '''
-                        module load cuda
-                        cd build/gcc-Release
-                        ctest -j8
-                    '''
-                }
-            }
-        }
-    }
-    post {
-        success {
-            sh '''
-                github_token=$(echo ${GITHUB_TOKEN} | cut -f2 -d':')
-                curl --verbose\
-                    --request POST \
-                    --url "https://api.github.com/repos/SC-SGS/CPPuddle/statuses/$GIT_COMMIT" \
-                    --header "Content-Type: application/json" \
-                    --header "authorization: Bearer ${github_token}" \
-                    --data "{
-                        \\"state\\": \\"success\\",
-                        \\"context\\": \\"jenkins-ctest\\",
-                        \\"description\\": \\"Jenkins CI Job: jenkins-ctest\\",
-                        \\"target_url\\": \\"https://simsgs.informatik.uni-stuttgart.de/jenkins/job/CPPuddle/$BUILD_NUMBER/console\\"
-                }"
-            '''
-        }
-        failure {
-            sh '''
-                github_token=$(echo ${GITHUB_TOKEN} | cut -f2 -d':')
-                curl --verbose\
-                    --request POST \
-                    --url "https://api.github.com/repos/SC-SGS/CPPuddle/statuses/$GIT_COMMIT" \
-                    --header "Content-Type: application/json" \
-                    --header "authorization: Bearer ${github_token}" \
-                    --data "{
-                        \\"state\\": \\"failure\\",
-                        \\"context\\": \\"jenkins-ctest\\",
-                        \\"description\\": \\"Jenkins CI Job: jenkins-ctest\\",
-                        \\"target_url\\": \\"https://simsgs.informatik.uni-stuttgart.de/jenkins/job/CPPuddle/$BUILD_NUMBER/console\\"
-                }"
-            '''
-        }
-        aborted {
-            sh '''
-                github_token=$(echo ${GITHUB_TOKEN} | cut -f2 -d':')
-                curl --verbose\
-                    --request POST \
-                    --url "https://api.github.com/repos/SC-SGS/CPPuddle/statuses/$GIT_COMMIT" \
-                    --header "Content-Type: application/json" \
-                    --header "authorization: Bearer ${github_token}" \
-                    --data "{
-                        \\"state\\": \\"error\\",
-                        \\"context\\": \\"jenkins-ctest\\",
-                        \\"description\\": \\"Jenkins CI Job: jenkins-ctest\\",
-                        \\"target_url\\": \\"https://simsgs.informatik.uni-stuttgart.de/jenkins/job/CPPuddle/$BUILD_NUMBER/console\\"
-                }"
-            '''
         }
     }
 }
