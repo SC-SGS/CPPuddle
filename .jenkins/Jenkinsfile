@@ -50,7 +50,7 @@ pipeline {
                 dir('CPPuddle') {
                     sh '''
                         module load cuda 
-                        ./scripts/configure_build_directory.sh
+                        ./scripts/configure_build_directory.sh Release gcc
                         cd build/gcc-Release
                         make -j8
                     '''
