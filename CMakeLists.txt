@@ -299,7 +299,7 @@ if (CPPUDDLE_WITH_TESTS)
 
   if (CPPUDDLE_WITH_HPX)
     # Concurrency tests
-    add_test(allocator_concurrency_test.run allocator_hpx_test -t8 --passes 20 --outputfile allocator_concurrency_test.out)
+    add_test(allocator_concurrency_test.run allocator_hpx_test -t4 --passes 20 --outputfile allocator_concurrency_test.out)
     set_tests_properties(allocator_concurrency_test.run PROPERTIES
       FIXTURES_SETUP allocator_concurrency_output
       PROCESSORS 4
