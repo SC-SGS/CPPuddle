@@ -27,7 +27,7 @@ if (CPPUDDLE_WITH_TESTS)
 endif()
 if (CPPUDDLE_WITH_KOKKOS)
   # Find packages
-  find_package(Kokkos 3.3.0 REQUIRED)
+  find_package(Kokkos 3.0.0 REQUIRED)
   find_package(HPXKokkos REQUIRED) 
 
   # Check that everything required is actyivated
@@ -119,17 +119,17 @@ install(EXPORT CPPuddle NAMESPACE CPPuddle:: DESTINATION ${CMAKE_INSTALL_PREFIX}
 if (CPPUDDLE_WITH_TESTS)
   add_executable(allocator_test tests/allocator_test.cpp)
   target_link_libraries(allocator_test
-  ${Boost_LIBRARIES} buffer_manager)
+  ${Boost_LIBRARIES} Boost::boost Boost::program_options buffer_manager)
 
   add_executable(allocator_aligned_test tests/allocator_aligned_test.cpp)
   target_link_libraries(allocator_aligned_test
-  ${Boost_LIBRARIES} buffer_manager)
+  ${Boost_LIBRARIES} Boost::boost Boost::program_options buffer_manager)
 
   if (CPPUDDLE_WITH_HPX)
 
     add_executable(allocator_hpx_test tests/allocator_hpx_test.cpp)
     target_link_libraries(allocator_hpx_test
-      PRIVATE HPX::hpx buffer_manager)
+      PRIVATE Boost::boost Boost::program_options HPX::hpx buffer_manager)
 
     if (CPPUDDLE_WITH_CUDA)
 
@@ -153,15 +153,8 @@ if (CPPUDDLE_WITH_TESTS)
           tests/allocator_kokkos_test.cpp
           include/buffer_manager.hpp)
         target_link_libraries(allocator_kokkos_test
-          PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
+          PRIVATE Boost::boost Boost::program_options HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
         target_compile_definitions(allocator_kokkos_test PRIVATE HPX_WITH_CUDA CPPUDDLE_HAVE_CUDA)
-
-        add_executable(
-          allocator_kokkos_executor_stream_test
-          ${CMAKE_CURRENT_SOURCE_DIR}/tests/allocator_kokkos_executor_stream_test.cpp)
-        target_link_libraries(allocator_kokkos_executor_stream_test
-          PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
-        target_compile_definitions(allocator_kokkos_executor_stream_test PRIVATE HPX_WITH_CUDA CPPUDDLE_HAVE_CUDA)
 
         add_executable(
           allocator_executor_stream_test
@@ -171,14 +164,14 @@ if (CPPUDDLE_WITH_TESTS)
         target_compile_definitions(allocator_executor_stream_test PRIVATE HPX_WITH_CUDA CPPUDDLE_HAVE_CUDA)
 
         add_hpx_executable(
-          minimal_parallel_for
+          allocator_kokkos_executor_for_loop_test
           DEPENDENCIES
           HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager
           SOURCES
-          ${CMAKE_CURRENT_SOURCE_DIR}/tests/minimal_parallel_for.cpp)
-       # target_link_libraries(minimal_parallel_for
+          ${CMAKE_CURRENT_SOURCE_DIR}/tests/allocator_kokkos_executor_for_loop_test.cpp)
+       # target_link_libraries(allocator_kokkos_executor_for_loop_test
        #   PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
-        target_compile_definitions(minimal_parallel_for PRIVATE HPX_WITH_CUDA CPPUDDLE_HAVE_CUDA)
+        target_compile_definitions(allocator_kokkos_executor_for_loop_test PRIVATE HPX_WITH_CUDA CPPUDDLE_HAVE_CUDA)
 
       endif() # end WITH KOKKOS
     endif() # end with CUDA
@@ -360,9 +353,37 @@ if (CPPUDDLE_WITH_TESTS)
       add_test(allocator_cuda_test.run allocator_cuda_test)
       add_test(stream_test.run stream_test)
       if (CPPUDDLE_WITH_KOKKOS)
-        add_test(allocator_kokkos_minimal.run minimal_parallel_for)
-        #add_test(allocator_executor_stream_test.run allocator_executor_stream_test)
-        add_test(allocator_kokkos_executor_stream_test.run allocator_kokkos_executor_stream_test)
+        add_test(allocator_kokkos_test.run allocator_kokkos_test --outputfile allocator_kokkos_test.out)
+        set_tests_properties(allocator_kokkos_test.run PROPERTIES
+          FIXTURES_SETUP allocator_kokkos_output
+        )
+
+        add_test(allocator_kokkos_test.analyse_recycle_rate cat allocator_kokkos_test.out)
+        set_tests_properties(allocator_kokkos_test.analyse_recycle_rate PROPERTIES
+          FIXTURES_REQUIRED allocator_kokkos_output
+          PASS_REGULAR_EXPRESSION "==> Recycle rate: [ ]* 99%"
+        )
+        add_test(allocator_kokkos_test.analyse_marked_buffers_cleanup cat allocator_kokkos_test.out)
+        set_tests_properties(allocator_kokkos_test.analyse_marked_buffers_cleanup PROPERTIES
+          FIXTURES_REQUIRED allocator_kokkos_output
+          PASS_REGULAR_EXPRESSION "--> Number of buffers that were marked as used upon cleanup:[ ]* 0"
+        )
+        add_test(allocator_kokkos_test.analyse_cleaned_buffers cat allocator_kokkos_test.out)
+        set_tests_properties(allocator_kokkos_test.analyse_cleaned_buffers PROPERTIES
+          FIXTURES_REQUIRED allocator_kokkos_output
+          PASS_REGULAR_EXPRESSION "--> Number cleaned up buffers:[ ]* 2"
+        )
+        add_test(allocator_kokkos_test.analyse_created_buffers cat allocator_kokkos_test.out)
+        set_tests_properties(allocator_kokkos_test.analyse_created_buffers PROPERTIES
+          FIXTURES_REQUIRED allocator_kokkos_output
+          PASS_REGULAR_EXPRESSION "--> Number of times a new buffer had to be created for a request:[ ]* 2"
+        )
+        add_test(allocator_kokkos_test.analyse_bad_allocs cat allocator_kokkos_test.out)
+        set_tests_properties(allocator_kokkos_test.analyse_bad_allocs PROPERTIES
+          FIXTURES_REQUIRED allocator_kokkos_output
+          PASS_REGULAR_EXPRESSION "--> Number of bad_allocs that triggered garbage collection: [ ]* 0"
+        )
+        add_test(allocator_kokkos_executor_for_loop_test.run allocator_kokkos_executor_for_loop_test)
       endif() # end with KOKKOS
     endif() # end with CUDA
   endif() # end with hpx

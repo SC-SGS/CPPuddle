@@ -13,56 +13,75 @@
 #include <cstdio>
 #include <typeinfo>
 
-// scoped_timer -- stolen from Mikael
 #include "../include/buffer_manager.hpp"
 #include "../include/cuda_buffer_util.hpp"
 #include "../include/kokkos_buffer_util.hpp"
+#include <boost/program_options.hpp>
 #include <hpx/timing/high_resolution_timer.hpp>
+#include <boost/program_options.hpp>
 #include <memory>
 
 using kokkos_array =
     Kokkos::View<float[1000], Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
-// using kokkos_pinned_array = Kokkos::View<type_in_view,
-// Kokkos::CudaHostPinnedSpace>; using kokkos_cuda_array =
-// Kokkos::View<type_in_view, Kokkos::CudaSpace>;
 
 // Just some 2D views used for testing
 template <class T>
-using kokkos_um_device_array =
-    Kokkos::View<T *, Kokkos::CudaSpace, Kokkos::MemoryUnmanaged>;
-template <class T>
-using recycled_device_view =
-    recycler::recycled_view<kokkos_um_device_array<T>,
-                            recycler::recycle_allocator_cuda_device<T>, T>;
-
-template <class T>
 using kokkos_um_array =
-    Kokkos::View<T *, typename kokkos_um_device_array<T>::array_layout,
-                 Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
+    Kokkos::View<T *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
 using recycled_host_view =
     recycler::recycled_view<kokkos_um_array<T>, recycler::recycle_std<T>, T>;
 
 // #pragma nv_exec_check_disable
 int main(int argc, char *argv[]) {
+
+  std::string filename{};
+  try {
+    boost::program_options::options_description desc{"Options"};
+    desc.add_options()("help", "Help screen")(
+        "outputfile",
+        boost::program_options::value<std::string>(&filename)->default_value(
+            ""),
+        "Redirect stdout/stderr to this file");
+
+    boost::program_options::variables_map vm;
+    boost::program_options::parsed_options options =
+        parse_command_line(argc, argv, desc);
+    boost::program_options::store(options, vm);
+    boost::program_options::notify(vm);
+    if (vm.count("help") == 0u) {
+      std::cout << "Running with parameters:" << std::endl
+                << " --filename = " << filename << std::endl;
+    } else {
+      std::cout << desc << std::endl;
+      return EXIT_SUCCESS;
+    }
+  } catch (const boost::program_options::error &ex) {
+    std::cerr << "CLI argument problem found: " << ex.what() << '\n';
+  }
+  if (!filename.empty()) {
+    freopen(filename.c_str(), "w", stdout); // NOLINT
+    freopen(filename.c_str(), "w", stderr); // NOLINT
+  }
+
+
   hpx::kokkos::ScopeGuard scopeGuard(argc, argv);
   Kokkos::print_configuration(std::cout);
 
   using test_view = recycled_host_view<float>;
   using test_double_view = recycled_host_view<double>;
-  test_view my_wrapper_test1(1000);
-  test_view my_wrapper_test2(1000);
-  double t = 2.6;
-  Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::Experimental::HPX>(0, 1000),
-                       KOKKOS_LAMBDA(const int n) {
-                         my_wrapper_test1.access(n) = t;
-                         my_wrapper_test2.access(n) =
-                             my_wrapper_test1.access(n);
-                       });
 
-  Kokkos::fence();
-
-  // for some views on cuda data
-  using test_device_view = recycled_device_view<float>;
-  using test_device_double_view = recycled_device_view<double>;
+  constexpr size_t passes = 100;
+  for (size_t pass = 0; pass < passes; pass++) {
+    test_view my_wrapper_test1(1000);
+    test_view my_wrapper_test2(1000);
+    double t = 2.6;
+    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::Serial>(0, 1000),
+                        KOKKOS_LAMBDA(const int n) {
+                            my_wrapper_test1.access(n) = t;
+                            my_wrapper_test2.access(n) =
+                                my_wrapper_test1.access(n);
+                        });
+    Kokkos::fence();
+  }
 }

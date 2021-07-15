@@ -45,7 +45,8 @@ int main(int argc, char *argv[]) {
     if (vm.count("help") == 0u) {
       std::cout << "Running with parameters:" << std::endl
                 << " --arraysize = " << array_size << std::endl
-                << " --passes = " << passes << std::endl;
+                << " --passes = " << passes << std::endl
+                << " --filename = " << filename << std::endl;
     } else {
       std::cout << desc << std::endl;
       return EXIT_SUCCESS;
