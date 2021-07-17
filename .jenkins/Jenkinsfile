@@ -111,9 +111,6 @@ pipeline {
                 }
                 post {
                     success {
-			script {
-			    buildbadge.setStatus('passing')
-			}
                         sh '''
                             github_token=$(echo ${GITHUB_TOKEN} | cut -f2 -d':')
                             curl --verbose\
@@ -130,9 +127,6 @@ pipeline {
                         '''
                     }
                     failure {
-			script {
-			    buildbadge.setStatus('failing')
-			}
                         sh '''
                             github_token=$(echo ${GITHUB_TOKEN} | cut -f2 -d':')
                             curl --verbose\
@@ -149,9 +143,6 @@ pipeline {
                         '''
                     }
                     aborted {
-			script {
-			    buildbadge.setStatus('aborted')
-			}
                         sh '''
                             github_token=$(echo ${GITHUB_TOKEN} | cut -f2 -d':')
                             curl --verbose\
@@ -169,6 +160,23 @@ pipeline {
                     }
                 }
             }
+        }
+    }
+    post {
+        success {
+	    script {
+	        buildbadge.setStatus('success')
+	    }
+        }
+        failure {
+	    script {
+	        buildbadge.setStatus('failing')
+	    }
+        }
+        aborted {
+	    script {
+	        buildbadge.setStatus('aborted')
+	    }
         }
     }
 }
