@@ -6,7 +6,7 @@ if (currentBuild.getBuildCauses().toString().contains('BranchIndexingCause')) {
   return
 }
 
-def buildbadge = addEmbeddableBadgeConfiguration(id: "allbuilds", subject: "CUDA/Kokkos ctest", status: "running")
+def buildbadge = addEmbeddableBadgeConfiguration(id: "allbuilds", subject: "CUDA/Kokkos ctest", status: "skipped")
 
 pipeline {
     agent { label 'pcsgs05' }
@@ -32,7 +32,7 @@ pipeline {
         stage('checkout') {
             steps {
                 script {
-		    buildbadge.setStatus('running')
+		    buildbadge.setStatus('skipped')
                 }
                 dir('CPPuddle') {
                     checkout scm
@@ -166,17 +166,17 @@ pipeline {
     post {
         success {
 	    script {
-	        buildbadge.setStatus('success')
+	        buildbadge.setStatus('skipped')
 	    }
         }
         failure {
 	    script {
-	        buildbadge.setStatus('failing')
+	        buildbadge.setStatus('skipped')
 	    }
         }
         aborted {
 	    script {
-	        buildbadge.setStatus('aborted')
+	        buildbadge.setStatus('skipped')
 	    }
         }
     }
