@@ -1,7 +1,27 @@
 #!groovy
+
+if (currentBuild.getBuildCauses().toString().contains('BranchIndexingCause')) {
+  print "INFO: Build skipped due being triggered by Branch Indexing instead of SCM change!"
+  currentBuild.result = 'ABORTED' // default would be successful: this makes it more clear that is thas been skipped
+  return
+}
+
 pipeline {
     agent { label 'pcsgs05' }
-
+    options {
+        buildDiscarder(
+            logRotator(
+                daysToKeepStr: "21",
+                numToKeepStr: "50",
+                artifactDaysToKeepStr: "21",
+                artifactNumToKeepStr: "50"
+            )
+        )
+        disableConcurrentBuilds()
+    }
+    triggers {
+        githubPush()
+    } 
     environment {
         GITHUB_TOKEN = credentials('GITHUB_TOKEN_OCTOTIGER')
     }
