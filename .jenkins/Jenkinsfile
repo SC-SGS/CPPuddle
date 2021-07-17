@@ -6,6 +6,8 @@ if (currentBuild.getBuildCauses().toString().contains('BranchIndexingCause')) {
   return
 }
 
+def buildbadge = addEmbeddableBadgeConfiguration(id: "build-and-test-${env.JOB_BASE_NAME}", subject: "CUDA/Kokkos ctest")
+
 pipeline {
     agent { label 'pcsgs05' }
     options {
@@ -28,6 +30,7 @@ pipeline {
     stages {
         stage('checkout') {
             steps {
+		buildbadge.setStatus('running')
                 dir('CPPuddle') {
                     checkout scm
                     sh '''
@@ -106,6 +109,7 @@ pipeline {
                 }
                 post {
                     success {
+			buildbadge.setStatus('passing')
                         sh '''
                             github_token=$(echo ${GITHUB_TOKEN} | cut -f2 -d':')
                             curl --verbose\
@@ -122,6 +126,7 @@ pipeline {
                         '''
                     }
                     failure {
+			buildbadge.setStatus('failing')
                         sh '''
                             github_token=$(echo ${GITHUB_TOKEN} | cut -f2 -d':')
                             curl --verbose\
@@ -138,6 +143,7 @@ pipeline {
                         '''
                     }
                     aborted {
+			buildbadge.setStatus('aborted')
                         sh '''
                             github_token=$(echo ${GITHUB_TOKEN} | cut -f2 -d':')
                             curl --verbose\
