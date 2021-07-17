@@ -123,11 +123,13 @@ struct hip_device_buffer {
   explicit hip_device_buffer(size_t number_of_elements, size_t gpu_id)
       : gpu_id(gpu_id), number_of_elements(number_of_elements), set_id(true) {
 
+    // TODO Fix Multi GPU support
     // hipSetDevice(gpu_id);
     device_side_buffer =
         recycle_allocator_hip_device<T>{}.allocate(number_of_elements);
   }
   ~hip_device_buffer() {
+    // TODO Fix Multi GPU support
     // if (set_id)
     //   hipSetDevice(gpu_id);
     recycle_allocator_hip_device<T>{}.deallocate(device_side_buffer,

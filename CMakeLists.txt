@@ -10,6 +10,7 @@ project(CPPuddle CXX C) # Some random project name
 option(CPPUDDLE_WITH_TESTS "Build tests/examples" OFF)
 option(CPPUDDLE_WITH_COUNTERS "Turns on allocations counters. Useful for extended testing" OFF)
 option(CPPUDDLE_WITH_CUDA "Enable CUDA tests/examples" OFF)
+option(CPPUDDLE_WITH_MULTIGPU_SUPPORT "Enables experimental MultiGPU support" ON)
 option(CPPUDDLE_WITH_HPX "Enable HPX examples" OFF)
 option(CPPUDDLE_WITH_KOKKOS "Enable KOKKOS tests/examples" OFF)
 option(CPPUDDLE_WITH_CLANG_TIDY "Enable clang tidy warnings" OFF)
@@ -179,6 +180,11 @@ if (CPPUDDLE_WITH_TESTS)
 
   if (CPPUDDLE_WITH_COUNTERS)
     add_compile_definitions(CPPUDDLE_HAVE_COUNTERS)
+  endif()
+
+  if (CPPUDDLE_WITH_MULTIGPU_SUPPORT)
+    add_compile_definitions(CPPUDDLE_HAVE_MULTIGPU)
+    message(WARNING, " Multi-GPU Support not yet properly tested!")
   endif()
 
   enable_testing()
