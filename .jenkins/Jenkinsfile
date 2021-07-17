@@ -48,6 +48,7 @@ pipeline {
                     sh '''
                         git submodule update --init --recursive
                         ./scripts/clean_dependencies.sh
+                        echo "Build started on pipeline ${JOB_BASE_NAME} with build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "Jenkins CPPuddle: Build ${JOB_BASE_NAME}/${BUILD_NUMBER} just started..." "${MAINTAINER_MAIL}"
                     '''
                 }
             }
@@ -81,7 +82,6 @@ pipeline {
                                             \\"description\\": \\"Jenkins CI Job: jenkins-${compiler}-${build_type}-ctest\\",
                                             \\"target_url\\": \\"https://simsgs.informatik.uni-stuttgart.de/jenkins/job/CPPuddle/job/${JOB_BASE_NAME}/${BUILD_NUMBER}/console\\"
                                     }"
-                                    echo "Build started! Pipeline ${JOB_BASE_NAME}, Build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "Jenkins: CPPuddle Build ${JOB_BASE_NAME}/${BUILD_NUMBER} just started..." "${MAINTAINER_MAIL}"
                                 '''
                             }
                         }
@@ -179,7 +179,7 @@ pipeline {
 	        buildbadge.setStatus('success')
 	    }
             sh '''
-                echo "Build succeded! Pipeline ${JOB_BASE_NAME}, Build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "Jenkins: CPPuddle Build ${JOB_BASE_NAME}/${BUILD_NUMBER} succeded" "${MAINTAINER_MAIL}"
+                echo "Build succeded! Pipeline ${JOB_BASE_NAME} with build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "Jenkins CPPuddle: Build ${JOB_BASE_NAME}/${BUILD_NUMBER} succeded" "${MAINTAINER_MAIL}"
             '''
         }
         failure {
@@ -187,7 +187,7 @@ pipeline {
 	        buildbadge.setStatus('failing')
 	    }
             sh '''
-                echo "Build failed! Pipeline ${JOB_BASE_NAME}, Build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "Jenkins: CPPuddle Build ${JOB_BASE_NAME}/${BUILD_NUMBER} failed" "${MAINTAINER_MAIL}"
+                echo "Build failed! Pipeline ${JOB_BASE_NAME} with build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "ERROR Jenkins CPPuddle: Build ${JOB_BASE_NAME}/${BUILD_NUMBER} failed" "${MAINTAINER_MAIL}"
             '''
         }
         aborted {
@@ -195,7 +195,7 @@ pipeline {
 	        buildbadge.setStatus('aborted')
 	    }
             sh '''
-                echo "Build aborted! Pipeline ${JOB_BASE_NAME}, Build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "Jenkins: CPPuddle Build ${JOB_BASE_NAME}/${BUILD_NUMBER} aborted" "${MAINTAINER_MAIL}"
+                echo "Build aborted on pipeline ${JOB_BASE_NAME} with build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "ABORTED Jenkins CPPuddle: Build ${JOB_BASE_NAME}/${BUILD_NUMBER} aborted" "${MAINTAINER_MAIL}"
             '''
         }
     }
