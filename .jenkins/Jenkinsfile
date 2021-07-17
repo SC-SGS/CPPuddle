@@ -1,12 +1,20 @@
 #!groovy
 
-if (currentBuild.getBuildCauses().toString().contains('BranchIndexingCause')) {
-  print "INFO: Build skipped due being triggered by Branch Indexing instead of SCM change!"
-  currentBuild.result = 'ABORTED' // default would be successful: this makes it more clear that is thas been skipped
-  return
-}
+def buildbadge = addEmbeddableBadgeConfiguration(id: "allbuilds", subject: "CUDA/Kokkos ctest", status: "running")
 
-def buildbadge = addEmbeddableBadgeConfiguration(id: "allbuilds", subject: "CUDA/Kokkos ctest", status: "skipped")
+// Skip builds that are likely to be tested already (by push) and unlikely to be critical (not on master)
+if (currentBuild.getBuildCauses().toString().contains('BranchIndexingCause')) {
+  print "INFO: Build on ${env.BRANCH_NAME} triggered by branch indexing..."
+  if (env.BRANCH_NAME != "master") {
+      print "INFO: Build on ${env.BRANCH_NAME} skipped due being triggered by Branch Indexing instead of SCM change!"
+      buildbadge.setStatus('skipped')
+      currentBuild.result = 'ABORTED' 
+      return
+  }
+} else {
+  print "INFO: Build on ${env.BRANCH_NAME} triggered by SCM change..."
+  print "Proceeding!"
+} 
 
 pipeline {
     agent { label 'pcsgs05' }
@@ -32,7 +40,7 @@ pipeline {
         stage('checkout') {
             steps {
                 script {
-		    buildbadge.setStatus('skipped')
+		    buildbadge.setStatus('running')
                 }
                 dir('CPPuddle') {
                     checkout scm
@@ -166,17 +174,17 @@ pipeline {
     post {
         success {
 	    script {
-	        buildbadge.setStatus('skipped')
+	        buildbadge.setStatus('success')
 	    }
         }
         failure {
 	    script {
-	        buildbadge.setStatus('skipped')
+	        buildbadge.setStatus('failing')
 	    }
         }
         aborted {
 	    script {
-	        buildbadge.setStatus('skipped')
+	        buildbadge.setStatus('aborted')
 	    }
         }
     }
