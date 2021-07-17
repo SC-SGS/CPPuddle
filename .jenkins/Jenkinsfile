@@ -6,7 +6,7 @@ if (currentBuild.getBuildCauses().toString().contains('BranchIndexingCause')) {
   return
 }
 
-def buildbadge = addEmbeddableBadgeConfiguration(id: "build-and-test-${env.JOB_BASE_NAME}", subject: "CUDA/Kokkos ctest")
+def buildbadge = addEmbeddableBadgeConfiguration(id: "allbuilds", subject: "CUDA/Kokkos ctest", status: "running")
 
 pipeline {
     agent { label 'pcsgs05' }
