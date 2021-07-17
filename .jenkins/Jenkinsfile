@@ -35,6 +35,7 @@ pipeline {
     } 
     environment {
         GITHUB_TOKEN = credentials('GITHUB_TOKEN_OCTOTIGER')
+        MAINTAINER_MAIL = credentials('CPPUDDLE_MAINTAINER_EMAIL')
     }
     stages {
         stage('checkout') {
@@ -80,6 +81,7 @@ pipeline {
                                             \\"description\\": \\"Jenkins CI Job: jenkins-${compiler}-${build_type}-ctest\\",
                                             \\"target_url\\": \\"https://simsgs.informatik.uni-stuttgart.de/jenkins/job/CPPuddle/job/${JOB_BASE_NAME}/${BUILD_NUMBER}/console\\"
                                     }"
+                                    echo "Build started! Pipeline ${JOB_BASE_NAME}, Build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "Jenkins: CPPuddle Build ${JOB_BASE_NAME}/${BUILD_NUMBER} just started..." "${MAINTAINER_MAIL}"
                                 '''
                             }
                         }
@@ -176,16 +178,25 @@ pipeline {
 	    script {
 	        buildbadge.setStatus('success')
 	    }
+            sh '''
+                echo "Build succeded! Pipeline ${JOB_BASE_NAME}, Build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "Jenkins: CPPuddle Build ${JOB_BASE_NAME}/${BUILD_NUMBER} succeded" "${MAINTAINER_MAIL}"
+            '''
         }
         failure {
 	    script {
 	        buildbadge.setStatus('failing')
 	    }
+            sh '''
+                echo "Build failed! Pipeline ${JOB_BASE_NAME}, Build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "Jenkins: CPPuddle Build ${JOB_BASE_NAME}/${BUILD_NUMBER} failed" "${MAINTAINER_MAIL}"
+            '''
         }
         aborted {
 	    script {
 	        buildbadge.setStatus('aborted')
 	    }
+            sh '''
+                echo "Build aborted! Pipeline ${JOB_BASE_NAME}, Build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "Jenkins: CPPuddle Build ${JOB_BASE_NAME}/${BUILD_NUMBER} aborted" "${MAINTAINER_MAIL}"
+            '''
         }
     }
 }
