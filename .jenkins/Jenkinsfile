@@ -1,12 +1,20 @@
 #!groovy
 
-if (currentBuild.getBuildCauses().toString().contains('BranchIndexingCause')) {
-  print "INFO: Build skipped due being triggered by Branch Indexing instead of SCM change!"
-  currentBuild.result = 'ABORTED' // default would be successful: this makes it more clear that is thas been skipped
-  return
-}
-
 def buildbadge = addEmbeddableBadgeConfiguration(id: "allbuilds", subject: "CUDA/Kokkos ctest", status: "running")
+
+// Skip builds that are likely to be tested already (by push) and unlikely to be critical (not on master)
+if (currentBuild.getBuildCauses().toString().contains('BranchIndexingCause')) {
+  print "INFO: Build on ${env.BRANCH_NAME} triggered by branch indexing..."
+  if (env.BRANCH_NAME != "master") {
+      print "INFO: Build on ${env.BRANCH_NAME} skipped due being triggered by Branch Indexing instead of SCM change!"
+      buildbadge.setStatus('skipped')
+      currentBuild.result = 'ABORTED' 
+      return
+  }
+} else {
+  print "INFO: Build on ${env.BRANCH_NAME} triggered by SCM change..."
+  print "Proceeding!"
+} 
 
 pipeline {
     agent { label 'pcsgs05' }
@@ -27,6 +35,7 @@ pipeline {
     } 
     environment {
         GITHUB_TOKEN = credentials('GITHUB_TOKEN_OCTOTIGER')
+        MAINTAINER_MAIL = credentials('CPPUDDLE_MAINTAINER_EMAIL')
     }
     stages {
         stage('checkout') {
@@ -39,6 +48,7 @@ pipeline {
                     sh '''
                         git submodule update --init --recursive
                         ./scripts/clean_dependencies.sh
+                        echo "Build started on pipeline ${JOB_BASE_NAME} with build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "Jenkins CPPuddle: Build ${JOB_BASE_NAME}/${BUILD_NUMBER} just started..." "${MAINTAINER_MAIL}"
                     '''
                 }
             }
@@ -168,16 +178,25 @@ pipeline {
 	    script {
 	        buildbadge.setStatus('success')
 	    }
+            sh '''
+                echo "Build succeded! Pipeline ${JOB_BASE_NAME} with build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "Jenkins CPPuddle: Build ${JOB_BASE_NAME}/${BUILD_NUMBER} succeded" "${MAINTAINER_MAIL}"
+            '''
         }
         failure {
 	    script {
 	        buildbadge.setStatus('failing')
 	    }
+            sh '''
+                echo "Build failed! Pipeline ${JOB_BASE_NAME} with build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "Jenkins CPPuddle: Build ${JOB_BASE_NAME}/${BUILD_NUMBER} failed" "${MAINTAINER_MAIL}"
+            '''
         }
         aborted {
 	    script {
 	        buildbadge.setStatus('aborted')
 	    }
+            sh '''
+                echo "Build aborted on pipeline ${JOB_BASE_NAME} with build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "Jenkins CPPuddle: Build ${JOB_BASE_NAME}/${BUILD_NUMBER} aborted" "${MAINTAINER_MAIL}"
+            '''
         }
     }
 }

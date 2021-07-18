@@ -116,14 +116,27 @@ struct cuda_device_buffer {
   }
   explicit cuda_device_buffer(size_t number_of_elements, size_t gpu_id)
       : gpu_id(gpu_id), number_of_elements(number_of_elements), set_id(true) {
-
+#if defined(CPPUDDLE_HAVE_MULTIGPU) 
     cudaSetDevice(gpu_id);
+#else
+    // TODO It would be better to have separate method for this but it would change the interface
+    // This will have to do for some testing. If it's worth it, add separate method without cudaSetDevice
+    // Allows for testing without any changes to other projects 
+    assert(gpu_id == 0); 
+#endif
     device_side_buffer =
         recycle_allocator_cuda_device<T>{}.allocate(number_of_elements);
   }
   ~cuda_device_buffer() {
+#if defined(CPPUDDLE_HAVE_MULTIGPU) 
     if (set_id)
       cudaSetDevice(gpu_id);
+#else
+    // TODO It would be better to have separate method for this but it would change the interface
+    // This will have to do for some testing. If it's worth it, add separate method without cudaSetDevice
+    // Allows for testing without any changes to other projects 
+    assert(gpu_id == 0); 
+#endif
     recycle_allocator_cuda_device<T>{}.deallocate(device_side_buffer,
                                                   number_of_elements);
   }
