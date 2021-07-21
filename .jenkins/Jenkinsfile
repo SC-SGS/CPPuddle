@@ -1,19 +1,21 @@
 #!groovy
 
-def buildbadge = addEmbeddableBadgeConfiguration(id: "allbuilds", subject: "CUDA/Kokkos ctest", status: "running")
+def buildbadge = addEmbeddableBadgeConfiguration(id: "allbuilds", subject: "CUDA/Kokkos ctest", status: "skipped")
 
 // Skip builds that are likely to be tested already (by push) and unlikely to be critical (not on master)
 if (currentBuild.getBuildCauses().toString().contains('BranchIndexingCause')) {
-  print "INFO: Build on ${env.BRANCH_NAME} triggered by branch indexing..."
-  if (env.BRANCH_NAME != "master") {
-      print "INFO: Build on ${env.BRANCH_NAME} skipped due being triggered by Branch Indexing instead of SCM change!"
-      buildbadge.setStatus('skipped')
-      currentBuild.result = 'ABORTED' 
-      return
-  }
+    print "INFO: Build on ${env.BRANCH_NAME} triggered by branch indexing..."
+    if (env.BRANCH_NAME != "master") {
+        if (env.BUILD_NUMBER != "1") { // Always run first build on a new branch pipeline to load the options (and thus github hook triggers) for the pipeline
+            print "INFO: Build on ${env.BRANCH_NAME} skipped due being triggered by Branch Indexing instead of SCM change!"
+            buildbadge.setStatus('skipped')
+            currentBuild.result = 'ABORTED' 
+            return
+        }
+    }
 } else {
-  print "INFO: Build on ${env.BRANCH_NAME} triggered by SCM change..."
-  print "Proceeding!"
+    print "INFO: Build on ${env.BRANCH_NAME} triggered by SCM change..."
+    print "Proceeding!"
 } 
 
 pipeline {
@@ -40,6 +42,7 @@ pipeline {
     stages {
         stage('checkout') {
             steps {
+                scmSkip(deleteBuild: false, skipPattern:'.*\\[ci skip\\].*')
                 script {
 		    buildbadge.setStatus('running')
                 }
