@@ -33,6 +33,9 @@ case $(hostname) in
     daint)
         source_config_daint ${SCRIPTS_DIR} "$1" "$2"
         ;;
+    xp14x2)
+        source_config_xp14 ${SCRIPTS_DIR} "$1" "$2"
+        ;;
     *)
         source_config_default ${SCRIPTS_DIR} "$1" "$2"
         ;;
@@ -45,9 +48,9 @@ mkdir -p ${INSTALL_DIR}
 pushd ${BUILD_DIR}
 # TODO Install newer clang on pcsgs04
 if [[ "${CXX}" == "clang++" ]]; then # clang too old on our usual machine - compile without CUDA
-  cmake -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON -DCPPUDDLE_WITH_TESTS=ON -DCPPUDDLE_WITH_HPX=ON -DCPPUDDLE_WITH_CUDA=OFF -DCPPUDDLE_WITH_KOKKOS=OFF -DCPPUDDLE_WITH_COUNTERS=ON -DHPX_DIR=${SCRIPTS_DIR}/../external_dependencies/install/hpx-${APPEND_DIRNAME}/lib/cmake/HPX -DKokkos_DIR=${SCRIPTS_DIR}/../external_dependencies/install/kokkos-${APPEND_DIRNAME}/lib/cmake/Kokkos -DHPXKokkos_DIR=${SCRIPTS_DIR}/../external_dependencies/install/hpx-kokkos-${APPEND_DIRNAME}/lib/cmake/HPXKokkos ../..
+  cmake -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON -DCPPUDDLE_WITH_TESTS=ON -DCPPUDDLE_WITH_HPX=ON -DCPPUDDLE_MUTEXLESS_MODE=ON -DCPPUDDLE_WITH_CUDA=ON -DCPPUDDLE_WITH_KOKKOS=ON -DCPPUDDLE_WITH_COUNTERS=ON -DHPX_DIR=${SCRIPTS_DIR}/../external_dependencies/install/hpx-${APPEND_DIRNAME}/lib/cmake/HPX -DKokkos_DIR=${SCRIPTS_DIR}/../external_dependencies/install/kokkos-${APPEND_DIRNAME}/lib/cmake/Kokkos -DHPXKokkos_DIR=${SCRIPTS_DIR}/../external_dependencies/install/hpx-kokkos-${APPEND_DIRNAME}/lib/cmake/HPXKokkos ../..
 else
-  cmake -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON -DCPPUDDLE_WITH_TESTS=ON -DCPPUDDLE_WITH_HPX=ON -DCPPUDDLE_WITH_CUDA=ON -DCPPUDDLE_WITH_KOKKOS=ON -DCPPUDDLE_WITH_COUNTERS=ON -DHPX_DIR=${SCRIPTS_DIR}/../external_dependencies/install/hpx-${APPEND_DIRNAME}/lib/cmake/HPX -DKokkos_DIR=${SCRIPTS_DIR}/../external_dependencies/install/kokkos-${APPEND_DIRNAME}/lib/cmake/Kokkos -DHPXKokkos_DIR=${SCRIPTS_DIR}/../external_dependencies/install/hpx-kokkos-${APPEND_DIRNAME}/lib/cmake/HPXKokkos ../..
+  cmake -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON -DCPPUDDLE_WITH_TESTS=ON -DCPPUDDLE_WITH_HPX=ON -DCPPUDDLE_MUTEXLESS_MODE=ON -DCPPUDDLE_WITH_CUDA=ON -DCPPUDDLE_WITH_KOKKOS=ON -DCPPUDDLE_WITH_COUNTERS=ON -DHPX_DIR=${SCRIPTS_DIR}/../external_dependencies/install/hpx-${APPEND_DIRNAME}/lib/cmake/HPX -DKokkos_DIR=${SCRIPTS_DIR}/../external_dependencies/install/kokkos-${APPEND_DIRNAME}/lib/cmake/Kokkos -DHPXKokkos_DIR=${SCRIPTS_DIR}/../external_dependencies/install/hpx-kokkos-${APPEND_DIRNAME}/lib/cmake/HPXKokkos ../..
 fi
 popd
 

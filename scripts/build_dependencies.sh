@@ -38,6 +38,9 @@ case $(hostname) in
     daint)
         source_config_daint ${SCRIPTS_DIR} "$1" "$2"
         ;;
+    xp14x2)
+        source_config_xp14 ${SCRIPTS_DIR} "$1" "$2"
+        ;;
     *)
         source_config_default ${SCRIPTS_DIR} "$1" "$2"
         ;;
