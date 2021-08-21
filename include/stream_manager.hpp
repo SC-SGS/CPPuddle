@@ -14,6 +14,21 @@
 #include <queue>
 #include <type_traits>
 
+
+// Project: On-the-fly work aggregation executor 
+// =============================================
+// Idea
+// - Bunch up multiple kernel calls of the same type in one invocation
+// - Extend buffers accordingly (z.b 4x the size), pass extra index to the kernels (startindex? Subviews?)
+// - Return shared future
+// - Set promise of this shared future manually upon the kernel finising (add continuation to the kernel non-shared futures?)
+// - Success?
+// First step:
+// - How to actually do the promise part? hpx::promise and shared future? 
+// TODO Look at HPX API
+// - How to actually do this with Kokkos views? Array of views? sounds awkward
+
+
 //#include <cuda_runtime.h>
 // #include <hpx/compute/cuda/target.hpp>
 // #include <hpx/include/compute.hpp>
