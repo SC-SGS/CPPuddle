@@ -1,6 +1,6 @@
 spack:
   specs:
-  - boost@1.70.0
-  - jemalloc
-  - cmake@3.17.0
-  - bzip2
+  - boost@1.70.0%gcc@9.3.0
+  - jemalloc%gcc@9.3.0
+  - cmake@3.17.0%gcc@9.3.0
+  - bzip2%gcc@9.3.0

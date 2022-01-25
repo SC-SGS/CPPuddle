@@ -76,7 +76,7 @@ function source_config_xp14() {
     echo "Invalid compiler!"
     exit 1
   fi
-  export APPEND_DIRNAME="-$3-$2"
+  export APPEND_DIRNAME="$3-$2"
 
 
   #export CXX=${SCRIPTS_DIR}/../external_dependencies/kokkos/bin/nvcc_wrapper
@@ -105,7 +105,7 @@ function source_config_default() {
     echo "Invalid compiler!"
     exit 1
   fi
-  export APPEND_DIRNAME="-$3-$2"
+  export APPEND_DIRNAME="$3-$2"
 
 
   #export CXX=${SCRIPTS_DIR}/../external_dependencies/kokkos/bin/nvcc_wrapper

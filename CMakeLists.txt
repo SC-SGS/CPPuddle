@@ -111,7 +111,7 @@ install(TARGETS stream_manager EXPORT CPPuddle
 )
 # install all headers
 install(
-  DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_PREFIX}/include
+  DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_PREFIX}/include/cppuddle
 )
 
 install(FILES cppuddle-config.cmake DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/cmake/CPPuddle/)
@@ -361,8 +361,14 @@ if (CPPUDDLE_WITH_TESTS)
 
     # GPU related tests
     if (CPPUDDLE_WITH_CUDA)
-      add_test(allocator_cuda_test.run allocator_cuda_test)
-      add_test(stream_test.run stream_test)
+      add_test(allocator_cuda_test.run allocator_cuda_test -t 4)
+      set_tests_properties(allocator_cuda_test.run PROPERTIES
+        PROCESSORS 4
+      )
+      add_test(stream_test.run stream_test -t 4)
+      set_tests_properties(stream_test.run PROPERTIES
+        PROCESSORS 4
+      )
       if (CPPUDDLE_WITH_KOKKOS)
         add_test(allocator_kokkos_test.run allocator_kokkos_test --outputfile allocator_kokkos_test.out)
         set_tests_properties(allocator_kokkos_test.run PROPERTIES
@@ -394,7 +400,10 @@ if (CPPUDDLE_WITH_TESTS)
           FIXTURES_REQUIRED allocator_kokkos_output
           PASS_REGULAR_EXPRESSION "--> Number of bad_allocs that triggered garbage collection: [ ]* 0"
         )
-        add_test(allocator_kokkos_executor_for_loop_test.run allocator_kokkos_executor_for_loop_test)
+        add_test(allocator_kokkos_executor_for_loop_test.run allocator_kokkos_executor_for_loop_test -t 4)
+        set_tests_properties(allocator_kokkos_executor_for_loop_test.run PROPERTIES
+          PROCESSORS 4
+        )
       endif() # end with KOKKOS
     endif() # end with CUDA
   endif() # end with hpx
