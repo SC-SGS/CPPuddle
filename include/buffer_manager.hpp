@@ -12,36 +12,49 @@
 // - Lose the buffer map
 // - Lose the tuples
 // - Thread_local instance for each manager
-// - Thread local instance call upon his own unused buffer list to handle request
+// - Thread local instance call upon his own unused buffer list to handle
+// request
 // - Buffer recycles does not track the buffer during it's active life
-// - Upon destruction the current thread (may or may not be the original one), puts the buffer into its list
+// - Upon destruction the current thread (may or may not be the original one),
+// puts the buffer into its list
 //
 // Potential problems:
-// - Need to decide whether to handle the content lifetime or not (aggressive_recycle_allocator pedant)
-// => Planned solution 1: Two different versions of the buffer_manager, buffer recycler decides which one to use
-// => This way, I know during destruction whether to clean up the mess. 
-// => Planned solution 2: Always cleanup during destruction. It probably won't hurt performance at this point and 
+// - Need to decide whether to handle the content lifetime or not
+// (aggressive_recycle_allocator pedant)
+// => Planned solution 1: Two different versions of the buffer_manager, buffer
+// recycler decides which one to use
+// => This way, I know during destruction whether to clean up the mess.
+// => Planned solution 2: Always cleanup during destruction. It probably won't
+// hurt performance at this point and
 // => I'd consider it less surprising
 // - Reference counting in the recycled Kokkos Views
-// => Reimplement reference counting in there! No real way around it unfortunately. 
-// => Next question, would this actually trigger the reference counting properly? Kokkos claims to not destroy 
+// => Reimplement reference counting in there! No real way around it
+// unfortunately.
+// => Next question, would this actually trigger the reference counting
+// properly? Kokkos claims to not destroy
 // => my custom memory while it's in use, so this should work
 // - How to structure this?
 // => Sufficiently different to warrant new buffer manager class(es).
-// => Put in a different file. Actually put the current one in a different file from the singleton_access class as well
-// => Recycler access: Now this one should stay the same API-wise if possible (making the nomadic buffers a drop-in for octotiger
+// => Put in a different file. Actually put the current one in a different file
+// from the singleton_access class as well
+// => Recycler access: Now this one should stay the same API-wise if possible
+// (making the nomadic buffers a drop-in for octotiger
 // => Use a bunch of #ifdefs or constexpr ifs to get around the mutexes?
 // - Detect imbalance and balance?
-// => Heuristic: One thread accumulates everything - check unused and free them. Not ideal, but simple and no communication
+// => Heuristic: One thread accumulates everything - check unused and free them.
+// Not ideal, but simple and no communication
 // => required
 //
 // Action Plan:
 // ========================
-// - [X] Add CMAKE variable for this CPPUDDLE_WITH_MUTEXLESS_MODE? CPPUDDLE_WITH_NOMADIC_BUFFER?
-// - [ ] Add two subheaders; One for the current buffer manager and its allocators
-// - [ ] Actually create empty second subheader and copy current implementation over
+// - [X] Add CMAKE variable for this CPPUDDLE_WITH_MUTEXLESS_MODE?
+// CPPUDDLE_WITH_NOMADIC_BUFFER?
+// - [ ] Add two subheaders; One for the current buffer manager and its
+// allocators
+// - [ ] Actually create empty second subheader and copy current implementation
+// over
 // - [ ] Throw out stuff according to the todos and see where this takes us
-// - [ ] Add ifdefs to base header (this one) to call the correct shit 
+// - [ ] Add ifdefs to base header (this one) to call the correct shit
 
 #include <cassert>
 #include <functional>
@@ -58,7 +71,6 @@ namespace recycler {
 namespace detail {
 
 namespace util {
-
 /// Helper methods for C++14 - this is obsolete for c++17 and only meant as a
 /// temporary crutch
 template <typename ForwardIt, typename Size>
@@ -88,7 +100,7 @@ public:
   /// buffer
   template <typename T, typename Host_Allocator>
   static T *get(size_t number_elements, bool manage_content_lifetime = false) {
-  // TODO (daissgr) lock gone for nomadic buffers (ifdef?)
+    // TODO (daissgr) lock gone for nomadic buffers (ifdef?)
     std::lock_guard<std::mutex> guard(mut);
     if (!recycler_instance) {
       // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
@@ -100,10 +112,10 @@ public:
   /// Marks an buffer as unused and fit for reusage
   template <typename T, typename Host_Allocator>
   static void mark_unused(T *p, size_t number_elements) {
-  // TODO (daissgr) lock gone for nomadic buffers (ifdef?)
+    // TODO (daissgr) lock gone for nomadic buffers (ifdef?)
     std::lock_guard<std::mutex> guard(mut);
-    if (recycler_instance) { // if the instance was already destroyed all buffers
-                             // are destroyed anyway
+    if (recycler_instance) { // if the instance was already destroyed all
+                             // buffers are destroyed anyway
       return buffer_manager<T, Host_Allocator>::mark_unused(p, number_elements);
     }
   }
@@ -112,15 +124,15 @@ public:
   template <typename T, typename Host_Allocator>
   static void increase_usage_counter(T *p, size_t number_elements) noexcept {
     std::lock_guard<std::mutex> guard(mut);
-    if (recycler_instance) { // if the instance was already destroyed all buffers
-                             // are destroyed anyway
+    if (recycler_instance) { // if the instance was already destroyed all
+                             // buffers are destroyed anyway
       return buffer_manager<T, Host_Allocator>::increase_usage_counter(
           p, number_elements);
     }
   }
   /// Deallocate all buffers, no matter whether they are marked as used or not
   static void clean_all() {
-  // TODO (daissgr) lock gone for nomadic buffers (ifdef?)
+    // TODO (daissgr) lock gone for nomadic buffers (ifdef?)
     std::lock_guard<std::mutex> guard(mut);
     if (recycler_instance) {
       for (const auto &clean_function :
@@ -132,7 +144,7 @@ public:
   }
   /// Deallocated all currently unused buffer
   static void clean_unused_buffers() {
-  // TODO (daissgr) lock gone for nomadic buffers (ifdef?)
+    // TODO (daissgr) lock gone for nomadic buffers (ifdef?)
     std::lock_guard<std::mutex> guard(mut);
     if (recycler_instance) {
       for (const auto &clean_function :
@@ -290,7 +302,7 @@ private:
       assert(manager_instance);
 #ifdef CPPUDDLE_HAVE_COUNTERS
       manager_instance->number_dealloacation++;
-#endif  
+#endif
       // TODO (daissgr) This needs to go for the nomadic buffers
       // Reference counting won't be handled in here in this case
       // Instead we'll simply push the buffer to the unused_buffer list
@@ -332,7 +344,7 @@ private:
     size_t number_recycling{0}, number_creation{0}, number_bad_alloc{0};
 #endif
     /// Singleton instance
-  // TODO (daissgr) thread_local singleton for nomandic buffers
+    // TODO (daissgr) thread_local singleton for nomandic buffers
     static std::unique_ptr<buffer_manager<T, Host_Allocator>> manager_instance;
     /// default, private constructor - not automatically constructed due to the
     /// deleted constructors
@@ -342,7 +354,8 @@ private:
     ~buffer_manager() {
       for (auto &buffer_tuple : unused_buffer_list) {
         Host_Allocator alloc;
-        // TODO (daissgr) Open question: When to handle content life-time in the new allocators
+        // TODO (daissgr) Open question: When to handle content life-time in the
+        // new allocators
         if (std::get<3>(buffer_tuple)) {
           util::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
         }
@@ -351,7 +364,8 @@ private:
       for (auto &map_tuple : buffer_map) {
         auto buffer_tuple = map_tuple.second;
         Host_Allocator alloc;
-        // TODO (daissgr) Open question: When to handle content life-time in the new allocators
+        // TODO (daissgr) Open question: When to handle content life-time in the
+        // new allocators
         if (std::get<3>(buffer_tuple)) {
           util::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
         }
@@ -389,7 +403,7 @@ private:
                        100.0f
                 << "%" << std::endl;
       // assert(buffer_map.size() == 0); // Were there any buffers still used?
-#endif 
+#endif
       unused_buffer_list.clear();
       buffer_map.clear();
     }
@@ -407,6 +421,237 @@ private:
     operator=(buffer_manager<T, Host_Allocator> &&other) = delete;
   };
 
+  /// Memory Manager subclass to handle buffers a specific type
+  template <typename T, typename Host_Allocator>
+  class mutexless_buffer_manager {
+  private:
+    // Tuple content: Pointer to buffer, buffer_size, reference_counter, Flag
+    // The flag at the end controls whether to buffer content is to be reused as
+    // well
+    using buffer_entry_type = std::tuple<T *, size_t, size_t, bool>;
+
+  public:
+    /// Cleanup and delete this singleton
+    static void clean() { manager_instance.reset(); }
+    /// Cleanup all buffers not currently in use
+    static void clean_unused_buffers_only() {
+      if (!manager_instance) {
+        return;
+      }
+      for (auto &buffer_tuple : manager_instance->unused_buffer_list) {
+        Host_Allocator alloc;
+        if (std::get<3>(buffer_tuple)) {
+          util::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+        }
+        alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+      }
+      manager_instance->unused_buffer_list.clear();
+    }
+
+    /// Tries to recycle or create a buffer of type T and size number_elements.
+    static T *get(size_t number_of_elements, bool manage_content_lifetime) {
+      if (!manager_instance) {
+        manager_instance.reset(new mutexless_buffer_manager());
+        buffer_recycler::add_total_cleanup_callback(clean);
+        buffer_recycler::add_partial_cleanup_callback(
+            clean_unused_buffers_only);
+      }
+#ifdef CPPUDDLE_HAVE_COUNTERS
+      manager_instance->number_allocation++;
+#endif
+      // Check for unused buffers we can recycle:
+      for (auto iter = manager_instance->unused_buffer_list.begin();
+           iter != manager_instance->unused_buffer_list.end(); iter++) {
+        auto tuple = *iter;
+        if (std::get<1>(tuple) == number_of_elements) {
+          manager_instance->unused_buffer_list.erase(iter);
+          std::get<2>(tuple)++; // increase usage counter to 1
+
+          // handle the switch from aggressive to non aggressive reusage (or
+          // vice-versa)
+          // TODO Open Question: How to track the manage_content_lifetime?
+          if (manage_content_lifetime && !std::get<3>(tuple)) {
+            util::uninitialized_value_construct_n(std::get<0>(tuple),
+                                                  number_of_elements);
+            std::get<3>(tuple) = true;
+          } else if (!manage_content_lifetime && std::get<3>(tuple)) {
+            util::destroy_n(std::get<0>(tuple), std::get<1>(tuple));
+            std::get<3>(tuple) = false;
+          }
+          // TODO (daissgr) this needs to go for the nomadic buffers
+          manager_instance->buffer_map.insert({std::get<0>(tuple), tuple});
+#ifdef CPPUDDLE_HAVE_COUNTERS
+          manager_instance->number_recycling++;
+#endif
+          return std::get<0>(tuple);
+        }
+      }
+
+      // No unsued buffer found -> Create new one and return it
+      try {
+        Host_Allocator alloc;
+        T *buffer = alloc.allocate(number_of_elements);
+        // TODO (daissgr) this needs to go for the nomadic buffers
+        manager_instance->buffer_map.insert(
+            {buffer, std::make_tuple(buffer, number_of_elements, 1,
+                                     manage_content_lifetime)});
+#ifdef CPPUDDLE_HAVE_COUNTERS
+        manager_instance->number_creation++;
+#endif
+        if (manage_content_lifetime) {
+          util::uninitialized_value_construct_n(buffer, number_of_elements);
+        }
+        return buffer;
+      } catch (std::bad_alloc &e) {
+        // not enough memory left! Cleanup and attempt again:
+        buffer_recycler::clean_unused_buffers();
+
+        // If there still isn't enough memory left, the caller has to handle it
+        // We've done all we can in here
+        Host_Allocator alloc;
+        T *buffer = alloc.allocate(number_of_elements);
+        // TODO (daissgr) this needs to go for the nomadic buffers
+        manager_instance->buffer_map.insert(
+            {buffer, std::make_tuple(buffer, number_of_elements, 1,
+                                     manage_content_lifetime)});
+#ifdef CPPUDDLE_HAVE_COUNTERS
+        manager_instance->number_creation++;
+        manager_instance->number_bad_alloc++;
+#endif
+        if (manage_content_lifetime) {
+          util::uninitialized_value_construct_n(buffer, number_of_elements);
+        }
+        return buffer;
+      }
+    }
+
+    static void mark_unused(T *memory_location, size_t number_of_elements) {
+      // This will never be called without an instance since all access for this
+      // method comes from the buffer recycler We can forego the instance
+      // existence check here
+      assert(manager_instance);
+#ifdef CPPUDDLE_HAVE_COUNTERS
+      manager_instance->number_dealloacation++;
+#endif
+      // TODO (daissgr) This needs to go for the nomadic buffers
+      // Reference counting won't be handled in here in this case
+      // Instead we'll simply push the buffer to the unused_buffer list
+      auto it = manager_instance->buffer_map.find(memory_location);
+      assert(it != manager_instance->buffer_map.end());
+      auto &tuple = it->second;
+      // sanity checks:
+      assert(std::get<1>(tuple) == number_of_elements);
+      assert(std::get<2>(tuple) >= 1);
+      std::get<2>(tuple)--;          // decrease usage counter
+      if (std::get<2>(tuple) == 0) { // not used anymore?
+        // move to the unused_buffer list
+        manager_instance->unused_buffer_list.push_front(tuple);
+        manager_instance->buffer_map.erase(memory_location);
+      }
+    }
+
+    // TODO (daissgr) This needs to go for the nomadic buffers
+    static void increase_usage_counter(T *memory_location,
+                                       size_t number_of_elements) noexcept {
+      auto it = manager_instance->buffer_map.find(memory_location);
+      assert(it != manager_instance->buffer_map.end());
+      auto &tuple = it->second;
+      // sanity checks:
+      assert(std::get<1>(tuple) == number_of_elements);
+      assert(std::get<2>(tuple) >= 1);
+      std::get<2>(tuple)++; // increase usage counter
+    }
+
+  private:
+    /// List with all buffers still in usage
+    // TODO (daissgr) This needs to go for the nomadic buffers
+    std::unordered_map<T *, buffer_entry_type> buffer_map{};
+    /// List with all buffers currently not used
+    std::list<buffer_entry_type> unused_buffer_list{};
+#ifdef CPPUDDLE_HAVE_COUNTERS
+    /// Performance counters
+    size_t number_allocation{0}, number_dealloacation{0};
+    size_t number_recycling{0}, number_creation{0}, number_bad_alloc{0};
+#endif
+    /// Singleton instance
+    // TODO (daissgr) thread_local singleton for nomandic buffers
+    static std::unique_ptr<mutexless_buffer_manager<T, Host_Allocator>>
+        manager_instance;
+    /// default, private constructor - not automatically constructed due to the
+    /// deleted constructors
+    mutexless_buffer_manager() = default;
+
+  public:
+    ~mutexless_buffer_manager() {
+      for (auto &buffer_tuple : unused_buffer_list) {
+        Host_Allocator alloc;
+        // TODO (daissgr) Open question: When to handle content life-time in the
+        // new allocators
+        if (std::get<3>(buffer_tuple)) {
+          util::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+        }
+        alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+      }
+      for (auto &map_tuple : buffer_map) {
+        auto buffer_tuple = map_tuple.second;
+        Host_Allocator alloc;
+        // TODO (daissgr) Open question: When to handle content life-time in the
+        // new allocators
+        if (std::get<3>(buffer_tuple)) {
+          util::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+        }
+        alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+      }
+#ifdef CPPUDDLE_HAVE_COUNTERS
+      // Print performance counters
+      size_t number_cleaned = unused_buffer_list.size() + buffer_map.size();
+      std::cout << "\nBuffer mananger destructor for buffers of type "
+                << typeid(Host_Allocator).name() << "->" << typeid(T).name()
+                << ":" << std::endl
+                << "----------------------------------------------------"
+                << std::endl
+                << "--> Number of bad_allocs that triggered garbage "
+                   "collection:       "
+                << number_bad_alloc << std::endl
+                << "--> Number of buffers that got requested from this "
+                   "manager:       "
+                << number_allocation << std::endl
+                << "--> Number of times an unused buffer got recycled for a "
+                   "request:  "
+                << number_recycling << std::endl
+                << "--> Number of times a new buffer had to be created for a "
+                   "request: "
+                << number_creation << std::endl
+                << "--> Number cleaned up buffers:                             "
+                   "       "
+                << number_cleaned << std::endl
+                << "--> Number of buffers that were marked as used upon "
+                   "cleanup:      "
+                << buffer_map.size() << std::endl
+                << "==> Recycle rate:                                          "
+                   "       "
+                << static_cast<float>(number_recycling) / number_allocation *
+                       100.0f
+                << "%" << std::endl;
+      // assert(buffer_map.size() == 0); // Were there any buffers still used?
+#endif
+      unused_buffer_list.clear();
+      buffer_map.clear();
+    }
+
+  public: // Putting deleted constructors in public gives more useful error
+          // messages
+    // Bunch of constructors we don't need
+    mutexless_buffer_manager<T, Host_Allocator>(
+        mutexless_buffer_manager<T, Host_Allocator> const &other) = delete;
+    mutexless_buffer_manager<T, Host_Allocator> operator=(
+        mutexless_buffer_manager<T, Host_Allocator> const &other) = delete;
+    mutexless_buffer_manager<T, Host_Allocator>(
+        mutexless_buffer_manager<T, Host_Allocator> &&other) = delete;
+    mutexless_buffer_manager<T, Host_Allocator>
+    operator=(mutexless_buffer_manager<T, Host_Allocator> &&other) = delete;
+  };
+
 public:
   // Putting deleted constructors in public gives more useful error messages
   // Bunch of constructors we don't need
@@ -419,6 +664,11 @@ public:
 template <typename T, typename Host_Allocator>
 std::unique_ptr<buffer_recycler::buffer_manager<T, Host_Allocator>>
     buffer_recycler::buffer_manager<T, Host_Allocator>::manager_instance{};
+
+template <typename T, typename Host_Allocator>
+std::unique_ptr<buffer_recycler::mutexless_buffer_manager<T, Host_Allocator>>
+    buffer_recycler::mutexless_buffer_manager<
+        T, Host_Allocator>::manager_instance{};
 
 template <typename T, typename Host_Allocator> struct recycle_allocator {
   using value_type = T;
