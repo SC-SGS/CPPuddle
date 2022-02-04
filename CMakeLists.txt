@@ -6,6 +6,7 @@
 cmake_minimum_required(VERSION 3.11)
 
 project(CPPuddle CXX C) # Some random project name
+set(CMAKE_CXX_STANDARD 17)
 
 option(CPPUDDLE_WITH_TESTS "Build tests/examples" OFF)
 option(CPPUDDLE_WITH_COUNTERS "Turns on allocations counters. Useful for extended testing" OFF)
@@ -174,6 +175,13 @@ if (CPPUDDLE_WITH_TESTS)
        #   PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
         target_compile_definitions(allocator_kokkos_executor_for_loop_test PRIVATE HPX_WITH_CUDA CPPUDDLE_HAVE_CUDA)
 
+        add_hpx_executable(
+          work_aggregation_test
+          DEPENDENCIES
+          Boost::boost Boost::program_options HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager stream_manager
+          SOURCES
+          tests/work_aggregation_test.cpp)
+        target_compile_definitions(work_aggregation_test PRIVATE CPPUDDLE_HAVE_CUDA)
       endif() # end WITH KOKKOS
     endif() # end with CUDA
   endif() # end with HPX
