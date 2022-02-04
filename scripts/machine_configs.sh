@@ -68,10 +68,11 @@ function source_config_xp14() {
   export CMAKE_BUILD_TYPE="$2"
   if [[ "${3}" == "gcc" ]]; then
     export CXX=${SCRIPTS_DIR}/../external_dependencies/kokkos/bin/nvcc_wrapper
-    export HPX_COMPILER="g++"
+    export NVCC_WRAPPER_DEFAULT_COMPILER="g++-10"
+    export HPX_COMPILER="g++-10"
   elif [[ "${3}" == "clang" ]]; then
-    export CXX=clang++
-    export HPX_COMPILER=clang++
+    export CXX=clang++-12
+    export HPX_COMPILER=clang++-12
   else
     echo "Invalid compiler!"
     exit 1
