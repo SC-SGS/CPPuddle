@@ -175,18 +175,22 @@ public:
   }*/
 };
 
-template <int slices> //, typename F, typename... Ts>
+// slice 1 to be the master slice launching this stuff
+// each one has a slice id
+template <const char *kernelname, typename Executor>
 class aggregated_function_call {
 private:
-  std::atomic<int> slice_counter = 0;
-  hpx::lcos::local::mutex access_mutex;
+  std::atomic<int> slice_counter = 0; // not necessasry
   hpx::lcos::local::promise<void> slices_ready_promise;
   hpx::lcos::future<void> all_slices_ready = slices_ready_promise.get_future();
+  const size_t number_slices;
 
 public:
+  // TODO Add constructor
+  aggregated_function_call(const size_t number_slices)
+      : number_slices(number_slices) {}
   template <typename F, typename... Ts>
   void post_when(hpx::lcos::future<void> &stream_future, F &&f, Ts &&...ts) {
-    std::lock_guard<hpx::lcos::local::mutex> mut(access_mutex);
     slice_counter++;
     std::atomic<int> &current_slice_counter = this->slice_counter;
     std::cout << "Slices counter ... " << slice_counter << std::endl;
@@ -200,28 +204,116 @@ public:
                             // seperate ones, or have one specialization
                             // launching stuff...)
                             f(current_slice_counter, ts...);
+                            std::cout << kernelname << std::endl;
+                            ;
                             return;
                           });
     }
-    if (slice_counter == slices) {
+    if (slice_counter == number_slices) {
       std::cout << "Starting slices ready..." << std::endl;
       slices_ready_promise.set_value();
     }
   }
+  // TODO async call
 };
 
-class function_call_interface { // have the latch?
+//===============================================================================
+//===============================================================================
+/// Executor Class that aggregates function calls for specific kernels
+/** Executor is not meant to be used directly. Instead it yields multiple
+ * Executor_Slice objects. These serve as interfaces. Slices from the same
+ * Aggregated_Executor are meant to execute the same function calls but on
+ * different data (i.e. different tasks)
+ */
+template <const char *kernelname, typename Executor> class Aggregated_Executor {
+private:
+  //===============================================================================
+  // Misc private avariables:
+  //
+  bool slices_exhausted = false;
+  const size_t max_slices = 4;
+  size_t current_slices = 0;
+  std::mutex mut;
+
+  //===============================================================================
+  // Subclasses
+
+  /// Slice class - meant as a scope interface to the aggregated executor
+  class Executor_Slice {
+  private:
+    /// Executor is a slice of this aggregated_executor
+    Aggregated_Executor<kernelname, Executor> &parent;
+    /// Which slice are we?
+    const size_t slice_id;
+    /// How many slices are there overall - required to check the launch
+    /// criteria
+    const size_t number_slices;
+    /// How many functions have been called - required to enforce sequential
+    /// behaviour of kernel launches
+    size_t launch_counter{0};
+
+  public:
+    Executor_Slice(const size_t number_slices) : number_slices(number_slices) {}
+    template <typename F, typename... Ts>
+    void post(hpx::lcos::future<void> &stream_future, F &&f, Ts &&...ts) {
+
+      // we should only execute function calls once all slices
+      // have been given away (-> Executor Slices start)
+      assert(parent.slices_exhausted == true);
+
+      if (parent.function_calls.size() <= launch_counter) {
+        // We're the first slice to hit this function call -> create new
+        // instance
+        parent.function_calls.emplace_back(number_slices);
+      }
+
+      // pass function call on the the appropriate object -- increases its
+      // counter which will trigger the actual function call once all slices hit
+      // it
+      parent.function_calls[launch_counter].post(std::forward<F>(f),
+                                                 std::forward<Ts>(ts)...);
+      // move stream forward
+      launch_counter++;
+    }
+    // TODO async call
+  };
+  //===============================================================================
+
+  /// Promises with the slice executors -- to be set when the starting criteria
+  /// is met
+  std::vector<hpx::lcos::local::promise<Executor_Slice>> executor_slices;
+  /// List of aggregated function calls - function will be launched when all
+  /// slices have called it
+  std::vector<aggregated_function_call<kernelname, Executor>> function_calls;
+
+  //===============================================================================
+  // Public InterfaceL
+public:
+  hpx::lcos::future<Executor_Slice> &&request_executor_slice() {
+    std::lock_guard<std::mutex> guard(mut);
+    if (!slices_exhausted) {
+      executor_slices.emplace_back(hpx::lcos::local::promise<Executor_Slice>{});
+      current_slices++;
+      if (current_slices == 1) {
+        // TODO get future and add continuation for when the stream does its
+        // thing
+      }
+      if (current_slices == max_slices) {
+        slices_exhausted = true;
+        for (auto &slice_promise : executor_slices) {
+          // TODO Set slice max number and slice IDs
+          slice_promise.set_value(Aggregated_Executor<kernelname, Executor>{});
+        }
+      }
+      return executor_slices.back().get_future();
+    } else {
+      // TODO call different executor...
+      throw "not implemented yet";
+    }
+  }
 };
-// Universelle function calls brauchen eine buffer wrapper klasse die den index
-// auf den momentanen slice mapped UND in der lage ist den pointer zum gesamt
-// buffer zu returnen...
-class buffer_wrapper {};
-
-// not required this way...
-class move_buffer_to_device {};
-
-// not required this way...
-class general_function_call {};
+//===============================================================================
+//===============================================================================
 
 // TODO Add buffer aggregation class
 // Needs
@@ -299,7 +391,8 @@ int hpx_main(int argc, char *argv[]) {
   // waiting only stops when we hit 0 (going negativ is bad..)
   latch1.arrive_and_wait();
 
-  aggregated_function_call<4> bla{};
+  static const char hello17[] = "C++17 [a-zA-Z]*";
+  aggregated_function_call<hello17, decltype(executor1)> bla{4};
   hpx::lcos::local::promise<void> trigger{};
   auto trigger_fut = trigger.get_future();
   bla.post_when(trigger_fut, print_stuff3, 33);
@@ -317,11 +410,11 @@ int hpx_main(int argc, char *argv[]) {
   std::cin.get();
   std::cout << " Fulfilling launch promise..." << std::endl;
   test.launch_promise.set_value();
-  std::cin.get();
   trigger.set_value();
   std::cin.get();
   std::cout << " Fulfilling slices promise..." << std::endl;
   test.slices_ready_promise.set_value();
+  std::cin.get();
   std::cout << " Requesting function future explicitly..." << std::endl;
   bla.post_when(trigger_fut, print_stuff3, 36);
   trigger_fut.get();
