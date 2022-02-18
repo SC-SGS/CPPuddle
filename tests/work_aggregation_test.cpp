@@ -33,6 +33,9 @@
 #include "../include/stream_manager.hpp"
 
 #include <stdio.h>
+//===============================================================================
+//===============================================================================
+// Helper classes
 
 /// Helper class for the helper class that prints tuples -- do not use this
 /// directly
@@ -56,80 +59,9 @@ template <class... T> void print_tuple(const std::tuple<T...> &_tup) {
   hpx::cout << ")";
 }
 
-// TODO Add work aggregation class
-// Needs
-// - Mutex/flag to stop giving out new slices?
-// - A slice counter
-// - The actual executor we are going to use
-// - A yield buffer(slice?) method
-
-class work_aggregator {
-private:
-  // Protect with mutex
-  const unsigned int max_number_slices{4};
-  unsigned int used_number_slices;
-  bool execution_phase; // stop giving out slices once this is done
-  // Each sort of needs a latch from the interface
-  void launch_aggregated_kernel();
-  // Each sort of needs a latch from the interface
-  void move_aggregated_slice_to_device();
-  // Said mutex
-  std::mutex mut;
-  // Continuation
-  // Decrase function objects latches by 4-X (X being the number of used slices
-  // so far, but at least 1)
-  void stream_notify_ready();
-
-public:
-  // get created / pulled from stream manager with the creation of the first
-  // interface stream is pulled from stream_manager
-  work_aggregator(void);
-  // Should get destroyed/reset once all slices are given up
-  ~work_aggregator(void);
-
-  // Slice operation
-  void yield_slice();
-  void move_slice_to_device();
-  void move_slice_from_device();
-  void set_slice();
-  void launch_kernel();
-  // allocator;
-};
-
-// Have "function objects" with latches attached to the work aggegator
-// -----------------------------------------------------------------
-// Have continuation trigger the latches until either: the thing launches OR we
-// are at the first slice and it's not yet filled Once the launches start, no
-// more slices are given out, yet existing slices can launch more stuff (again,
-// being triggered by subsqueent continuations) Once all slices (local RAII
-// interfaces) are destroyed, the work_aggregator is destroyed (the stream
-// persists though) Interestingly, the actual function call looks the same on
-// all participating tasks - assuming I can get the buffers cast
-//
-// Stream (from stream_manager)
-// ->
-// Work aggregator (tmp) --> (create -> attach phase -> running phase ->
-// destroyed once all slices are gone)
-// ->
-// Work slice (RAII) -- Function call object (latch)
-// ->
-//  -
-// ->
-// futures
-
-// open phase (give away new slices)
-// close phase (first function being launched: stop giving away new slices
-
-// Keep track of phases (open-phase, closed-phase)
-// Give away slices (work aggregator interfaces)
-// Have a stream
-// Construct on the fly, be able to have multiple ones (though only one in the
-// open phase at a time)
-class work_aggregator_bla {};
-
-// Provide RAII
-// Provide function calls
-class work_aggregator_interface {};
+//===============================================================================
+//===============================================================================
+// Example functions
 
 void print_stuff_error(int used_slices, int i) {
   hpx::cout << "i is not " << i << "(Slice " << used_slices << ")" << std::endl;
@@ -155,15 +87,9 @@ void print_stuff2(int *used_slices, int i, double d) {
   hpx::cout << "(Slice is " << *used_slices << ")" << std::endl;
 }*/
 
-// 3 launch conditions:
-// 1. previous functino call on the "aggegated executor" has been laucnhed (see
-// current_future)
-// 2. No more slices are given away
-// --> 2.1 Either stream has become ready OR
-// --> 2.2 we have given away enough slices
-// 3. All slices that have been given away have visited the function call
-// (slices_ready promise should be triggered)
-
+//===============================================================================
+//===============================================================================
+/// obsolete class - kept for reference
 class function_call_aggregator {
 public:
   // I would sort of need that for every function call?
@@ -207,25 +133,40 @@ public:
   }*/
 };
 
-// slice 1 to be the master slice launching this stuff
-// each one has a slice id
+//===============================================================================
+//===============================================================================
+/// Manages the launch conditions for aggregated function calls
+/// type/value-errors
+/** Launch conditions: All slice executors must have called the same function
+ * (tracked by future all_slices_ready)
+ * AND
+ * Previous aggregated_function_call on the same Executor must have been
+ * launched (tracked by future stream_future)
+ * All function calls received from the slice executors are checked if they
+ * match the first one in both types and values (throws exception otherwise)
+ */
+
 template <const char *kernelname, typename Executor>
 class aggregated_function_call {
 private:
-  std::atomic<int> slice_counter = 0; // not necessasry
+  std::atomic<int> slice_counter = 0; // TODO not necessasry?
+
+  /// Promise to be set when all slices have visited this function call
   hpx::lcos::local::promise<void> slices_ready_promise;
+  /// Tracks if all slices have visited this function call
   hpx::lcos::future<void> all_slices_ready = slices_ready_promise.get_future();
+  /// How many slices can we expect?
   const size_t number_slices;
 
+  /// Stores the function call of the first slice as reference for error checking
   std::any function_tuple;
+  /// Stores the string of the first function call for debug output
   std::string debug_type_information;
 
 public:
-  // TODO Add constructor
   aggregated_function_call(const size_t number_slices)
       : number_slices(number_slices) {}
   template <typename F, typename... Ts>
-  // TODO Stream future?
   void post_when(hpx::lcos::future<void> &stream_future, F &&f, Ts &&...ts) {
     slice_counter++;
     std::atomic<int> &current_slice_counter = this->slice_counter;
@@ -253,7 +194,8 @@ public:
       // This scope checks if both the type and the values of the current call
       // match the original call To be used in debug build...
       //
-      // TODO Only enable error checking without NDEBUG (avoiding performance penalities in Release build
+      // TODO Only enable error checking without NDEBUG (avoiding performance
+      // penalities in Release build
       auto comparison_tuple = std::make_tuple(f, std::forward<Ts>(ts)...);
       try {
         auto orig_call_tuple =
@@ -594,7 +536,8 @@ int hpx_main(int argc, char *argv[]) {
   // Error test
   hpx::cout << "Error test with all wrong types and values in 2 slices"
             << std::endl;
-  hpx::cout << "------------------------------------------------------" << std::endl;
+  hpx::cout << "------------------------------------------------------"
+            << std::endl;
   {
     static const char kernelname1[] = "Dummy Kernel 1";
     Aggregated_Executor<kernelname1, decltype(executor1)> agg_exec{4};
@@ -622,7 +565,8 @@ int hpx_main(int argc, char *argv[]) {
       try {
         slice_exec.post(print_stuff1, 3.0f);
       } catch (...) {
-        hpx::cout << "TEST succeeded: Found type error exception!\n" << std::endl;
+        hpx::cout << "TEST succeeded: Found type error exception!\n"
+                  << std::endl;
       }
     }));
 
@@ -646,79 +590,8 @@ int hpx_main(int argc, char *argv[]) {
     agg_exec.dummy_stream_promise.set_value();
   }
   hpx::cout << std::endl;
-
-  std::cin.get();
   hpx::cout << "Done!" << std::endl;
-  //  auto slice_fut4 = agg_exec.request_executor_slice();
-  //  slice_fut4.then([](auto &&fut) {
-  //    auto slice_exec = fut.get();
-  //    hpx::cout << "Got executor 4" << std::endl;
-  //  });
-  //  hpx::cout << "After start criteria" << std::endl;
-  //  std::cin.get();
 
-  /*std::vector<hpx::lcos::shared_future<void>> futs;
-  hpx::lcos::local::promise<void> promise1{};
-  hpx::lcos::local::promise<void> promise2{};
-  futs.push_back(promise1.get_shared_future());
-  futs.push_back(promise2.get_shared_future());
-  futs.push_back(promise1.get_shared_future());
-  promise1.set_value();
-  hpx::cout << "beginning when all" << std::endl;
-  auto fut = hpx::when_all(futs);
-  promise2.set_value();
-  auto final_fut = fut.then([&](auto &&old_fut) {
-    hpx::cout << "Such continuation" << std::endl;
-    auto futs2 = old_fut.get();
-    for (int i = 0; i < futs.size(); i++) {
-      futs2[i].get();
-      hpx::cout << "Got future " << i + 1
-                << std::endl; // futs2[i].get() << std::endl;
-    }
-  });
-  hpx::lcos::local::latch latch1{4};
-  while (!latch1.is_ready()) {
-    hpx::cout << "Counting down..." << std::endl;
-    latch1.count_down(1);
-  }
-  hpx::cout << "before get" << std::endl;
-  final_fut.get();
-  latch1.count_up(1);
-  // waiting only stops when we hit 0 (going negativ is bad..)
-  latch1.arrive_and_wait();
-
-  static const char hello17[] = "C++17 [a-zA-Z]*";
-  aggregated_function_call<hello17, decltype(executor1)> bla{4};
-  hpx::lcos::local::promise<void> trigger{};
-  auto trigger_fut = trigger.get_future();
-  bla.post_when(trigger_fut, print_stuff3, 33);
-  bla.post_when(trigger_fut, print_stuff3, 34);
-  bla.post_when(trigger_fut, print_stuff3, 35);
-
-  function_call_aggregator test{};
-  // test.add_continuation();
-  test.post(print_stuff1, 1);
-  test.post(print_stuff1, 2);
-  test.post(print_stuff1, 3);
-  test.post(print_stuff1, 4);
-  test.post(print_stuff2, 5, 3.1);
-
-  std::cin.get();
-  hpx::cout << " Fulfilling launch promise..." << std::endl;
-  test.launch_promise.set_value();
-  trigger.set_value();
-  std::cin.get();
-  hpx::cout << " Fulfilling slices promise..." << std::endl;
-  test.slices_ready_promise.set_value();
-  std::cin.get();
-  hpx::cout << " Requesting function future explicitly..." << std::endl;
-  bla.post_when(trigger_fut, print_stuff3, 36);
-  trigger_fut.get();
-  std::cin.get();
-  hpx::cout << " Requesting final future explicitly..." << std::endl;
-  test.current_future.get();
-  std::cin.get();
-  // comparison*/
   recycler::force_cleanup(); // Cleanup all buffers and the managers for better
   return hpx::finalize();
 }
