@@ -179,6 +179,7 @@ if (CPPUDDLE_WITH_TESTS)
           work_aggregation_test
           DEPENDENCIES
           Boost::boost Boost::program_options HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager stream_manager
+          COMPONENT_DEPENDENCIES iostreams
           SOURCES
           tests/work_aggregation_test.cpp)
         target_compile_definitions(work_aggregation_test PRIVATE CPPUDDLE_HAVE_CUDA)
