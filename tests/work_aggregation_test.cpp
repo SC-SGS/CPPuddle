@@ -3,6 +3,7 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
+#undef NDEBUG
 #include <any>
 #include <atomic>
 #include <chrono>
@@ -12,6 +13,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <ostream>
 #include <string>
 #include <tuple>
 #include <typeinfo>
@@ -33,6 +35,8 @@
 #include "../include/stream_manager.hpp"
 
 #include <stdio.h>
+
+
 //===============================================================================
 //===============================================================================
 // Helper classes
@@ -89,6 +93,7 @@ void print_stuff2(int *used_slices, int i, double d) {
 
 //===============================================================================
 //===============================================================================
+
 /// obsolete class - kept for reference
 class function_call_aggregator {
 public:
@@ -135,6 +140,7 @@ public:
 
 //===============================================================================
 //===============================================================================
+
 /// Manages the launch conditions for aggregated function calls
 /// type/value-errors
 /** Launch conditions: All slice executors must have called the same function
@@ -149,7 +155,7 @@ public:
 template <const char *kernelname, typename Executor>
 class aggregated_function_call {
 private:
-  std::atomic<int> slice_counter = 0; // TODO not necessasry?
+  std::atomic<int> slice_counter = 0; 
 
   /// Promise to be set when all slices have visited this function call
   hpx::lcos::local::promise<void> slices_ready_promise;
@@ -158,21 +164,24 @@ private:
   /// How many slices can we expect?
   const size_t number_slices;
 
-  /// Stores the function call of the first slice as reference for error checking
+  /// Stores the function call of the first slice as reference for error
+  /// checking
   std::any function_tuple;
   /// Stores the string of the first function call for debug output
   std::string debug_type_information;
+
+  std::vector<hpx::lcos::local::promise<void>> potential_async_promises{};
 
 public:
   aggregated_function_call(const size_t number_slices)
       : number_slices(number_slices) {}
   template <typename F, typename... Ts>
   void post_when(hpx::lcos::future<void> &stream_future, F &&f, Ts &&...ts) {
-    slice_counter++;
-    std::atomic<int> &current_slice_counter = this->slice_counter;
-    hpx::cout << "Slices counter ... " << slice_counter << std::endl;
+    assert(potential_async_promises.empty());
+    const size_t local_counter = slice_counter++;
 
-    if (slice_counter == 1) {
+    if (local_counter == 0) {
+      std::atomic<int> &current_slice_counter = this->slice_counter;
       stream_future = hpx::lcos::when_all(stream_future, all_slices_ready)
                           .then([=, &current_slice_counter](auto &&old_fut) {
                             hpx::cout << "starting function_call continuation"
@@ -180,22 +189,24 @@ public:
                             // TODO modify according to slices (launch either X
                             // seperate ones, or have one specialization
                             // launching stuff...)
+
+                            // TODO Really necessary to pass around the counter?!
                             f(current_slice_counter, ts...);
                             hpx::cout << kernelname << std::endl;
-                            ;
                             return;
                           });
+#ifndef NDEBUG
       auto tmp_tuple = std::make_tuple(f, std::forward<Ts>(ts)...);
       function_tuple = tmp_tuple;
       debug_type_information = typeid(decltype(tmp_tuple)).name();
+#endif
 
     } else {
       //
       // This scope checks if both the type and the values of the current call
       // match the original call To be used in debug build...
       //
-      // TODO Only enable error checking without NDEBUG (avoiding performance
-      // penalities in Release build
+#ifndef NDEBUG
       auto comparison_tuple = std::make_tuple(f, std::forward<Ts>(ts)...);
       try {
         auto orig_call_tuple =
@@ -230,18 +241,108 @@ public:
         hpx::cout << "Got values:\t\t ";
         print_tuple(comparison_tuple);
         hpx::cout << std::endl << std::endl;
-        ;
         throw;
       }
+#endif
     }
+    assert(local_counter < number_slices);
+    assert(slice_counter < number_slices + 1);
     // Check exit criteria: Launch function call continuation by setting the
     // slices promise
-    if (slice_counter == number_slices) {
+    if (local_counter == number_slices - 1) {
       hpx::cout << "Starting slices ready..." << std::endl;
       slices_ready_promise.set_value();
     }
   }
-  // TODO async call
+  template <typename F, typename... Ts>
+  hpx::lcos::future<void> async_when(hpx::lcos::future<void> &stream_future,
+                                     F &&f, Ts &&...ts) {
+    const size_t local_counter = slice_counter++;
+    if (local_counter == 0) {
+      std::atomic<int> &current_slice_counter = this->slice_counter;
+      std::vector<hpx::lcos::local::promise<void>> &potential_async_promises =
+        this->potential_async_promises;
+      potential_async_promises.resize(number_slices);
+      stream_future =
+          hpx::lcos::when_all(stream_future, all_slices_ready)
+              .then([=, &current_slice_counter,
+                     &potential_async_promises](auto &&old_fut) {
+                hpx::cout << "starting function_call continuation" << std::endl;
+                // TODO modify according to slices (launch either X
+                // seperate ones, or have one specialization
+                // launching stuff...)
+                f(current_slice_counter, ts...);
+                hpx::lcos::future<void> fut = hpx::lcos::make_ready_future();
+                fut.then([&potential_async_promises](auto &&fut) {
+                  for (auto &promise : potential_async_promises) {
+                    promise.set_value();
+                  }
+                });
+                hpx::cout << kernelname << std::endl;
+                return;
+              });
+#ifndef NDEBUG
+      auto tmp_tuple = std::make_tuple(f, std::forward<Ts>(ts)...);
+      function_tuple = tmp_tuple;
+      debug_type_information = typeid(decltype(tmp_tuple)).name();
+#endif
+
+    } else {
+      //
+      // This scope checks if both the type and the values of the current call
+      // match the original call To be used in debug build...
+      //
+#ifndef NDEBUG
+      auto comparison_tuple = std::make_tuple(f, std::forward<Ts>(ts)...);
+      try {
+        auto orig_call_tuple =
+            std::any_cast<decltype(comparison_tuple)>(function_tuple);
+        if (comparison_tuple != orig_call_tuple) {
+          throw std::runtime_error("Values of function arguments (or function "
+                                   "itself) do not match ");
+        }
+      } catch (const std::bad_any_cast &e) {
+        hpx::cout << "\nMismatched types error in aggregated call of executor "
+                  << kernelname << ": " << e.what() << "\n";
+        hpx::cout << "Expected types:\t\t "
+                  << boost::core::demangle(debug_type_information.c_str())
+                  << "\n";
+        hpx::cout << "Got types:\t\t "
+                  << boost::core::demangle(
+                         typeid(decltype(comparison_tuple)).name())
+                  << "\n";
+        hpx::cout << std::endl;
+        throw;
+      } catch (const std::runtime_error &e) {
+        hpx::cout << "\nMismatched values error in aggregated call of executor "
+                  << kernelname << ": " << e.what() << std::endl;
+        hpx::cout << "Types (matched):\t "
+                  << boost::core::demangle(debug_type_information.c_str())
+                  << "\n";
+        auto orig_call_tuple =
+            std::any_cast<decltype(comparison_tuple)>(function_tuple);
+        hpx::cout << "Expected values:\t ";
+        print_tuple(orig_call_tuple);
+        hpx::cout << "\n";
+        hpx::cout << "Got values:\t\t ";
+        print_tuple(comparison_tuple);
+        hpx::cout << std::endl << std::endl;
+        throw;
+      }
+#endif
+    }
+    assert(local_counter < number_slices);
+    assert(slice_counter < number_slices + 1);
+    assert(potential_async_promises.size() == number_slices);
+    hpx::lcos::future<void> ret_fut = potential_async_promises[local_counter].get_future();
+    // Check exit criteria: Launch function call continuation by setting the
+    // slices promise
+    if (local_counter == number_slices - 1) {
+      hpx::cout << "Starting slices ready..." << std::endl;
+      slices_ready_promise.set_value();
+    }
+    return ret_fut;
+  }
   // We need to be able to copy or no-except move for std::vector..
   aggregated_function_call(const aggregated_function_call &other) = default;
   aggregated_function_call &
@@ -253,6 +354,7 @@ public:
 
 //===============================================================================
 //===============================================================================
+
 /// Executor Class that aggregates function calls for specific kernels
 /** Executor is not meant to be used directly. Instead it yields multiple
  * Executor_Slice objects. These serve as interfaces. Slices from the same
@@ -288,15 +390,20 @@ private:
     Executor_Slice(Aggregated_Executor &parent, const size_t number_slices)
         : parent(parent), number_slices(number_slices) {}
     template <typename F, typename... Ts> void post(F &&f, Ts &&...ts) {
-
       // we should only execute function calls once all slices
       // have been given away (-> Executor Slices start)
       assert(parent.slices_exhausted == true);
-
       parent.post(launch_counter, std::forward<F>(f), std::forward<Ts>(ts)...);
       launch_counter++;
     }
-    // TODO async call
+    template <typename F, typename... Ts> hpx::lcos::future<void> async(F &&f, Ts &&...ts) {
+      // we should only execute function calls once all slices
+      // have been given away (-> Executor Slices start)
+      assert(parent.slices_exhausted == true);
+      hpx::lcos::future<void> ret_fut = parent.async(launch_counter, std::forward<F>(f), std::forward<Ts>(ts)...);
+      launch_counter++;
+      return ret_fut;
+    }
   };
   //===============================================================================
 
@@ -317,8 +424,6 @@ public:
   /// Only meant to be accessed by the slice executors
   template <typename F, typename... Ts>
   void post(const size_t slice_launch_counter, F &&f, Ts &&...ts) {
-    // std::lock_guard<std::mutex> guard(mut);
-
     // Add function call object in case it hasn't happened for this launch yet
     if (function_calls.size() <= slice_launch_counter) {
       std::lock_guard<std::mutex> guard(mut);
@@ -327,10 +432,30 @@ public:
       }
     }
 
+    // TODO Add copy / or move constructors for functon calls to avoid list?
     // as we cannot copy or non-except move the function objects: use list
     auto it = function_calls.begin();
     std::advance(it, slice_launch_counter);
     it->post_when(last_stream_launch_done, std::forward<F>(f),
+                  std::forward<Ts>(ts)...);
+  }
+
+  /// Only meant to be accessed by the slice executors
+  template <typename F, typename... Ts>
+  hpx::lcos::future<void> async(const size_t slice_launch_counter, F &&f, Ts &&...ts) {
+    // Add function call object in case it hasn't happened for this launch yet
+    if (function_calls.size() <= slice_launch_counter) {
+      std::lock_guard<std::mutex> guard(mut);
+      if (function_calls.size() <= slice_launch_counter) {
+        function_calls.emplace_back(current_slices);
+      }
+    }
+
+    // TODO Add copy / or move constructors for functon calls to avoid list?
+    // as we cannot copy or non-except move the function objects: use list
+    auto it = function_calls.begin();
+    std::advance(it, slice_launch_counter);
+    return it->async_when(last_stream_launch_done, std::forward<F>(f),
                   std::forward<Ts>(ts)...);
   }
 
@@ -459,6 +584,8 @@ int hpx_main(int argc, char *argv[]) {
       hpx::cout << "Got executor 1" << std::endl;
       slice_exec.post(print_stuff1, 1);
       slice_exec.post(print_stuff2, 1, 1.0);
+      auto kernel_fut = slice_exec.async(print_stuff1, 1);
+      kernel_fut.get();
     }));
 
     auto slice_fut2 = agg_exec.request_executor_slice();
@@ -467,6 +594,8 @@ int hpx_main(int argc, char *argv[]) {
       hpx::cout << "Got executor 2" << std::endl;
       slice_exec.post(print_stuff1, 1);
       slice_exec.post(print_stuff2, 1, 1.0);
+      auto kernel_fut = slice_exec.async(print_stuff1, 1);
+      kernel_fut.get();
     }));
 
     auto slice_fut3 = agg_exec.request_executor_slice();
@@ -475,6 +604,8 @@ int hpx_main(int argc, char *argv[]) {
       hpx::cout << "Got executor 3" << std::endl;
       slice_exec.post(print_stuff1, 1);
       slice_exec.post(print_stuff2, 1, 1.0);
+      auto kernel_fut = slice_exec.async(print_stuff1, 1);
+      kernel_fut.get();
     }));
 
     auto slice_fut4 = agg_exec.request_executor_slice();
@@ -483,16 +614,13 @@ int hpx_main(int argc, char *argv[]) {
       hpx::cout << "Got executor 4" << std::endl;
       slice_exec.post(print_stuff1, 1);
       slice_exec.post(print_stuff2, 1, 1.0);
+      auto kernel_fut = slice_exec.async(print_stuff1, 1);
+      kernel_fut.get();
     }));
     hpx::cout << "Requested all executors!" << std::endl;
     hpx::cout << "Realizing by equesting final fut..." << std::endl;
     auto final_fut = hpx::lcos::when_all(slices_done_futs);
     final_fut.get();
-    if (slices_done_futs[3].has_exception())
-      throw "bla";
-    if (final_fut.has_exception())
-      throw "shit";
-
     agg_exec.dummy_stream_promise.set_value();
   }
   hpx::cout << std::endl;
@@ -527,9 +655,24 @@ int hpx_main(int argc, char *argv[]) {
 
     hpx::cout << "Requested 3 executors!" << std::endl;
     hpx::cout << "Realizing by setting the continuation future..." << std::endl;
+    // Interrupt - should cause executor to start executing all slices
     agg_exec.dummy_stream_promise.set_value();
+    hpx::lcos::future<int> my_closure_fut;
     auto final_fut = hpx::lcos::when_all(slices_done_futs);
-    final_fut.get();
+    auto new_final_fut = final_fut.then(
+        [&my_closure_fut](
+            hpx::lcos::future<std::vector<hpx::lcos::future<void>>> &&fut) {
+          auto vec = fut.get();
+          hpx::cout << "Mucho outos" << std::endl;
+          hpx::cout << "Number futures: " << vec.size() << std::endl;
+          my_closure_fut = hpx::lcos::make_ready_future(137);
+          return hpx::lcos::make_ready_future(144);
+        });
+    const int final_val = new_final_fut.get();
+    const int passed_future = my_closure_fut.get();
+    hpx::cout << "New final future: " << final_val << std::endl;
+    hpx::cout << "Closure future: " << passed_future << std::endl;
+    // final_fut.get();
   }
   hpx::cout << std::endl;
 
