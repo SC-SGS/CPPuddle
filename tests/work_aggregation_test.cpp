@@ -750,6 +750,8 @@ int hpx_main(int argc, char *argv[]) {
       auto slice_exec = fut.get();
       Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
           slice_exec);
+      Allocator_Slice<int, std::allocator<int>, decltype(executor1)> alloc_int(
+          slice_exec);
       hpx::cout << "Executor 1 ID is " << slice_exec.id << std::endl;
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
@@ -759,6 +761,10 @@ int hpx_main(int argc, char *argv[]) {
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
           some_data2(slice_exec.number_slices * 20, float{}, alloc);
+      std::vector<int,
+                  Allocator_Slice<int, std::allocator<int>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          some_ints(slice_exec.number_slices * 20, int{}, alloc_int);
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
@@ -776,6 +782,8 @@ int hpx_main(int argc, char *argv[]) {
       auto slice_exec = fut.get();
       Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
           slice_exec);
+      Allocator_Slice<int, std::allocator<int>, decltype(executor1)> alloc_int(
+          slice_exec);
       hpx::cout << "Executor 2 ID is " << slice_exec.id << std::endl;
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
@@ -785,6 +793,10 @@ int hpx_main(int argc, char *argv[]) {
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
           some_data2(slice_exec.number_slices * 20, float{}, alloc);
+      std::vector<int,
+                  Allocator_Slice<int, std::allocator<int>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          some_ints(slice_exec.number_slices * 20, int{}, alloc_int);
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
@@ -802,6 +814,8 @@ int hpx_main(int argc, char *argv[]) {
       auto slice_exec = fut.get();
       Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
           slice_exec);
+      Allocator_Slice<int, std::allocator<int>, decltype(executor1)> alloc_int(
+          slice_exec);
       hpx::cout << "Executor 3 ID is " << slice_exec.id << std::endl;
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
@@ -811,6 +825,10 @@ int hpx_main(int argc, char *argv[]) {
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
           some_data2(slice_exec.number_slices * 20, float{}, alloc);
+      std::vector<int,
+                  Allocator_Slice<int, std::allocator<int>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          some_ints(slice_exec.number_slices * 20, int{}, alloc_int);
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
@@ -827,6 +845,8 @@ int hpx_main(int argc, char *argv[]) {
       auto slice_exec = fut.get();
       Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
           slice_exec);
+      Allocator_Slice<int, std::allocator<int>, decltype(executor1)> alloc_int(
+          slice_exec);
       hpx::cout << "Executor 4 ID is " << slice_exec.id << std::endl;
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
@@ -836,6 +856,10 @@ int hpx_main(int argc, char *argv[]) {
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
           some_data2(slice_exec.number_slices * 20, float{}, alloc);
+      std::vector<int,
+                  Allocator_Slice<int, std::allocator<int>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          some_ints(slice_exec.number_slices * 20, int{}, alloc_int);
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
