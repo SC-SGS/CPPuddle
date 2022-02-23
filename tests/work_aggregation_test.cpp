@@ -396,15 +396,15 @@ public:
   private:
     /// Executor is a slice of this aggregated_executor
     Aggregated_Executor<Executor> &parent;
-    /// How many slices are there overall - required to check the launch
-    /// criteria
-    const size_t number_slices;
     /// How many functions have been called - required to enforce sequential
     /// behaviour of kernel launches
     size_t launch_counter{0};
     size_t buffer_counter{0};
 
   public:
+    /// How many slices are there overall - required to check the launch
+    /// criteria
+    const size_t number_slices;
     const size_t id;
     Executor_Slice(Aggregated_Executor &parent, const size_t slice_id,
                    const size_t number_slices)
@@ -509,7 +509,6 @@ public:
   void mark_unused(T *p, const size_t size, const size_t slice_alloc_counter) {
     assert(slice_alloc_counter < buffer_allocations.size());
     assert(std::get<1>(buffer_allocations[slice_alloc_counter]) == size);
-    // TODO Race condition in assert?
     assert(std::any_cast<T *>(
                std::get<0>(buffer_allocations[slice_alloc_counter])) == p ||
            std::get<2>(buffer_allocations[slice_alloc_counter]) == 0);
@@ -755,15 +754,15 @@ int hpx_main(int argc, char *argv[]) {
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
-          some_data(4 * 10, float{}, alloc);
+          some_data(slice_exec.number_slices * 10, float{}, alloc);
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
-          some_data2(4 * 20, float{}, alloc);
+          some_data2(slice_exec.number_slices * 20, float{}, alloc);
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
-          some_vector(4 * 10, float{}, alloc);
+          some_vector(slice_exec.number_slices * 10, float{}, alloc);
       hpx::cout << "Executor 1 Data address is " << some_data.data() << std::endl;
 
       slice_exec.post(print_stuff1, 1);
@@ -781,15 +780,15 @@ int hpx_main(int argc, char *argv[]) {
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
-          some_data(4 * 10, float{}, alloc);
+          some_data(slice_exec.number_slices * 10, float{}, alloc);
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
-          some_data2(4 * 20, float{}, alloc);
+          some_data2(slice_exec.number_slices * 20, float{}, alloc);
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
-          some_vector(4 * 10, float{}, alloc);
+          some_vector(slice_exec.number_slices * 10, float{}, alloc);
 
       hpx::cout << "Executor 2 Data address is " << some_data.data() << std::endl;
       slice_exec.post(print_stuff1, 1);
@@ -807,15 +806,15 @@ int hpx_main(int argc, char *argv[]) {
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
-          some_data(4 * 10, float{}, alloc);
+          some_data(slice_exec.number_slices * 10, float{}, alloc);
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
-          some_data2(4 * 20, float{}, alloc);
+          some_data2(slice_exec.number_slices * 20, float{}, alloc);
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
-          some_vector(4 * 10, float{}, alloc);
+          some_vector(slice_exec.number_slices * 10, float{}, alloc);
       hpx::cout << "Executor 3 Data address is " << some_data.data() << std::endl;
       slice_exec.post(print_stuff1, 1);
       slice_exec.post(print_stuff2, 1, 1.0);
@@ -832,15 +831,15 @@ int hpx_main(int argc, char *argv[]) {
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
-          some_data(4 * 10, float{}, alloc);
+          some_data(slice_exec.number_slices * 10, float{}, alloc);
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
-          some_data2(4 * 20, float{}, alloc);
+          some_data2(slice_exec.number_slices * 20, float{}, alloc);
       std::vector<float,
                   Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
-          some_vector(4 * 10, float{}, alloc);
+          some_vector(slice_exec.number_slices * 10, float{}, alloc);
       hpx::cout << "Executor 4 Data address is " << some_data.data() << std::endl;
       slice_exec.post(print_stuff1, 1);
       slice_exec.post(print_stuff2, 1, 1.0);

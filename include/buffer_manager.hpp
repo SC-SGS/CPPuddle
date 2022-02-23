@@ -15,6 +15,10 @@
 #include <type_traits>
 #include <unordered_map>
 
+#ifdef CPPUDDLE_HAVE_COUNTERS
+#include <boost/core/demangle.hpp>
+#endif
+
 namespace recycler {
 namespace detail {
 
@@ -301,10 +305,11 @@ private:
 #ifdef CPPUDDLE_HAVE_COUNTERS
       // Print performance counters
       size_t number_cleaned = unused_buffer_list.size() + buffer_map.size();
-      std::cout << "\nBuffer mananger destructor for buffers of type "
-                << typeid(Host_Allocator).name() << "->" << typeid(T).name()
-                << ":" << std::endl
-                << "----------------------------------------------------"
+      std::cout << "\nBuffer manager destructor for (Alloc: "
+                << boost::core::demangle(typeid(Host_Allocator).name()) << ", Type: "
+                << boost::core::demangle(typeid(T).name())
+                << "):" << std::endl
+                << "--------------------------------------------------------------------"
                 << std::endl
                 << "--> Number of bad_allocs that triggered garbage "
                    "collection:       "
