@@ -158,8 +158,7 @@ public:
  * match the first one in both types and values (throws exception otherwise)
  */
 
-template <const char *kernelname, typename Executor>
-class aggregated_function_call {
+template <typename Executor> class aggregated_function_call {
 private:
   std::atomic<size_t> slice_counter = 0;
 
@@ -211,7 +210,6 @@ public:
                             // TODO Really necessary to pass around the
                             // counter?!
                             f(current_slice_counter, ts...);
-                            hpx::cout << kernelname << std::endl;
                             return;
                           });
 #ifndef NDEBUG
@@ -238,7 +236,7 @@ public:
       } catch (const std::bad_any_cast &e) {
         hpx::cout
             << "\nMismatched types error in aggregated post call of executor "
-            << kernelname << ": " << e.what() << "\n";
+            << ": " << e.what() << "\n";
         hpx::cout << "Expected types:\t\t "
                   << boost::core::demangle(debug_type_information.c_str());
         hpx::cout << "\nGot types:\t\t "
@@ -250,7 +248,7 @@ public:
       } catch (const std::runtime_error &e) {
         hpx::cout
             << "\nMismatched values error in aggregated post call of executor "
-            << kernelname << ": " << e.what() << std::endl;
+            << ": " << e.what() << std::endl;
         hpx::cout << "Types (matched):\t "
                   << boost::core::demangle(debug_type_information.c_str());
         auto orig_call_tuple =
@@ -299,7 +297,6 @@ public:
                                 promise.set_value();
                               }
                             });
-                            hpx::cout << kernelname << std::endl;
                             return;
                           });
 #ifndef NDEBUG
@@ -326,7 +323,7 @@ public:
       } catch (const std::bad_any_cast &e) {
         hpx::cout
             << "\nMismatched types error in aggregated async call of executor "
-            << kernelname << ": " << e.what() << "\n";
+            << ": " << e.what() << "\n";
         hpx::cout << "Expected types:\t\t "
                   << boost::core::demangle(debug_type_information.c_str());
         hpx::cout << "\nGot types:\t\t "
@@ -338,7 +335,7 @@ public:
       } catch (const std::runtime_error &e) {
         hpx::cout
             << "\nMismatched values error in aggregated async call of executor "
-            << kernelname << ": " << e.what() << std::endl;
+            << ": " << e.what() << std::endl;
         hpx::cout << "Types (matched):\t "
                   << boost::core::demangle(debug_type_information.c_str());
         auto orig_call_tuple =
@@ -382,7 +379,7 @@ public:
  * Aggregated_Executor are meant to execute the same function calls but on
  * different data (i.e. different tasks)
  */
-template <const char *kernelname, typename Executor> class Aggregated_Executor {
+template <typename Executor> class Aggregated_Executor {
 private:
   //===============================================================================
   // Misc private avariables:
@@ -398,7 +395,7 @@ public:
   class Executor_Slice {
   private:
     /// Executor is a slice of this aggregated_executor
-    Aggregated_Executor<kernelname, Executor> &parent;
+    Aggregated_Executor<Executor> &parent;
     /// How many slices are there overall - required to check the launch
     /// criteria
     const size_t number_slices;
@@ -441,8 +438,7 @@ public:
     /// Mark aggregated buffer as unused (should only happen due to stack
     /// unwinding) Do not call manually
     template <typename T, typename Host_Allocator>
-    void mark_unused(T *p, const size_t size,
-                     const size_t slice_alloc_counter) {
+    void mark_unused(T *p, const size_t size) {
       buffer_counter--;
       parent.mark_unused<T, Host_Allocator>(p, size, buffer_counter);
     }
@@ -457,7 +453,7 @@ public:
   std::vector<hpx::lcos::local::promise<Executor_Slice>> executor_slices;
   /// List of aggregated function calls - function will be launched when all
   /// slices have called it
-  std::list<aggregated_function_call<kernelname, Executor>> function_calls;
+  std::list<aggregated_function_call<Executor>> function_calls;
   /// For synchronizing the access to the function calls list
   std::mutex mut;
 
@@ -513,6 +509,10 @@ public:
   void mark_unused(T *p, const size_t size, const size_t slice_alloc_counter) {
     assert(slice_alloc_counter < buffer_allocations.size());
     assert(std::get<1>(buffer_allocations[slice_alloc_counter]) == size);
+    // TODO Race condition in assert?
+    assert(std::any_cast<T *>(
+               std::get<0>(buffer_allocations[slice_alloc_counter])) == p ||
+           std::get<2>(buffer_allocations[slice_alloc_counter]) == 0);
     // Slice is done with this buffer
     std::get<2>(buffer_allocations[slice_alloc_counter])--;
     // Check if all buffers are done?
@@ -595,20 +595,19 @@ public:
         // TODO get future and add continuation for when the stream does its
         // thing
         auto fut = dummy_stream_promise.get_future();
-        current_continuation =
-            fut.then([this, kernelname = kernelname](auto &&fut) {
-              std::lock_guard<std::mutex> guard(mut);
-              if (!slices_exhausted) {
-                slices_exhausted = true;
-                size_t id = 0;
-                for (auto &slice_promise : executor_slices) {
-                  slice_promise.set_value(
-                      Executor_Slice{*this, id, current_slices});
-                  id++;
-                }
-                executor_slices.clear();
-              }
-            });
+        current_continuation = fut.then([this](auto &&fut) {
+          std::lock_guard<std::mutex> guard(mut);
+          if (!slices_exhausted) {
+            slices_exhausted = true;
+            size_t id = 0;
+            for (auto &slice_promise : executor_slices) {
+              slice_promise.set_value(
+                  Executor_Slice{*this, id, current_slices});
+              id++;
+            }
+            executor_slices.clear();
+          }
+        });
       }
       if (current_slices == max_slices) {
         slices_exhausted = true;
@@ -643,22 +642,19 @@ public:
   Aggregated_Executor &operator=(Aggregated_Executor &&other) = delete;
 };
 
-template <typename T, typename Host_Allocator, const char *kernelname,
-          typename Executor>
+template <typename T, typename Host_Allocator, typename Executor>
 class Allocator_Slice {
 private:
-  typename Aggregated_Executor<kernelname, Executor>::Executor_Slice
-      &executor_reference;
+  typename Aggregated_Executor<Executor>::Executor_Slice &executor_reference;
 
 public:
   using value_type = T;
   Allocator_Slice(
-      typename Aggregated_Executor<kernelname, Executor>::Executor_Slice
-          &executor)
+      typename Aggregated_Executor<Executor>::Executor_Slice &executor)
       : executor_reference(executor) {}
   template <typename U>
-  explicit Allocator_Slice(Allocator_Slice<U, Host_Allocator, kernelname,
-                                           Executor> const &) noexcept {}
+  explicit Allocator_Slice(
+      Allocator_Slice<U, Host_Allocator, Executor> const &) noexcept {}
   T *allocate(std::size_t n) {
     T *data = executor_reference.template get<T, Host_Allocator>(n);
     return data;
@@ -679,18 +675,16 @@ public:
     buffer_recycler::increase_usage_counter<T, Host_Allocator>(p, n);
   }*/
 };
-template <typename T, typename U, typename Host_Allocator,
-          const char *kernelname, typename Executor>
-constexpr bool operator==(
-    Allocator_Slice<T, Host_Allocator, kernelname, Executor> const &,
-    Allocator_Slice<U, Host_Allocator, kernelname, Executor> const &) noexcept {
+template <typename T, typename U, typename Host_Allocator, typename Executor>
+constexpr bool
+operator==(Allocator_Slice<T, Host_Allocator, Executor> const &,
+           Allocator_Slice<U, Host_Allocator, Executor> const &) noexcept {
   return true;
 }
-template <typename T, typename U, typename Host_Allocator,
-          const char *kernelname, typename Executor>
-constexpr bool operator!=(
-    Allocator_Slice<T, Host_Allocator, kernelname, Executor> const &,
-    Allocator_Slice<U, Host_Allocator, kernelname, Executor> const &) noexcept {
+template <typename T, typename U, typename Host_Allocator, typename Executor>
+constexpr bool
+operator!=(Allocator_Slice<T, Host_Allocator, Executor> const &,
+           Allocator_Slice<U, Host_Allocator, Executor> const &) noexcept {
   return false;
 }
 //===============================================================================
@@ -748,25 +742,29 @@ int hpx_main(int argc, char *argv[]) {
   hpx::cout << "----------------------------------------" << std::endl;
   {
     static const char kernelname1[] = "Dummy Kernel 1";
-    Aggregated_Executor<kernelname1, hpx::cuda::experimental::cuda_executor>
-        agg_exec{4};
+    Aggregated_Executor<hpx::cuda::experimental::cuda_executor> agg_exec{4};
 
     auto slice_fut1 = agg_exec.request_executor_slice();
 
     std::vector<hpx::lcos::future<void>> slices_done_futs;
     slices_done_futs.emplace_back(slice_fut1.then([](auto &&fut) {
       auto slice_exec = fut.get();
-      Allocator_Slice<float, std::allocator<float>, kernelname1,
-                      decltype(executor1)>
-          alloc(slice_exec);
+      Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
+          slice_exec);
       hpx::cout << "Executor 1 ID is " << slice_exec.id << std::endl;
-      float *some_data = alloc.allocate(4 * 10);
-      float *some_data_2 = alloc.allocate(4 * 10);
       std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>, kernelname1,
+                  Allocator_Slice<float, std::allocator<float>,
                                   hpx::cuda::experimental::cuda_executor>>
-          some_vector{alloc};
-      hpx::cout << "Executor 1 Data address is " << some_data << std::endl;
+          some_data(4 * 10, float{}, alloc);
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          some_data2(4 * 20, float{}, alloc);
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          some_vector(4 * 10, float{}, alloc);
+      hpx::cout << "Executor 1 Data address is " << some_data.data() << std::endl;
 
       slice_exec.post(print_stuff1, 1);
       slice_exec.post(print_stuff2, 1, 1.0);
@@ -777,14 +775,23 @@ int hpx_main(int argc, char *argv[]) {
     auto slice_fut2 = agg_exec.request_executor_slice();
     slices_done_futs.emplace_back(slice_fut2.then([](auto &&fut) {
       auto slice_exec = fut.get();
-      Allocator_Slice<float, std::allocator<float>, kernelname1,
-                      decltype(executor1)>
-          alloc(slice_exec);
+      Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
+          slice_exec);
       hpx::cout << "Executor 2 ID is " << slice_exec.id << std::endl;
-      float *some_data = alloc.allocate(4 * 10);
-      float *some_data_2 = alloc.allocate(4 * 10);
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          some_data(4 * 10, float{}, alloc);
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          some_data2(4 * 20, float{}, alloc);
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          some_vector(4 * 10, float{}, alloc);
 
-      hpx::cout << "Executor 2 Data address is " << some_data << std::endl;
+      hpx::cout << "Executor 2 Data address is " << some_data.data() << std::endl;
       slice_exec.post(print_stuff1, 1);
       slice_exec.post(print_stuff2, 1, 1.0);
       auto kernel_fut = slice_exec.async(print_stuff1, 1);
@@ -794,13 +801,22 @@ int hpx_main(int argc, char *argv[]) {
     auto slice_fut3 = agg_exec.request_executor_slice();
     slices_done_futs.emplace_back(slice_fut3.then([](auto &&fut) {
       auto slice_exec = fut.get();
-      Allocator_Slice<float, std::allocator<float>, kernelname1,
-                      decltype(executor1)>
-          alloc(slice_exec);
+      Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
+          slice_exec);
       hpx::cout << "Executor 3 ID is " << slice_exec.id << std::endl;
-      float *some_data = alloc.allocate(4 * 10);
-      float *some_data_2 = alloc.allocate(4 * 10);
-      hpx::cout << "Executor 3 Data address is " << some_data << std::endl;
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          some_data(4 * 10, float{}, alloc);
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          some_data2(4 * 20, float{}, alloc);
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          some_vector(4 * 10, float{}, alloc);
+      hpx::cout << "Executor 3 Data address is " << some_data.data() << std::endl;
       slice_exec.post(print_stuff1, 1);
       slice_exec.post(print_stuff2, 1, 1.0);
       auto kernel_fut = slice_exec.async(print_stuff1, 1);
@@ -810,13 +826,22 @@ int hpx_main(int argc, char *argv[]) {
     auto slice_fut4 = agg_exec.request_executor_slice();
     slices_done_futs.emplace_back(slice_fut4.then([](auto &&fut) {
       auto slice_exec = fut.get();
-      Allocator_Slice<float, std::allocator<float>, kernelname1,
-                      decltype(executor1)>
-          alloc(slice_exec);
+      Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
+          slice_exec);
       hpx::cout << "Executor 4 ID is " << slice_exec.id << std::endl;
-      float *some_data = alloc.allocate(4 * 10);
-      float *some_data_2 = alloc.allocate(4 * 10);
-      hpx::cout << "Executor 4 Data address is " << some_data << std::endl;
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          some_data(4 * 10, float{}, alloc);
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          some_data2(4 * 20, float{}, alloc);
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          some_vector(4 * 10, float{}, alloc);
+      hpx::cout << "Executor 4 Data address is " << some_data.data() << std::endl;
       slice_exec.post(print_stuff1, 1);
       slice_exec.post(print_stuff2, 1, 1.0);
       auto kernel_fut = slice_exec.async(print_stuff1, 1);
@@ -836,7 +861,7 @@ int hpx_main(int argc, char *argv[]) {
   hpx::cout << "----------------------------------" << std::endl;
   {
     static const char kernelname1[] = "Dummy Kernel 2";
-    Aggregated_Executor<kernelname1, decltype(executor1)> agg_exec{4};
+    Aggregated_Executor<decltype(executor1)> agg_exec{4};
 
     auto slice_fut1 = agg_exec.request_executor_slice();
 
