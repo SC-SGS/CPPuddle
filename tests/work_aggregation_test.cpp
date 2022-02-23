@@ -438,8 +438,8 @@ public:
       buffer_counter++;
       return aggregated_buffer;
     }
-    /// Mark aggregated buffer as unused (should only happen due to stack unwinding)
-    /// Do not call manually
+    /// Mark aggregated buffer as unused (should only happen due to stack
+    /// unwinding) Do not call manually
     template <typename T, typename Host_Allocator>
     void mark_unused(T *p, const size_t size,
                      const size_t slice_alloc_counter) {
@@ -448,8 +448,6 @@ public:
     }
     // TODO Support the reference counting used previousely in CPPuddle?
     // might be required for Kokkos
-
-    
   };
 
   //===============================================================================
@@ -645,19 +643,24 @@ public:
   Aggregated_Executor &operator=(Aggregated_Executor &&other) = delete;
 };
 
-template <typename T, typename Host_Allocator, const char *kernelname, typename Executor>
+template <typename T, typename Host_Allocator, const char *kernelname,
+          typename Executor>
 class Allocator_Slice {
-  private:
-  typename Aggregated_Executor<kernelname,Executor>::Executor_Slice &executor_reference;
-  public:
+private:
+  typename Aggregated_Executor<kernelname, Executor>::Executor_Slice
+      &executor_reference;
+
+public:
   using value_type = T;
-  Allocator_Slice(typename Aggregated_Executor<kernelname, Executor>::Executor_Slice &executor) : executor_reference(executor) {
-  }
+  Allocator_Slice(
+      typename Aggregated_Executor<kernelname, Executor>::Executor_Slice
+          &executor)
+      : executor_reference(executor) {}
   template <typename U>
-  explicit Allocator_Slice(
-      Allocator_Slice<U, Host_Allocator, kernelname, Executor> const &) noexcept {}
+  explicit Allocator_Slice(Allocator_Slice<U, Host_Allocator, kernelname,
+                                           Executor> const &) noexcept {}
   T *allocate(std::size_t n) {
-    T *data = executor_reference.template get<T, Host_Allocator>(n); 
+    T *data = executor_reference.template get<T, Host_Allocator>(n);
     return data;
   }
   void deallocate(T *p, std::size_t n) {
@@ -676,16 +679,18 @@ class Allocator_Slice {
     buffer_recycler::increase_usage_counter<T, Host_Allocator>(p, n);
   }*/
 };
-template <typename T, typename U, typename Host_Allocator, const char *kernelname, typename Executor>
-constexpr bool
-operator==(Allocator_Slice<T, Host_Allocator, kernelname, Executor> const &,
-           Allocator_Slice<U, Host_Allocator, kernelname, Executor> const &) noexcept {
+template <typename T, typename U, typename Host_Allocator,
+          const char *kernelname, typename Executor>
+constexpr bool operator==(
+    Allocator_Slice<T, Host_Allocator, kernelname, Executor> const &,
+    Allocator_Slice<U, Host_Allocator, kernelname, Executor> const &) noexcept {
   return true;
 }
-template <typename T, typename U, typename Host_Allocator, const char *kernelname, typename Executor>
-constexpr bool
-operator!=(Allocator_Slice<T, Host_Allocator, kernelname, Executor> const &,
-           Allocator_Slice<U, Host_Allocator, kernelname, Executor> const &) noexcept {
+template <typename T, typename U, typename Host_Allocator,
+          const char *kernelname, typename Executor>
+constexpr bool operator!=(
+    Allocator_Slice<T, Host_Allocator, kernelname, Executor> const &,
+    Allocator_Slice<U, Host_Allocator, kernelname, Executor> const &) noexcept {
   return false;
 }
 //===============================================================================
@@ -733,25 +738,34 @@ int hpx_main(int argc, char *argv[]) {
   stream_pool::init<hpx::cuda::experimental::cuda_executor,
                     round_robin_pool<hpx::cuda::experimental::cuda_executor>>(
       8, 0, false);
-  auto executor1 = stream_pool::get_interface<
-      hpx::cuda::experimental::cuda_executor,
-      round_robin_pool<hpx::cuda::experimental::cuda_executor>>();
+  hpx::cuda::experimental::cuda_executor executor1 =
+      std::get<0>(stream_pool::get_interface<
+                  hpx::cuda::experimental::cuda_executor,
+                  round_robin_pool<hpx::cuda::experimental::cuda_executor>>());
 
   // Sequential test
   hpx::cout << "Sequential test with all executor slices" << std::endl;
   hpx::cout << "----------------------------------------" << std::endl;
   {
     static const char kernelname1[] = "Dummy Kernel 1";
-    Aggregated_Executor<kernelname1, decltype(executor1)> agg_exec{4};
+    Aggregated_Executor<kernelname1, hpx::cuda::experimental::cuda_executor>
+        agg_exec{4};
 
     auto slice_fut1 = agg_exec.request_executor_slice();
 
     std::vector<hpx::lcos::future<void>> slices_done_futs;
     slices_done_futs.emplace_back(slice_fut1.then([](auto &&fut) {
       auto slice_exec = fut.get();
-      Allocator_Slice<float, std::allocator<float>, kernelname1, decltype(executor1)> alloc(slice_exec);
+      Allocator_Slice<float, std::allocator<float>, kernelname1,
+                      decltype(executor1)>
+          alloc(slice_exec);
       hpx::cout << "Executor 1 ID is " << slice_exec.id << std::endl;
       float *some_data = alloc.allocate(4 * 10);
+      float *some_data_2 = alloc.allocate(4 * 10);
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>, kernelname1,
+                                  hpx::cuda::experimental::cuda_executor>>
+          some_vector{alloc};
       hpx::cout << "Executor 1 Data address is " << some_data << std::endl;
 
       slice_exec.post(print_stuff1, 1);
@@ -763,9 +777,13 @@ int hpx_main(int argc, char *argv[]) {
     auto slice_fut2 = agg_exec.request_executor_slice();
     slices_done_futs.emplace_back(slice_fut2.then([](auto &&fut) {
       auto slice_exec = fut.get();
-      Allocator_Slice<float, std::allocator<float>, kernelname1, decltype(executor1)> alloc(slice_exec);
+      Allocator_Slice<float, std::allocator<float>, kernelname1,
+                      decltype(executor1)>
+          alloc(slice_exec);
       hpx::cout << "Executor 2 ID is " << slice_exec.id << std::endl;
       float *some_data = alloc.allocate(4 * 10);
+      float *some_data_2 = alloc.allocate(4 * 10);
+
       hpx::cout << "Executor 2 Data address is " << some_data << std::endl;
       slice_exec.post(print_stuff1, 1);
       slice_exec.post(print_stuff2, 1, 1.0);
@@ -776,9 +794,12 @@ int hpx_main(int argc, char *argv[]) {
     auto slice_fut3 = agg_exec.request_executor_slice();
     slices_done_futs.emplace_back(slice_fut3.then([](auto &&fut) {
       auto slice_exec = fut.get();
-      Allocator_Slice<float, std::allocator<float>, kernelname1, decltype(executor1)> alloc(slice_exec);
+      Allocator_Slice<float, std::allocator<float>, kernelname1,
+                      decltype(executor1)>
+          alloc(slice_exec);
       hpx::cout << "Executor 3 ID is " << slice_exec.id << std::endl;
       float *some_data = alloc.allocate(4 * 10);
+      float *some_data_2 = alloc.allocate(4 * 10);
       hpx::cout << "Executor 3 Data address is " << some_data << std::endl;
       slice_exec.post(print_stuff1, 1);
       slice_exec.post(print_stuff2, 1, 1.0);
@@ -789,9 +810,12 @@ int hpx_main(int argc, char *argv[]) {
     auto slice_fut4 = agg_exec.request_executor_slice();
     slices_done_futs.emplace_back(slice_fut4.then([](auto &&fut) {
       auto slice_exec = fut.get();
-      Allocator_Slice<float, std::allocator<float>, kernelname1, decltype(executor1)> alloc(slice_exec);
+      Allocator_Slice<float, std::allocator<float>, kernelname1,
+                      decltype(executor1)>
+          alloc(slice_exec);
       hpx::cout << "Executor 4 ID is " << slice_exec.id << std::endl;
       float *some_data = alloc.allocate(4 * 10);
+      float *some_data_2 = alloc.allocate(4 * 10);
       hpx::cout << "Executor 4 Data address is " << some_data << std::endl;
       slice_exec.post(print_stuff1, 1);
       slice_exec.post(print_stuff2, 1, 1.0);
