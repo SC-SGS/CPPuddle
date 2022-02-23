@@ -2,3 +2,8 @@ build
 external_dependencies/build
 external_dependencies/install
 .spack-env
+spack.lock
+.cache
+.clangd
+docs
+compile_commands.json
