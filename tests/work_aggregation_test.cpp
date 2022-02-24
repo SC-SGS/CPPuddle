@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2021 Gregor Daiß
+// Copyright (c) 2022-2022 Gregor Daiß
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -86,23 +86,21 @@ template <class... T> void print_tuple(const std::tuple<T...> &_tup) {
 //===============================================================================
 // Example functions
 
-void print_stuff_error(int used_slices, int i) {
-  hpx::cout << "i is not " << i << "(Slice " << used_slices << ")" << std::endl;
+void print_stuff_error(int i) {
+  hpx::cout << "i is not " << i  << std::endl;
 }
-void print_stuff1(int used_slices, int i) {
-  hpx::cout << "i is " << i << "(Slice " << used_slices << ")" << std::endl;
+void print_stuff1(int i) {
+  hpx::cout << "i is " << i  << std::endl;
 }
-void print_stuff2(int used_slices, int i, double d) {
+void print_stuff2(int i, double d) {
   hpx::cout << "i is " << i << std::endl;
   hpx::cout << "d is " << d << std::endl;
-  hpx::cout << "(Slice is " << used_slices << ")" << std::endl;
 }
-void print_stuff3(const std::atomic<int> &used_slices, int i) {
-  const int bla = used_slices;
-  hpx::cout << "i is " << i << "(Slice " << bla << ")" << std::endl;
+void print_stuff3(int i) {
+  hpx::cout << "i is " << i << std::endl;
 }
 template <typename T>
-void add_pointer(int used_slices, size_t slice_size, T *A,
+void add_pointer(size_t slice_size, T *A,
          T *B, T *C) {
   const size_t start_id = 0;
   for (size_t i = 0; i < 4 * slice_size; i++) {
@@ -111,7 +109,7 @@ void add_pointer(int used_slices, size_t slice_size, T *A,
 }
 
 template <typename Container>
-void add(int used_slices, size_t slice_id, size_t slice_size, Container &A,
+void add(size_t slice_id, size_t slice_size, Container &A,
          Container &B, Container &C) {
   const size_t start_id = 0;
   for (size_t i = 0; i < 4 * slice_size; i++) {
@@ -230,17 +228,15 @@ public:
     const size_t local_counter = slice_counter++;
 
     if (local_counter == 0) {
-      std::atomic<size_t> &current_slice_counter = this->slice_counter;
       stream_future =
           hpx::lcos::when_all(stream_future, all_slices_ready)
-              .then([=, &current_slice_counter](auto &&old_fut)mutable {
+              .then([f, args = std::make_tuple(std::forward<Ts>(ts) ...)](auto &&old_fut)mutable {
                 // TODO modify according to slices (launch either X
                 // seperate ones, or have one specialization
                 // launching stuff...)
 
-                // TODO Really necessary to pass around the
-                // counter?!
-                f(current_slice_counter, std::forward<Ts>(ts)...);
+                std::apply(f, std::move(args));
+                // f(std::forward<Ts>(ts)...); // not supporting perfect forwarding
                 return;
               });
 #ifndef NDEBUG
@@ -311,16 +307,16 @@ public:
 #endif
     const size_t local_counter = slice_counter++;
     if (local_counter == 0) {
-      std::atomic<size_t> &current_slice_counter = this->slice_counter;
       std::vector<hpx::lcos::local::promise<void>> &potential_async_promises =
           this->potential_async_promises;
       stream_future =
           hpx::lcos::when_all(stream_future, all_slices_ready)
-              .then([=, &current_slice_counter, &potential_async_promises](auto &&old_fut)mutable {
+              .then([f, args = std::make_tuple(std::forward<Ts>(ts) ...), &potential_async_promises](auto &&old_fut)mutable {
                 // TODO modify according to slices (launch either X
                 // seperate ones, or have one specialization
                 // launching stuff...)
-                f(current_slice_counter, std::forward<Ts>(ts)...);
+                std::apply(f, std::move(args));
+                // f(std::forward<Ts>(ts)...); // not supporting perfect forwarding
                 hpx::lcos::future<void> fut = hpx::lcos::make_ready_future();
                 fut.then([&potential_async_promises](auto &&fut) {
                   for (auto &promise : potential_async_promises) {
@@ -805,7 +801,7 @@ int hpx_main(int argc, char *argv[]) {
                 << std::endl;
 
       slice_exec.post(print_stuff1, 1);
-      slice_exec.post(print_stuff2, 1, 1.0);
+      slice_exec.post(print_stuff2, 1, 2.0);
       auto kernel_fut = slice_exec.async(print_stuff1, 1);
       kernel_fut.get();
     }));
@@ -837,7 +833,7 @@ int hpx_main(int argc, char *argv[]) {
       hpx::cout << "Executor 2 Data address is " << some_data.data()
                 << std::endl;
       slice_exec.post(print_stuff1, 1);
-      slice_exec.post(print_stuff2, 1, 1.0);
+      slice_exec.post(print_stuff2, 1, 2.0);
       auto kernel_fut = slice_exec.async(print_stuff1, 1);
       kernel_fut.get();
     }));
@@ -868,7 +864,7 @@ int hpx_main(int argc, char *argv[]) {
       hpx::cout << "Executor 3 Data address is " << some_data.data()
                 << std::endl;
       slice_exec.post(print_stuff1, 1);
-      slice_exec.post(print_stuff2, 1, 1.0);
+      slice_exec.post(print_stuff2, 1, 2.0);
       auto kernel_fut = slice_exec.async(print_stuff1, 1);
       kernel_fut.get();
     }));
@@ -899,7 +895,7 @@ int hpx_main(int argc, char *argv[]) {
       hpx::cout << "Executor 4 Data address is " << some_data.data()
                 << std::endl;
       slice_exec.post(print_stuff1, 1);
-      slice_exec.post(print_stuff2, 1, 1.0);
+      slice_exec.post(print_stuff2, 1, 2.0);
       auto kernel_fut = slice_exec.async(print_stuff1, 1);
       kernel_fut.get();
     }));
@@ -927,7 +923,7 @@ int hpx_main(int argc, char *argv[]) {
       auto slice_exec = fut.get();
       hpx::cout << "Got executor 1" << std::endl;
       slice_exec.post(print_stuff1, 1);
-      slice_exec.post(print_stuff2, 1, 1.0);
+      slice_exec.post(print_stuff2, 1, 2.0);
       auto kernel_fut = slice_exec.async(print_stuff1, 1);
       kernel_fut.get();
     }));
@@ -937,7 +933,7 @@ int hpx_main(int argc, char *argv[]) {
       auto slice_exec = fut.get();
       hpx::cout << "Got executor 2" << std::endl;
       slice_exec.post(print_stuff1, 1);
-      slice_exec.post(print_stuff2, 1, 1.0);
+      slice_exec.post(print_stuff2, 1, 2.0);
       auto kernel_fut = slice_exec.async(print_stuff1, 1);
       kernel_fut.get();
     }));
@@ -947,7 +943,7 @@ int hpx_main(int argc, char *argv[]) {
       auto slice_exec = fut.get();
       hpx::cout << "Got executor 3" << std::endl;
       slice_exec.post(print_stuff1, 1);
-      slice_exec.post(print_stuff2, 1, 1.0);
+      slice_exec.post(print_stuff2, 1, 2.0);
       auto kernel_fut = slice_exec.async(print_stuff1, 1);
       kernel_fut.get();
     }));
