@@ -2,15 +2,12 @@
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+#include <stdio.h>
 
-#include <type_traits>
-#include <utility>
-#undef NDEBUG
 #include <any>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
-#include <hpx/futures/future.hpp>
 #include <hpx/synchronization/mutex.hpp>
 #include <iostream>
 #include <memory>
@@ -18,7 +15,9 @@
 #include <ostream>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <typeinfo>
+#include <utility>
 
 #include <hpx/hpx_init.hpp>
 #include <hpx/include/async.hpp>
@@ -35,36 +34,40 @@
 #include "../include/buffer_manager.hpp"
 #include "../include/cuda_buffer_util.hpp"
 #include "../include/stream_manager.hpp"
+#include <hpx/futures/future.hpp>
 
-#include <stdio.h>
+//#undef NDEBUG
 
 //===============================================================================
 //===============================================================================
 // Helper classes
+template <typename... Ts>
+std::tuple<Ts...> make_tuple_supporting_references(Ts&&... ts)
+{
+    return std::tuple<Ts...>{std::forward <Ts>(ts)...};
+}
 
-template <typename T>
-std::string print_if_possible(T val) {
+template <typename T> std::string print_if_possible(T val) {
   if constexpr (std::is_convertible_v<T, std::string>) {
     return val;
-  } else if constexpr (
-      std::is_integral_v<T> || std::is_floating_point_v<T>) {
+  } else if constexpr (std::is_integral_v<T> || std::is_floating_point_v<T>) {
     return std::to_string(val);
   } else if constexpr (std::is_pointer_v<T>) {
-  std::string ret{""};
-  char buffer[128];
-  snprintf(buffer, 128, "%p", val);
-  return std::string(buffer);
+    std::string ret{""};
+    char buffer[128];
+    snprintf(buffer, 128, "%p", val);
+    return std::string(buffer);
   } else {
     return std::string("cannot print value");
   }
 }
 
-
 /// Helper class for the helper class that prints tuples -- do not use this
 /// directly
 template <class TupType, size_t... I>
 void print_tuple(const TupType &_tup, std::index_sequence<I...>) {
-    (..., (hpx::cout << (I == 0 ? "" : ", ") << print_if_possible(std::get<I + 1>(_tup))));
+  (..., (hpx::cout << (I == 0 ? "" : ", ")
+                   << print_if_possible(std::get<I + 1>(_tup))));
 }
 
 /// Helper class for printing tuples (first component should be a function
@@ -86,31 +89,25 @@ template <class... T> void print_tuple(const std::tuple<T...> &_tup) {
 //===============================================================================
 // Example functions
 
-void print_stuff_error(int i) {
-  hpx::cout << "i is not " << i  << std::endl;
-}
-void print_stuff1(int i) {
-  hpx::cout << "i is " << i  << std::endl;
-}
+void print_stuff_error(int i) { hpx::cout << "i is not " << i << std::endl; }
+void print_stuff1(int i) { hpx::cout << "i is " << i << std::endl; }
 void print_stuff2(int i, double d) {
   hpx::cout << "i is " << i << std::endl;
   hpx::cout << "d is " << d << std::endl;
 }
-void print_stuff3(int i) {
-  hpx::cout << "i is " << i << std::endl;
-}
-template <typename T>
-void add_pointer(size_t slice_size, T *A,
-         T *B, T *C) {
+void print_stuff3(int i) { hpx::cout << "i is " << i << std::endl; }
+template <typename T> void add_pointer(size_t slice_size, T *A, T *B, T *C) {
   const size_t start_id = 0;
   for (size_t i = 0; i < 4 * slice_size; i++) {
     C[start_id + i] = B[start_id + i] + A[start_id + i];
   }
+  hpx::cout << "Slice size: " << slice_size << std::endl;
+  slice_size = 123123;
+  hpx::cout << "Slice size: " << slice_size << std::endl;
 }
 
 template <typename Container>
-void add(size_t slice_id, size_t slice_size, Container &A,
-         Container &B, Container &C) {
+void add(size_t slice_size, Container &A, Container &B, Container &C) {
   const size_t start_id = 0;
   for (size_t i = 0; i < 4 * slice_size; i++) {
     C[start_id + i] = B[start_id + i] + A[start_id + i];
@@ -227,16 +224,20 @@ public:
     assert(potential_async_promises.empty());
     const size_t local_counter = slice_counter++;
 
+    // auto args_tuple(
     if (local_counter == 0) {
+      std::tuple<Ts...> args = make_tuple_supporting_references(std::forward<Ts>(ts)...);
       stream_future =
           hpx::lcos::when_all(stream_future, all_slices_ready)
-              .then([f, args = std::make_tuple(std::forward<Ts>(ts) ...)](auto &&old_fut)mutable {
+             .then([f, args = args](auto &&old_fut) mutable {
+                //.then([f, args = std::make_tuple(std::forward<Ts>(ts)...)](auto &&old_fut)mutable {
                 // TODO modify according to slices (launch either X
                 // seperate ones, or have one specialization
                 // launching stuff...)
 
                 std::apply(f, std::move(args));
-                // f(std::forward<Ts>(ts)...); // not supporting perfect forwarding
+                // f(std::forward<Ts>(ts)...); // not supporting perfect
+                // forwarding
                 return;
               });
 #ifndef NDEBUG
@@ -307,16 +308,21 @@ public:
 #endif
     const size_t local_counter = slice_counter++;
     if (local_counter == 0) {
+      std::tuple<Ts...> args = make_tuple_supporting_references(std::forward<Ts>(ts)...);
       std::vector<hpx::lcos::local::promise<void>> &potential_async_promises =
           this->potential_async_promises;
       stream_future =
           hpx::lcos::when_all(stream_future, all_slices_ready)
-              .then([f, args = std::make_tuple(std::forward<Ts>(ts) ...), &potential_async_promises](auto &&old_fut)mutable {
+               .then([f, args = args, &potential_async_promises](auto &&old_fut)mutable {
+              //.then([f, args = std::make_tuple(std::forward<Ts>(ts)...),
+              //       &potential_async_promises](auto &&old_fut) mutable {
                 // TODO modify according to slices (launch either X
                 // seperate ones, or have one specialization
                 // launching stuff...)
+                hpx::cout << "Applying..." << std::endl;
                 std::apply(f, std::move(args));
-                // f(std::forward<Ts>(ts)...); // not supporting perfect forwarding
+                // f(std::forward<Ts>(ts)...); // not supporting perfect
+                // forwarding
                 hpx::lcos::future<void> fut = hpx::lcos::make_ready_future();
                 fut.then([&potential_async_promises](auto &&fut) {
                   for (auto &promise : potential_async_promises) {
@@ -512,7 +518,8 @@ public:
                                                                       true);
         // Create buffer entry for this buffer
         buffer_allocations.emplace_back(aggregated_buffer, size, 1);
-        hpx::cout << "Created buffer " << slice_alloc_counter << std::endl;
+        hpx::cout << "Created buffer " << aggregated_buffer
+                  << " ID: " << slice_alloc_counter << std::endl;
 
         // Return buffer
         return aggregated_buffer;
@@ -536,28 +543,40 @@ public:
   template <typename T, typename Host_Allocator>
   void mark_unused(T *p, const size_t size, const size_t slice_alloc_counter) {
     assert(slice_alloc_counter < buffer_allocations.size());
-    assert(std::get<1>(buffer_allocations[slice_alloc_counter]) == size);
-    assert(std::any_cast<T *>(
-               std::get<0>(buffer_allocations[slice_alloc_counter])) == p ||
-           std::get<2>(buffer_allocations[slice_alloc_counter]) == 0);
+    auto &[buffer_pointer_any, buffer_size, buffer_allocation_counter] =
+        buffer_allocations[slice_alloc_counter];
+    T *buffer_pointer = std::any_cast<T *>(buffer_pointer_any);
+
+    assert(buffer_size == size);
+    // assert(buffer_pointer == p || buffer_pointer == nullptr);
     // Slice is done with this buffer
-    std::get<2>(buffer_allocations[slice_alloc_counter])--;
-    // Check if all buffers are done?
-    if (std::get<2>(buffer_allocations[slice_alloc_counter]) == 0) {
+    buffer_allocation_counter--;
+    // Check if all slices are done with this buffer?
+    if (buffer_allocation_counter == 0) {
       // Yes! "Deallocate" by telling the recylcer the buffer is fit for reusage
       std::lock_guard<std::mutex> guard(buffer_mut);
-      T *aggregated_buffer = std::any_cast<T *>(
-          std::get<0>(buffer_allocations[slice_alloc_counter]));
       // Only mark unused if another buffer has not done so already (and marked
       // it as nullptr)
-      if (aggregated_buffer != nullptr) {
-        assert(p == aggregated_buffer);
-        const size_t buffer_size =
-            std::get<1>(buffer_allocations[slice_alloc_counter]);
+      if (buffer_pointer != nullptr) {
+        if (p != buffer_pointer) {
+          std::cerr << "!!!!!!Trying to free " << p << " vs " << buffer_pointer
+                    << " -- Counter: " << slice_alloc_counter << std::endl;
+          // std::cin.get();
+          // assert(p == buffer_pointer);
+          hpx::cerr << std::endl;
+        } else {
+          hpx::cout << "Trying to free " << p << " vs " << buffer_pointer
+                    << " -- Counter: " << buffer_allocation_counter
+                    << std::endl;
+          std::flush(hpx::cout);
+          assert(p == buffer_pointer);
+        }
+        // std::cin.get();
         recycler::detail::buffer_recycler::mark_unused<T, Host_Allocator>(
-            aggregated_buffer, buffer_size);
-        // mark as nullptr
-        std::get<0>(buffer_allocations[slice_alloc_counter]) = nullptr;
+            buffer_pointer, buffer_size);
+        // mark as nullptr to prevent any other slice from marking the buffer as
+        // unsued
+        buffer_pointer = nullptr;
         hpx::cout << "Released buffer " << slice_alloc_counter << std::endl;
       }
     }
@@ -729,7 +748,7 @@ operator!=(Allocator_Slice<T, Host_Allocator, Executor> const &,
 //
 
 int hpx_main(int argc, char *argv[]) {
-  // Init method
+  // Init parameters
   {
     std::string filename{};
     try {
@@ -800,9 +819,11 @@ int hpx_main(int argc, char *argv[]) {
       hpx::cout << "Executor 1 Data address is " << some_data.data()
                 << std::endl;
 
-      slice_exec.post(print_stuff1, 1);
-      slice_exec.post(print_stuff2, 1, 2.0);
-      auto kernel_fut = slice_exec.async(print_stuff1, 1);
+      int i = 1;
+      float j = 2;
+      slice_exec.post(print_stuff1, i);
+      slice_exec.post(print_stuff2, i, j);
+      auto kernel_fut = slice_exec.async(print_stuff1, i);
       kernel_fut.get();
     }));
 
@@ -832,9 +853,11 @@ int hpx_main(int argc, char *argv[]) {
 
       hpx::cout << "Executor 2 Data address is " << some_data.data()
                 << std::endl;
-      slice_exec.post(print_stuff1, 1);
-      slice_exec.post(print_stuff2, 1, 2.0);
-      auto kernel_fut = slice_exec.async(print_stuff1, 1);
+      int i = 1;
+      float j = 2;
+      slice_exec.post(print_stuff1, i);
+      slice_exec.post(print_stuff2, i, j);
+      auto kernel_fut = slice_exec.async(print_stuff1, i);
       kernel_fut.get();
     }));
 
@@ -863,9 +886,11 @@ int hpx_main(int argc, char *argv[]) {
           some_vector(slice_exec.number_slices * 10, float{}, alloc);
       hpx::cout << "Executor 3 Data address is " << some_data.data()
                 << std::endl;
-      slice_exec.post(print_stuff1, 1);
-      slice_exec.post(print_stuff2, 1, 2.0);
-      auto kernel_fut = slice_exec.async(print_stuff1, 1);
+      int i = 1;
+      float j = 2;
+      slice_exec.post(print_stuff1, i);
+      slice_exec.post(print_stuff2, i, j);
+      auto kernel_fut = slice_exec.async(print_stuff1, i);
       kernel_fut.get();
     }));
 
@@ -894,9 +919,11 @@ int hpx_main(int argc, char *argv[]) {
           some_vector(slice_exec.number_slices * 10, float{}, alloc);
       hpx::cout << "Executor 4 Data address is " << some_data.data()
                 << std::endl;
-      slice_exec.post(print_stuff1, 1);
-      slice_exec.post(print_stuff2, 1, 2.0);
-      auto kernel_fut = slice_exec.async(print_stuff1, 1);
+      int i = 1;
+      float j = 2;
+      slice_exec.post(print_stuff1, i);
+      slice_exec.post(print_stuff2, i, j);
+      auto kernel_fut = slice_exec.async(print_stuff1, i);
       kernel_fut.get();
     }));
     hpx::cout << "Requested all executors!" << std::endl;
@@ -906,7 +933,7 @@ int hpx_main(int argc, char *argv[]) {
     agg_exec.dummy_stream_promise.set_value();
   }
   hpx::cout << std::endl;
-  recycler::force_cleanup();
+  // recycler::force_cleanup();
   // std::cin.get();
 
   // Interruption test
@@ -956,7 +983,7 @@ int hpx_main(int argc, char *argv[]) {
     final_fut.get();
   }
   hpx::cout << std::endl;
-  recycler::force_cleanup();
+  // recycler::force_cleanup();
 
   // Error test
   /*hpx::cout << "Error test with all wrong types and values in 2 slices"
@@ -1015,12 +1042,14 @@ int hpx_main(int argc, char *argv[]) {
   }
   hpx::cout << std::endl;*/
 
-  // Add test
-  hpx::cout << "Host aggregated add example" << std::endl;
-  std::vector<float> erg(512);
-  hpx::cout << "----------------------------------------" << std::endl;
+  // Add test 1
+  hpx::cout << "Host aggregated add pointer example (no references used)"
+            << std::endl;
+  hpx::cout << "--------------------------------------------------------"
+            << std::endl;
   {
     Aggregated_Executor<hpx::cuda::experimental::cuda_executor> agg_exec{4};
+    std::vector<float> erg(512);
 
     auto slice_fut1 = agg_exec.request_executor_slice();
 
@@ -1049,10 +1078,90 @@ int hpx_main(int argc, char *argv[]) {
         A[i] = slice_exec.id + 1;
         B[i] = 2 * slice_exec.id;
       }
+      size_t local_slice_size = 128;
 
       // Run add function
-      auto kernel_fut =
-              slice_exec.async(add_pointer<float>, 128, A.data(), B.data(), C.data());
+      auto kernel_fut = slice_exec.async(add_pointer<float>, 128, A.data(),
+                                         B.data(), C.data());
+      // Sync immediately
+      kernel_fut.get();
+      hpx::cout << "Local slice_size: " << local_slice_size << std::endl;
+
+      // Write results into erg buffer
+      for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
+        erg[i] = C[i];
+      }
+    }));
+
+    auto slice_fut2 = agg_exec.request_executor_slice();
+    slices_done_futs.emplace_back(slice_fut2.then([&erg](auto &&fut) {
+      auto slice_exec = fut.get();
+      // Get slice allocator
+      Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
+          slice_exec);
+      // Get slice buffers
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          A(slice_exec.number_slices * 128, float{}, alloc);
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          B(slice_exec.number_slices * 128, float{}, alloc);
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          C(slice_exec.number_slices * 128, float{}, alloc);
+      // Fill slice buffers
+      for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
+        A[i] = slice_exec.id + 1;
+        B[i] = 2 * slice_exec.id;
+      }
+      size_t local_slice_size = 128;
+
+      // Run add function
+      auto kernel_fut = slice_exec.async(add_pointer<float>, 128, A.data(),
+                                         B.data(), C.data());
+      // Sync immediately
+      kernel_fut.get();
+      hpx::cout << "Local slice_size: " << local_slice_size << std::endl;
+
+      // Write results into erg buffer
+      for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
+        erg[i] = C[i];
+      }
+    }));
+
+    auto slice_fut3 = agg_exec.request_executor_slice();
+    slices_done_futs.emplace_back(slice_fut3.then([&erg](auto &&fut) {
+      auto slice_exec = fut.get();
+      // Get slice allocator
+      Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
+          slice_exec);
+      // Get slice buffers
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          A(slice_exec.number_slices * 128, float{}, alloc);
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          B(slice_exec.number_slices * 128, float{}, alloc);
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          C(slice_exec.number_slices * 128, float{}, alloc);
+      // Fill slice buffers
+      for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
+        A[i] = slice_exec.id + 1;
+        B[i] = 2 * slice_exec.id;
+      }
+      size_t local_slice_size = 128;
+
+      // Run add function
+      auto kernel_fut = slice_exec.async(add_pointer<float>, 128, A.data(),
+                                         B.data(), C.data());
+      hpx::cout << "Local slice_size: " << local_slice_size << std::endl;
       // Sync immediately
       kernel_fut.get();
 
@@ -1062,125 +1171,44 @@ int hpx_main(int argc, char *argv[]) {
       }
     }));
 
-    auto slice_fut2 = agg_exec.request_executor_slice();
-    slices_done_futs.emplace_back(
-        slice_fut2.then([&erg](auto &&fut) { // Get slice executor
-          auto slice_exec = fut.get();
-          // Get slice allocator
-          Allocator_Slice<float, std::allocator<float>, decltype(executor1)>
-              alloc(slice_exec);
-          // Get slice buffers
-          std::vector<float,
-                      Allocator_Slice<float, std::allocator<float>,
-                                      hpx::cuda::experimental::cuda_executor>>
-              A(slice_exec.number_slices * 128, float{}, alloc);
-          std::vector<float,
-                      Allocator_Slice<float, std::allocator<float>,
-                                      hpx::cuda::experimental::cuda_executor>>
-              B(slice_exec.number_slices * 128, float{}, alloc);
-          std::vector<float,
-                      Allocator_Slice<float, std::allocator<float>,
-                                      hpx::cuda::experimental::cuda_executor>>
-              C(slice_exec.number_slices * 128, float{}, alloc);
-          // Fill slice buffers
-          for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128;
-               i++) {
-            A[i] = slice_exec.id + 1;
-            B[i] = 2 * slice_exec.id;
-          }
-
-          // Run add function
-          auto kernel_fut =
-              slice_exec.async(add_pointer<float>, 128, A.data(), B.data(), C.data());
-          // Sync immediately
-          kernel_fut.get();
-
-          // Write results into erg buffer
-          for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128;
-               i++) {
-            erg[i] = C[i];
-          }
-        }));
-
-    auto slice_fut3 = agg_exec.request_executor_slice();
-    slices_done_futs.emplace_back(
-        slice_fut3.then([&erg](auto &&fut) { // Get slice executor
-          auto slice_exec = fut.get();
-          // Get slice allocator
-          Allocator_Slice<float, std::allocator<float>, decltype(executor1)>
-              alloc(slice_exec);
-          // Get slice buffers
-          std::vector<float,
-                      Allocator_Slice<float, std::allocator<float>,
-                                      hpx::cuda::experimental::cuda_executor>>
-              A(slice_exec.number_slices * 128, float{}, alloc);
-          std::vector<float,
-                      Allocator_Slice<float, std::allocator<float>,
-                                      hpx::cuda::experimental::cuda_executor>>
-              B(slice_exec.number_slices * 128, float{}, alloc);
-          std::vector<float,
-                      Allocator_Slice<float, std::allocator<float>,
-                                      hpx::cuda::experimental::cuda_executor>>
-              C(slice_exec.number_slices * 128, float{}, alloc);
-          // Fill slice buffers
-          for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128;
-               i++) {
-            A[i] = slice_exec.id + 1;
-            B[i] = 2 * slice_exec.id;
-          }
-
-          // Run add function
-          auto kernel_fut =
-              slice_exec.async(add_pointer<float>, 128, A.data(), B.data(), C.data());
-          // Sync immediately
-          kernel_fut.get();
-
-          // Write results into erg buffer
-          for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128;
-               i++) {
-            erg[i] = C[i];
-          }
-        }));
-
     auto slice_fut4 = agg_exec.request_executor_slice();
-    slices_done_futs.emplace_back(
-        slice_fut4.then([&erg](auto &&fut) { // Get slice executor
-          auto slice_exec = fut.get();
-          // Get slice allocator
-          Allocator_Slice<float, std::allocator<float>, decltype(executor1)>
-              alloc(slice_exec);
-          // Get slice buffers
-          std::vector<float,
-                      Allocator_Slice<float, std::allocator<float>,
-                                      hpx::cuda::experimental::cuda_executor>>
-              A(slice_exec.number_slices * 128, float{}, alloc);
-          std::vector<float,
-                      Allocator_Slice<float, std::allocator<float>,
-                                      hpx::cuda::experimental::cuda_executor>>
-              B(slice_exec.number_slices * 128, float{}, alloc);
-          std::vector<float,
-                      Allocator_Slice<float, std::allocator<float>,
-                                      hpx::cuda::experimental::cuda_executor>>
-              C(slice_exec.number_slices * 128, float{}, alloc);
-          // Fill slice buffers
-          for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128;
-               i++) {
-            A[i] = slice_exec.id + 1;
-            B[i] = 2 * slice_exec.id;
-          }
+    slices_done_futs.emplace_back(slice_fut4.then([&erg](auto &&fut) {
+      auto slice_exec = fut.get();
+      // Get slice allocator
+      Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
+          slice_exec);
+      // Get slice buffers
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          A(slice_exec.number_slices * 128, float{}, alloc);
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          B(slice_exec.number_slices * 128, float{}, alloc);
+      std::vector<float,
+                  Allocator_Slice<float, std::allocator<float>,
+                                  hpx::cuda::experimental::cuda_executor>>
+          C(slice_exec.number_slices * 128, float{}, alloc);
+      // Fill slice buffers
+      for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
+        A[i] = slice_exec.id + 1;
+        B[i] = 2 * slice_exec.id;
+      }
+      size_t local_slice_size = 128;
 
-          // Run add function
-          auto kernel_fut =
-              slice_exec.async(add_pointer<float>, 128, A.data(), B.data(), C.data());
-          // Sync immediately
-          kernel_fut.get();
+      // Run add function
+      auto kernel_fut = slice_exec.async(add_pointer<float>, 128, A.data(),
+                                         B.data(), C.data());
+      // Sync immediately
+      kernel_fut.get();
+      hpx::cout << "Local slice_size: " << local_slice_size << std::endl;
 
-          // Write results into erg buffer
-          for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128;
-               i++) {
-            erg[i] = C[i];
-          }
-        }));
+      // Write results into erg buffer
+      for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
+        erg[i] = C[i];
+      }
+    }));
     hpx::cout << "Requested all executors!" << std::endl;
     hpx::cout << "Realizing by requesting final fut..." << std::endl;
     auto final_fut = hpx::lcos::when_all(slices_done_futs);
@@ -1196,12 +1224,198 @@ int hpx_main(int argc, char *argv[]) {
     hpx::cout << std::endl;
     agg_exec.dummy_stream_promise.set_value();
   }
+  // recycler::force_cleanup();
   hpx::cout << std::endl;
+
+  hpx::cout << "Host aggregated add vector example (references used)" <<
+    std::endl; hpx::cout <<
+    "----------------------------------------------------" << std::endl;
+    {
+      Aggregated_Executor<hpx::cuda::experimental::cuda_executor> agg_exec{4};
+      std::vector<float> erg(512);
+
+      auto slice_fut1 = agg_exec.request_executor_slice();
+
+      std::vector<hpx::lcos::future<void>> slices_done_futs;
+      slices_done_futs.emplace_back(slice_fut1.then([&erg](auto &&fut) {
+        // Get slice executor
+        auto slice_exec = fut.get();
+        // Get slice allocator
+        Allocator_Slice<float, std::allocator<float>, decltype(executor1)>
+    alloc( slice_exec);
+        // Get slice buffers
+        std::vector<float,
+                    Allocator_Slice<float, std::allocator<float>,
+                                    hpx::cuda::experimental::cuda_executor>>
+            A(slice_exec.number_slices * 128, float{}, alloc);
+        std::vector<float,
+                    Allocator_Slice<float, std::allocator<float>,
+                                    hpx::cuda::experimental::cuda_executor>>
+            B(slice_exec.number_slices * 128, float{}, alloc);
+        std::vector<float,
+                    Allocator_Slice<float, std::allocator<float>,
+                                    hpx::cuda::experimental::cuda_executor>>
+            C(slice_exec.number_slices * 128, float{}, alloc);
+        // Fill slice buffers
+        for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
+          A[i] = slice_exec.id + 1;
+          B[i] = 2 * slice_exec.id;
+        }
+
+        // Run add function
+        auto kernel_fut =
+                slice_exec.async(add<decltype(A)>, 128, A, B, C);
+        // Sync immediately
+        kernel_fut.get();
+
+        // Write results into erg buffer
+        for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
+          erg[i] = C[i];
+        }
+      }));
+
+      auto slice_fut2 = agg_exec.request_executor_slice();
+      slices_done_futs.emplace_back(
+          slice_fut2.then([&erg](auto &&fut) { // Get slice executor
+            auto slice_exec = fut.get();
+            // Get slice allocator
+            Allocator_Slice<float, std::allocator<float>, decltype(executor1)>
+                alloc(slice_exec);
+            // Get slice buffers
+            std::vector<float,
+                        Allocator_Slice<float, std::allocator<float>,
+                                        hpx::cuda::experimental::cuda_executor>>
+                A(slice_exec.number_slices * 128, float{}, alloc);
+            std::vector<float,
+                        Allocator_Slice<float, std::allocator<float>,
+                                        hpx::cuda::experimental::cuda_executor>>
+                B(slice_exec.number_slices * 128, float{}, alloc);
+            std::vector<float,
+                        Allocator_Slice<float, std::allocator<float>,
+                                        hpx::cuda::experimental::cuda_executor>>
+                C(slice_exec.number_slices * 128, float{}, alloc);
+            // Fill slice buffers
+            for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128;
+                 i++) {
+              A[i] = slice_exec.id + 1;
+              B[i] = 2 * slice_exec.id;
+            }
+
+            // Run add function
+            auto kernel_fut =
+                slice_exec.async(add<decltype(A)>, 128, A, B, C);
+            // Sync immediately
+            kernel_fut.get();
+
+            // Write results into erg buffer
+            for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128;
+                 i++) {
+              erg[i] = C[i];
+            }
+          }));
+
+      auto slice_fut3 = agg_exec.request_executor_slice();
+      slices_done_futs.emplace_back(
+          slice_fut3.then([&erg](auto &&fut) { // Get slice executor
+            auto slice_exec = fut.get();
+            // Get slice allocator
+            Allocator_Slice<float, std::allocator<float>, decltype(executor1)>
+                alloc(slice_exec);
+            // Get slice buffers
+            std::vector<float,
+                        Allocator_Slice<float, std::allocator<float>,
+                                        hpx::cuda::experimental::cuda_executor>>
+                A(slice_exec.number_slices * 128, float{}, alloc);
+            std::vector<float,
+                        Allocator_Slice<float, std::allocator<float>,
+                                        hpx::cuda::experimental::cuda_executor>>
+                B(slice_exec.number_slices * 128, float{}, alloc);
+            std::vector<float,
+                        Allocator_Slice<float, std::allocator<float>,
+                                        hpx::cuda::experimental::cuda_executor>>
+                C(slice_exec.number_slices * 128, float{}, alloc);
+            // Fill slice buffers
+            for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128;
+                 i++) {
+              A[i] = slice_exec.id + 1;
+              B[i] = 2 * slice_exec.id;
+            }
+
+            // Run add function
+            auto kernel_fut =
+                slice_exec.async(add<decltype(A)>, 128, A, B, C);
+            // Sync immediately
+            kernel_fut.get();
+
+            // Write results into erg buffer
+            for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128;
+                 i++) {
+              erg[i] = C[i];
+            }
+          }));
+
+      auto slice_fut4 = agg_exec.request_executor_slice();
+      slices_done_futs.emplace_back(
+          slice_fut4.then([&erg](auto &&fut) { // Get slice executor
+            auto slice_exec = fut.get();
+            // Get slice allocator
+            Allocator_Slice<float, std::allocator<float>, decltype(executor1)>
+                alloc(slice_exec);
+            // Get slice buffers
+            std::vector<float,
+                        Allocator_Slice<float, std::allocator<float>,
+                                        hpx::cuda::experimental::cuda_executor>>
+                A(slice_exec.number_slices * 128, float{}, alloc);
+            std::vector<float,
+                        Allocator_Slice<float, std::allocator<float>,
+                                        hpx::cuda::experimental::cuda_executor>>
+                B(slice_exec.number_slices * 128, float{}, alloc);
+            std::vector<float,
+                        Allocator_Slice<float, std::allocator<float>,
+                                        hpx::cuda::experimental::cuda_executor>>
+                C(slice_exec.number_slices * 128, float{}, alloc);
+            // Fill slice buffers
+            for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128;
+                 i++) {
+              A[i] = slice_exec.id + 1;
+              B[i] = 2 * slice_exec.id;
+            }
+
+            // Run add function
+            auto kernel_fut =
+                slice_exec.async(add<decltype(A)>, 128, A, B, C);
+            // Sync immediately
+            kernel_fut.get();
+
+            // Write results into erg buffer
+            for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128;
+                 i++) {
+              erg[i] = C[i];
+            }
+          }));
+      hpx::cout << "Requested all executors!" << std::endl;
+      hpx::cout << "Realizing by requesting final fut..." << std::endl;
+      auto final_fut = hpx::lcos::when_all(slices_done_futs);
+      final_fut.get();
+
+      hpx::cout << "Checking erg: " << std::endl;
+      for (int slice = 0; slice < 4; slice++) {
+        for (int i = slice * 128; i < (slice + 1) * 128; i++) {
+          assert(erg[i] == 3 * slice + 1);
+          hpx::cout << erg[i] << " ";
+        }
+      }
+      hpx::cout << std::endl;
+      agg_exec.dummy_stream_promise.set_value();
+    }
+    hpx::cout << std::endl;
+
   hpx::cout << "Done!" << std::endl;
   hpx::cout << std::endl;
- // std::cin.get();
+  // std::cin.get();
 
-  recycler::force_cleanup(); // Cleanup all buffers and the managers for better
+  // recycler::force_cleanup(); // Cleanup all buffers and the managers for
+  // better
   return hpx::finalize();
 }
 
