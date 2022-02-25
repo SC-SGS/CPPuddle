@@ -147,6 +147,7 @@ private:
   hpx::lcos::future<void> all_slices_ready = slices_ready_promise.get_future();
   /// How many slices can we expect?
   const size_t number_slices;
+  const bool async_mode;
 
 #ifndef NDEBUG
 #pragma message(                                                               \
@@ -163,11 +164,11 @@ private:
 
 public:
   aggregated_function_call(const size_t number_slices, bool async_mode)
-      : number_slices(number_slices) {
-    // Note: can
+      : number_slices(number_slices), async_mode(async_mode) {
     if (async_mode)
       potential_async_promises.resize(number_slices);
   }
+  ~aggregated_function_call(void) { assert(slice_counter == number_slices); }
   template <typename F, typename... Ts>
   void post_when(hpx::lcos::future<void> &stream_future, F &&f, Ts &&...ts) {
 #ifndef NDEBUG
@@ -175,6 +176,7 @@ public:
     // Not required for normal use
     std::lock_guard<std::mutex> guard(debug_mut);
 #endif
+    assert(!async_mode);
     assert(potential_async_promises.empty());
     const size_t local_counter = slice_counter++;
 
@@ -185,9 +187,6 @@ public:
       stream_future =
           hpx::lcos::when_all(stream_future, all_slices_ready)
               .then([f, args = std::move(args)](auto &&old_fut) mutable {
-                //.then([f, args =
-                // std::make_tuple(std::forward<Ts>(ts)...)](auto
-                //&&old_fut)mutable {
                 // TODO modify according to slices (launch either X
                 // seperate ones, or have one specialization
                 // launching stuff...)
@@ -265,6 +264,8 @@ public:
     // Not required for normal use
     std::lock_guard<std::mutex> guard(debug_mut);
 #endif
+    assert(async_mode);
+    assert(!potential_async_promises.empty());
     const size_t local_counter = slice_counter++;
     if (local_counter == 0) {
       std::tuple<Ts...> args =
@@ -275,14 +276,10 @@ public:
           hpx::lcos::when_all(stream_future, all_slices_ready)
               .then([f, args = std::move(args),
                      &potential_async_promises](auto &&old_fut) mutable {
-                //.then([f, args = std::make_tuple(std::forward<Ts>(ts)...),
-                //       &potential_async_promises](auto &&old_fut) mutable {
                 // TODO modify according to slices (launch either X
                 // seperate ones, or have one specialization
                 // launching stuff...)
                 std::apply(f, std::move(args));
-                // f(std::forward<Ts>(ts)...); // not supporting perfect
-                // forwarding
                 hpx::lcos::future<void> fut = hpx::lcos::make_ready_future();
                 fut.then([&potential_async_promises](auto &&fut) {
                   for (auto &promise : potential_async_promises) {
@@ -405,6 +402,11 @@ public:
     Executor_Slice(Aggregated_Executor &parent, const size_t slice_id,
                    const size_t number_slices)
         : parent(parent), number_slices(number_slices), id(slice_id) {}
+    ~Executor_Slice(void) {
+      // Just checking that all buffers have been released before executor goes
+      // out of scope
+      assert(buffer_counter == 0);
+    }
     template <typename F, typename... Ts> void post(F &&f, Ts &&...ts) {
       // we should only execute function calls once all slices
       // have been given away (-> Executor Slices start)
@@ -426,6 +428,7 @@ public:
     /// Get new aggregated buffer (might have already been allocated been
     /// allocated by different slice)
     template <typename T, typename Host_Allocator> T *get(const size_t size) {
+      assert(parent.slices_exhausted == true);
       T *aggregated_buffer =
           parent.get<T, Host_Allocator>(size, buffer_counter);
       buffer_counter++;
@@ -435,6 +438,7 @@ public:
     /// unwinding) Do not call manually
     template <typename T, typename Host_Allocator>
     void mark_unused(T *p, const size_t size) {
+      assert(parent.slices_exhausted == true);
       buffer_counter--;
       parent.mark_unused<T, Host_Allocator>(p, size, buffer_counter);
     }
@@ -449,7 +453,7 @@ public:
   std::vector<hpx::lcos::local::promise<Executor_Slice>> executor_slices;
   /// List of aggregated function calls - function will be launched when all
   /// slices have called it
-  std::list<aggregated_function_call<Executor>> function_calls;
+  std::deque<aggregated_function_call<Executor>> function_calls;
   /// For synchronizing the access to the function calls list
   std::mutex mut;
 
@@ -487,15 +491,17 @@ public:
         return aggregated_buffer;
       }
     }
+    assert(std::get<2>(buffer_allocations[slice_alloc_counter]) >= 1);
 
     // Buffer entry should already exist:
     T *aggregated_buffer = std::any_cast<T *>(
         std::get<0>(buffer_allocations[slice_alloc_counter]));
-    // Error handling: Size is wrong
-    if (size != std::get<1>(buffer_allocations[slice_alloc_counter])) {
+    // Error handling: Size is wrong?
+    assert(size == std::get<1>(buffer_allocations[slice_alloc_counter]));
+    /*if (size != std::get<1>(buffer_allocations[slice_alloc_counter])) {
       throw std::runtime_error("Requested buffer size does not match the size "
                                "in the aggregated buffer record!");
-    }
+    }*/
     // Notify that one more slice has visited this buffer allocation
     std::get<2>(buffer_allocations[slice_alloc_counter])++;
     return aggregated_buffer;
@@ -552,12 +558,8 @@ public:
       }
     }
 
-    // TODO Add copy / or move constructors for functon calls to avoid list?
-    // as we cannot copy or non-except move the function objects: use list
-    auto it = function_calls.begin();
-    std::advance(it, slice_launch_counter);
-    it->post_when(last_stream_launch_done, std::forward<F>(f),
-                  std::forward<Ts>(ts)...);
+    function_calls[slice_launch_counter].post_when(
+        last_stream_launch_done, std::forward<F>(f), std::forward<Ts>(ts)...);
   }
 
   /// Only meant to be accessed by the slice executors
@@ -572,12 +574,8 @@ public:
       }
     }
 
-    // TODO Add copy / or move constructors for functon calls to avoid list?
-    // as we cannot copy or non-except move the function objects: use list
-    auto it = function_calls.begin();
-    std::advance(it, slice_launch_counter);
-    return it->async_when(last_stream_launch_done, std::forward<F>(f),
-                          std::forward<Ts>(ts)...);
+    return function_calls[slice_launch_counter].async_when(
+        last_stream_launch_done, std::forward<F>(f), std::forward<Ts>(ts)...);
   }
 
   hpx::lcos::future<Executor_Slice> request_executor_slice() {
@@ -626,6 +624,10 @@ public:
     // Finish the continuation to not leave a dangling task!
     // otherwise the continuation might access data of non-existent object...
     current_continuation.get();
+    // After that everything should be cleaned up already by the Slice executors
+    // going out of scope
+    assert(function_calls.empty());
+    assert(buffer_allocations.empty());
   }
 
   Aggregated_Executor(const size_t number_slices)
