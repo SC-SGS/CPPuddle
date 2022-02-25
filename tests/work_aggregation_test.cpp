@@ -40,7 +40,7 @@
 
 //===============================================================================
 //===============================================================================
-// Helper classes
+// Helper functions/classes
 
 /// Constructs a tuple with copies (to store temporaries in aggregated function
 /// calls) yet also supporting references (on the users own risk...)
@@ -88,6 +88,29 @@ template <class... T> void print_tuple(const std::tuple<T...> &_tup) {
   print_tuple(_tup, std::make_index_sequence<sizeof...(T) - 1>());
   hpx::cout << ")";
 }
+
+/// Dummy CPU executor (providing correct interface but running everything
+/// immediately Intended for testing the aggregation on the CPU, not for
+/// production use!
+struct Dummy_Executor {
+  hpx::lcos::local::promise<void> get_future_promise;
+  hpx::lcos::future<void> get_future() {
+    // To trigger interruption in exeuctor coalesing manually with the promise
+    // For a proper CUDA executor we would get a future that's ready once the
+    // stream is ready of course!
+    return get_future_promise.get_future();
+  }
+  /// post -- executes immediately
+  template <typename F, typename... Ts> void post(F &&f, Ts &&...ts) {
+    f(std::forward<Ts>(ts)...);
+  }
+  /// async -- executores immediately and returns ready future
+  template <typename F, typename... Ts>
+  hpx::lcos::future<void> async(F &&f, Ts &&...ts) {
+    f(std::forward<Ts>(ts)...);
+    return hpx::make_ready_future();
+  }
+};
 
 //===============================================================================
 //===============================================================================
@@ -187,13 +210,7 @@ public:
       stream_future =
           hpx::lcos::when_all(stream_future, all_slices_ready)
               .then([f, args = std::move(args)](auto &&old_fut) mutable {
-                // TODO modify according to slices (launch either X
-                // seperate ones, or have one specialization
-                // launching stuff...)
-
                 std::apply(f, std::move(args));
-                // f(std::forward<Ts>(ts)...); // not supporting
-                // perfect forwarding
                 return;
               });
 #ifndef NDEBUG
@@ -276,9 +293,6 @@ public:
           hpx::lcos::when_all(stream_future, all_slices_ready)
               .then([f, args = std::move(args),
                      &potential_async_promises](auto &&old_fut) mutable {
-                // TODO modify according to slices (launch either X
-                // seperate ones, or have one specialization
-                // launching stuff...)
                 std::apply(f, std::move(args));
                 hpx::lcos::future<void> fut = hpx::lcos::make_ready_future();
                 fut.then([&potential_async_promises](auto &&fut) {
@@ -365,6 +379,9 @@ public:
 
 //===============================================================================
 //===============================================================================
+/// Declaration since the actual allocator is only defined after the Executors
+template <typename T, typename Host_Allocator, typename Executor>
+class Allocator_Slice;
 
 /// Executor Class that aggregates function calls for specific kernels
 /** Executor is not meant to be used directly. Instead it yields multiple
@@ -399,6 +416,7 @@ public:
     /// criteria
     const size_t number_slices;
     const size_t id;
+    using executor_t = Executor;
     Executor_Slice(Aggregated_Executor &parent, const size_t slice_id,
                    const size_t number_slices)
         : parent(parent), number_slices(number_slices), id(slice_id) {}
@@ -406,6 +424,10 @@ public:
       // Just checking that all buffers have been released before executor goes
       // out of scope
       assert(buffer_counter == 0);
+    }
+    template <typename T, typename Host_Allocator>
+    Allocator_Slice<T, Host_Allocator, Executor> make_allocator() {
+      return Allocator_Slice<T, Host_Allocator, Executor>(*this);
     }
     template <typename F, typename... Ts> void post(F &&f, Ts &&...ts) {
       // we should only execute function calls once all slices
@@ -686,6 +708,7 @@ operator!=(Allocator_Slice<T, Host_Allocator, Executor> const &,
            Allocator_Slice<U, Host_Allocator, Executor> const &) noexcept {
   return false;
 }
+
 //===============================================================================
 //===============================================================================
 
@@ -748,26 +771,19 @@ int hpx_main(int argc, char *argv[]) {
     std::vector<hpx::lcos::future<void>> slices_done_futs;
     slices_done_futs.emplace_back(slice_fut1.then([](auto &&fut) {
       auto slice_exec = fut.get();
-      Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
-          slice_exec);
-      Allocator_Slice<int, std::allocator<int>, decltype(executor1)> alloc_int(
-          slice_exec);
+      auto alloc =
+          slice_exec.template make_allocator<float, std::allocator<float>>();
+      auto alloc_int =
+          slice_exec.template make_allocator<int, std::allocator<int>>();
       hpx::cout << "Executor 1 ID is " << slice_exec.id << std::endl;
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
-          some_data(slice_exec.number_slices * 10, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
-          some_data2(slice_exec.number_slices * 20, float{}, alloc);
-      std::vector<int, Allocator_Slice<int, std::allocator<int>,
-                                       hpx::cuda::experimental::cuda_executor>>
-          some_ints(slice_exec.number_slices * 20, int{}, alloc_int);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
-          some_vector(slice_exec.number_slices * 10, float{}, alloc);
+      std::vector<float, decltype(alloc)> some_data(
+          slice_exec.number_slices * 10, float{}, alloc);
+      std::vector<float, decltype(alloc)> some_data2(
+          slice_exec.number_slices * 20, float{}, alloc);
+      std::vector<int, decltype(alloc_int)> some_ints(
+          slice_exec.number_slices * 20, int{}, alloc_int);
+      std::vector<float, decltype(alloc)> some_vector(
+          slice_exec.number_slices * 10, float{}, alloc);
       hpx::cout << "Executor 1 Data address is " << some_data.data()
                 << std::endl;
 
@@ -782,27 +798,19 @@ int hpx_main(int argc, char *argv[]) {
     auto slice_fut2 = agg_exec.request_executor_slice();
     slices_done_futs.emplace_back(slice_fut2.then([](auto &&fut) {
       auto slice_exec = fut.get();
-      Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
-          slice_exec);
-      Allocator_Slice<int, std::allocator<int>, decltype(executor1)> alloc_int(
-          slice_exec);
+      auto alloc =
+          slice_exec.template make_allocator<float, std::allocator<float>>();
+      auto alloc_int =
+          slice_exec.template make_allocator<int, std::allocator<int>>();
       hpx::cout << "Executor 2 ID is " << slice_exec.id << std::endl;
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
-          some_data(slice_exec.number_slices * 10, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
-          some_data2(slice_exec.number_slices * 20, float{}, alloc);
-      std::vector<int, Allocator_Slice<int, std::allocator<int>,
-                                       hpx::cuda::experimental::cuda_executor>>
-          some_ints(slice_exec.number_slices * 20, int{}, alloc_int);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
-          some_vector(slice_exec.number_slices * 10, float{}, alloc);
-
+      std::vector<float, decltype(alloc)> some_data(
+          slice_exec.number_slices * 10, float{}, alloc);
+      std::vector<float, decltype(alloc)> some_data2(
+          slice_exec.number_slices * 20, float{}, alloc);
+      std::vector<int, decltype(alloc_int)> some_ints(
+          slice_exec.number_slices * 20, int{}, alloc_int);
+      std::vector<float, decltype(alloc)> some_vector(
+          slice_exec.number_slices * 10, float{}, alloc);
       hpx::cout << "Executor 2 Data address is " << some_data.data()
                 << std::endl;
       int i = 1;
@@ -816,26 +824,19 @@ int hpx_main(int argc, char *argv[]) {
     auto slice_fut3 = agg_exec.request_executor_slice();
     slices_done_futs.emplace_back(slice_fut3.then([](auto &&fut) {
       auto slice_exec = fut.get();
-      Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
-          slice_exec);
-      Allocator_Slice<int, std::allocator<int>, decltype(executor1)> alloc_int(
-          slice_exec);
+      auto alloc =
+          slice_exec.template make_allocator<float, std::allocator<float>>();
+      auto alloc_int =
+          slice_exec.template make_allocator<int, std::allocator<int>>();
       hpx::cout << "Executor 3 ID is " << slice_exec.id << std::endl;
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
-          some_data(slice_exec.number_slices * 10, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
-          some_data2(slice_exec.number_slices * 20, float{}, alloc);
-      std::vector<int, Allocator_Slice<int, std::allocator<int>,
-                                       hpx::cuda::experimental::cuda_executor>>
-          some_ints(slice_exec.number_slices * 20, int{}, alloc_int);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
-          some_vector(slice_exec.number_slices * 10, float{}, alloc);
+      std::vector<float, decltype(alloc)> some_data(
+          slice_exec.number_slices * 10, float{}, alloc);
+      std::vector<float, decltype(alloc)> some_data2(
+          slice_exec.number_slices * 20, float{}, alloc);
+      std::vector<int, decltype(alloc_int)> some_ints(
+          slice_exec.number_slices * 20, int{}, alloc_int);
+      std::vector<float, decltype(alloc)> some_vector(
+          slice_exec.number_slices * 10, float{}, alloc);
       hpx::cout << "Executor 3 Data address is " << some_data.data()
                 << std::endl;
       int i = 1;
@@ -849,26 +850,19 @@ int hpx_main(int argc, char *argv[]) {
     auto slice_fut4 = agg_exec.request_executor_slice();
     slices_done_futs.emplace_back(slice_fut4.then([](auto &&fut) {
       auto slice_exec = fut.get();
-      Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
-          slice_exec);
-      Allocator_Slice<int, std::allocator<int>, decltype(executor1)> alloc_int(
-          slice_exec);
+      auto alloc =
+          slice_exec.template make_allocator<float, std::allocator<float>>();
+      auto alloc_int =
+          slice_exec.template make_allocator<int, std::allocator<int>>();
       hpx::cout << "Executor 4 ID is " << slice_exec.id << std::endl;
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
-          some_data(slice_exec.number_slices * 10, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
-          some_data2(slice_exec.number_slices * 20, float{}, alloc);
-      std::vector<int, Allocator_Slice<int, std::allocator<int>,
-                                       hpx::cuda::experimental::cuda_executor>>
-          some_ints(slice_exec.number_slices * 20, int{}, alloc_int);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
-          some_vector(slice_exec.number_slices * 10, float{}, alloc);
+      std::vector<float, decltype(alloc)> some_data(
+          slice_exec.number_slices * 10, float{}, alloc);
+      std::vector<float, decltype(alloc)> some_data2(
+          slice_exec.number_slices * 20, float{}, alloc);
+      std::vector<int, decltype(alloc_int)> some_ints(
+          slice_exec.number_slices * 20, int{}, alloc_int);
+      std::vector<float, decltype(alloc)> some_vector(
+          slice_exec.number_slices * 10, float{}, alloc);
       hpx::cout << "Executor 4 Data address is " << some_data.data()
                 << std::endl;
       int i = 1;
@@ -1010,20 +1004,13 @@ int hpx_main(int argc, char *argv[]) {
       // Get slice executor
       auto slice_exec = fut.get();
       // Get slice allocator
-      Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
-          slice_exec);
+      auto alloc = slice_exec.template make_allocator<float, std::allocator<float>>();
       // Get slice buffers
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           A(slice_exec.number_slices * 128, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           B(slice_exec.number_slices * 128, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           C(slice_exec.number_slices * 128, float{}, alloc);
       // Fill slice buffers
       for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
@@ -1047,20 +1034,13 @@ int hpx_main(int argc, char *argv[]) {
     slices_done_futs.emplace_back(slice_fut2.then([&erg](auto &&fut) {
       auto slice_exec = fut.get();
       // Get slice allocator
-      Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
-          slice_exec);
+      auto alloc = slice_exec.template make_allocator<float, std::allocator<float>>();
       // Get slice buffers
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           A(slice_exec.number_slices * 128, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           B(slice_exec.number_slices * 128, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           C(slice_exec.number_slices * 128, float{}, alloc);
       // Fill slice buffers
       for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
@@ -1084,20 +1064,13 @@ int hpx_main(int argc, char *argv[]) {
     slices_done_futs.emplace_back(slice_fut3.then([&erg](auto &&fut) {
       auto slice_exec = fut.get();
       // Get slice allocator
-      Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
-          slice_exec);
+      auto alloc = slice_exec.template make_allocator<float, std::allocator<float>>();
       // Get slice buffers
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           A(slice_exec.number_slices * 128, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           B(slice_exec.number_slices * 128, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           C(slice_exec.number_slices * 128, float{}, alloc);
       // Fill slice buffers
       for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
@@ -1121,20 +1094,13 @@ int hpx_main(int argc, char *argv[]) {
     slices_done_futs.emplace_back(slice_fut4.then([&erg](auto &&fut) {
       auto slice_exec = fut.get();
       // Get slice allocator
-      Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
-          slice_exec);
+      auto alloc = slice_exec.template make_allocator<float, std::allocator<float>>();
       // Get slice buffers
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           A(slice_exec.number_slices * 128, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           B(slice_exec.number_slices * 128, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           C(slice_exec.number_slices * 128, float{}, alloc);
       // Fill slice buffers
       for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
@@ -1186,20 +1152,13 @@ int hpx_main(int argc, char *argv[]) {
       // Get slice executor
       auto slice_exec = fut.get();
       // Get slice allocator
-      Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
-          slice_exec);
+      auto alloc = slice_exec.template make_allocator<float, std::allocator<float>>();
       // Get slice buffers
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           A(slice_exec.number_slices * 128, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           B(slice_exec.number_slices * 128, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           C(slice_exec.number_slices * 128, float{}, alloc);
       // Fill slice buffers
       for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
@@ -1222,20 +1181,13 @@ int hpx_main(int argc, char *argv[]) {
     slices_done_futs.emplace_back(slice_fut2.then([&erg](auto &&fut) {
       auto slice_exec = fut.get();
       // Get slice allocator
-      Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
-          slice_exec);
+      auto alloc = slice_exec.template make_allocator<float, std::allocator<float>>();
       // Get slice buffers
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           A(slice_exec.number_slices * 128, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           B(slice_exec.number_slices * 128, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           C(slice_exec.number_slices * 128, float{}, alloc);
       // Fill slice buffers
       for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
@@ -1258,20 +1210,13 @@ int hpx_main(int argc, char *argv[]) {
     slices_done_futs.emplace_back(slice_fut3.then([&erg](auto &&fut) {
       auto slice_exec = fut.get();
       // Get slice allocator
-      Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
-          slice_exec);
+      auto alloc = slice_exec.template make_allocator<float, std::allocator<float>>();
       // Get slice buffers
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           A(slice_exec.number_slices * 128, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           B(slice_exec.number_slices * 128, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           C(slice_exec.number_slices * 128, float{}, alloc);
       // Fill slice buffers
       for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
@@ -1294,20 +1239,13 @@ int hpx_main(int argc, char *argv[]) {
     slices_done_futs.emplace_back(slice_fut4.then([&erg](auto &&fut) {
       auto slice_exec = fut.get();
       // Get slice allocator
-      Allocator_Slice<float, std::allocator<float>, decltype(executor1)> alloc(
-          slice_exec);
+      auto alloc = slice_exec.template make_allocator<float, std::allocator<float>>();
       // Get slice buffers
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           A(slice_exec.number_slices * 128, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           B(slice_exec.number_slices * 128, float{}, alloc);
-      std::vector<float,
-                  Allocator_Slice<float, std::allocator<float>,
-                                  hpx::cuda::experimental::cuda_executor>>
+      std::vector<float, decltype(alloc)>
           C(slice_exec.number_slices * 128, float{}, alloc);
       // Fill slice buffers
       for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
