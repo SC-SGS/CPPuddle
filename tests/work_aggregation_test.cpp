@@ -488,7 +488,7 @@ public:
   /// Data entry for a buffer allocation: any for the point, size_t for
   /// buffer-size, atomic for the slice counter
   using buffer_entry_t =
-      std::tuple<std::any, const size_t, std::atomic<size_t>>;
+      std::tuple<std::any, const size_t, std::atomic<size_t>, bool>;
   /// Keeps track of the aggregated buffer allocations done in all the slices
   std::deque<buffer_entry_t> buffer_allocations;
   /// For synchronizing the access to the buffer_allocations
@@ -512,7 +512,7 @@ public:
             recycler::detail::buffer_recycler::get<T, Host_Allocator>(size,
                                                                       true);
         // Create buffer entry for this buffer
-        buffer_allocations.emplace_back(aggregated_buffer, size, 1);
+        buffer_allocations.emplace_back(aggregated_buffer, size, 1, true);
 
         // Return buffer
         return aggregated_buffer;
@@ -539,12 +539,12 @@ public:
   void mark_unused(T *p, const size_t size, const size_t slice_alloc_counter) {
     assert(slices_exhausted == true);
     assert(slice_alloc_counter < buffer_allocations.size());
-    auto &[buffer_pointer_any, buffer_size, buffer_allocation_counter] =
+    auto &[buffer_pointer_any, buffer_size, buffer_allocation_counter, valid] =
         buffer_allocations[slice_alloc_counter];
     T *buffer_pointer = std::any_cast<T *>(buffer_pointer_any);
 
     assert(buffer_size == size);
-    assert(p == buffer_pointer || buffer_pointer == nullptr);
+    assert(p == buffer_pointer);
     // assert(buffer_pointer == p || buffer_pointer == nullptr);
     // Slice is done with this buffer
     buffer_allocation_counter--;
@@ -553,15 +553,13 @@ public:
       // Yes! "Deallocate" by telling the recylcer the buffer is fit for reusage
       std::lock_guard<std::mutex> guard(buffer_mut);
       // Only mark unused if another buffer has not done so already (and marked
-      // it as nullptr)
-      if (buffer_pointer != nullptr) {
-        assert(p == buffer_pointer);
-        // std::cin.get();
+      // it as invalid)
+      if (valid) {
         recycler::detail::buffer_recycler::mark_unused<T, Host_Allocator>(
             buffer_pointer, buffer_size);
-        // mark as nullptr to prevent any other slice from marking the buffer as
+        // mark buffer as invalid to prevent any other slice from marking the buffer as
         // unsued
-        buffer_pointer = nullptr;
+        valid = false;
       }
     }
   }
@@ -768,8 +766,15 @@ int hpx_main(int argc, char *argv[]) {
   stream_pool::init<hpx::cuda::experimental::cuda_executor,
                     round_robin_pool<hpx::cuda::experimental::cuda_executor>>(
       8, 0, false);
-
+  hpx::cuda::experimental::cuda_executor executor2 =
+      std::get<0>(stream_pool::get_interface<
+                  hpx::cuda::experimental::cuda_executor,
+                  round_robin_pool<hpx::cuda::experimental::cuda_executor>>());
   stream_pool::init<Dummy_Executor, round_robin_pool<Dummy_Executor>>(8);
+  stream_pool::init<Aggregated_Executor<Dummy_Executor>,
+                    round_robin_pool<Aggregated_Executor<Dummy_Executor>>>(
+      8, 4, Aggregated_Executor_Modes::STRICT);
+
   /*hpx::cuda::experimental::cuda_executor executor1 =
       std::get<0>(stream_pool::get_interface<
                   hpx::cuda::experimental::cuda_executor,
