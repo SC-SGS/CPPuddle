@@ -165,7 +165,7 @@ public:
   template <typename... Ts>
   priority_pool_multi_gpu(size_t number_of_streams, int number_of_gpus,
                           Ts &&... executor_args)
-      : streams_per_gpu(number_of_gpus) {
+      : streams_per_gpu(number_of_streams) {
     ref_counters.reserve(number_of_gpus);
     priorities.reserve(number_of_gpus);
     for (auto gpu_id = 0; gpu_id < number_of_gpus; gpu_id++) {
