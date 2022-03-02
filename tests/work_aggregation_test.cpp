@@ -173,8 +173,8 @@ private:
   const bool async_mode;
 
 #ifndef NDEBUG
-#pragma message(                                                               \
-    "Running slow work aggegator debug build! Run with NDEBUG defined for fast build...")
+#pragma message                                                                \
+    "Running slow work aggegator debug build! Run with NDEBUG defined for fast build..."
   /// Stores the function call of the first slice as reference for error
   /// checking
   std::any function_tuple;
@@ -380,7 +380,7 @@ public:
 //===============================================================================
 //===============================================================================
 
-enum class Aggregated_Executor_Modes { EAGER = 1, STRICT };
+enum class Aggregated_Executor_Modes { EAGER = 1, STRICT, ENDLESS };
 /// Declaration since the actual allocator is only defined after the Executors
 template <typename T, typename Host_Allocator, typename Executor>
 class Allocator_Slice;
@@ -557,8 +557,8 @@ public:
       if (valid) {
         recycler::detail::buffer_recycler::mark_unused<T, Host_Allocator>(
             buffer_pointer, buffer_size);
-        // mark buffer as invalid to prevent any other slice from marking the buffer as
-        // unsued
+        // mark buffer as invalid to prevent any other slice from marking the
+        // buffer as unsued
         valid = false;
       }
     }
@@ -605,6 +605,11 @@ public:
         last_stream_launch_done, std::forward<F>(f), std::forward<Ts>(ts)...);
   }
 
+  bool slice_available(void) {
+    std::lock_guard<std::mutex> guard(mut);
+    return !slices_exhausted;
+  }
+
   hpx::lcos::future<Executor_Slice> request_executor_slice() {
     std::lock_guard<std::mutex> guard(mut);
     if (!slices_exhausted) {
@@ -632,7 +637,7 @@ public:
           }
         });
       }
-      if (current_slices == max_slices) {
+      if (current_slices >= max_slices && mode != Aggregated_Executor_Modes::ENDLESS) {
         slices_exhausted = true;
         size_t id = 0;
         for (auto &slice_promise : executor_slices) {
@@ -723,16 +728,85 @@ operator!=(Allocator_Slice<T, Host_Allocator, Executor> const &,
 
 //===============================================================================
 //===============================================================================
+// Pool Strategy:
 
-// TODO Add buffer aggregation class
-// Needs
-// - Mutex/flag to stop giving out new slices?
-// - std::vector with the futures for slices we gave out
-// - Mutex synchronizing access to the vector
-// - The Actual buffer...
-// - A slice counter
-// - Memcpy operations (API) to and from the device
-//
+// TODO Do I need the ref_counters?
+// TODO Do I actually need a mutex for most of this (except emplace back and ref
+// counter)?
+template <class Interface> class aggregation_pool {
+private:
+  std::deque<Interface> pool{};
+  std::vector<size_t> ref_counters{};
+  size_t current_interface{0};
+
+  const size_t slices;
+
+public:
+  template <typename... Ts>
+  explicit aggregation_pool(size_t number_of_streams, size_t slices)
+      : slices(slices) {
+    ref_counters.reserve(number_of_streams);
+    for (int i = 0; i < number_of_streams; i++) {
+      pool.emplace_back(slices, Aggregated_Executor_Modes::EAGER);
+      ref_counters.emplace_back(0);
+    }
+  }
+  // return a tuple with the interface and its index (to release it later)
+  std::tuple<Interface &, size_t> get_interface() {
+    if (pool[current_interface].slice_available()) {
+      ref_counters[current_interface]++;
+      std::tuple<Interface &, size_t> ret(pool[current_interface],
+                                          current_interface);
+      return ret;
+    }
+    size_t counter = 0;
+    do {
+      current_interface = (current_interface + 1) % pool.size();
+      counter++;
+    } while (!pool[current_interface].slice_available() &&
+             counter < pool.size());
+
+    if (pool[current_interface].slice_available()) {
+      ref_counters[current_interface]++;
+      std::tuple<Interface &, size_t> ret(pool[current_interface],
+                                          current_interface);
+      return ret;
+    }
+    pool.emplace_back(slices, Aggregated_Executor_Modes::EAGER);
+    ref_counters.emplace_back(0);
+
+    current_interface = pool.size() - 1;
+    ref_counters[current_interface]++;
+    std::tuple<Interface &, size_t> ret(pool[current_interface],
+                                        current_interface);
+    return ret;
+  }
+  void release_interface(size_t index) { ref_counters[index]--; }
+  bool interface_available(size_t load_limit) {
+    return *(std::min_element(std::begin(ref_counters),
+                              std::end(ref_counters))) < load_limit;
+  }
+  size_t get_current_load() {
+    return *(
+        std::min_element(std::begin(ref_counters), std::end(ref_counters)));
+  }
+  size_t get_next_device_id() {
+    return 0; // single gpu pool
+  }
+};
+
+template <class Interface> 
+hpx::lcos::future<typename Interface::Executor_Slice> request_aggregation_executor() {
+  // Note: This may cause us to use number_slices + x exector slices due to racing
+  auto &agg_exec =
+  std::get<0>(stream_pool::get_interface<
+              Aggregated_Executor<Dummy_Executor>,
+              aggregation_pool<Aggregated_Executor<Dummy_Executor>>>());
+  return agg_exec.request_executor_slice();
+}
+
+//===============================================================================
+//===============================================================================
 
 int hpx_main(int argc, char *argv[]) {
   // Init parameters
@@ -766,14 +840,15 @@ int hpx_main(int argc, char *argv[]) {
   stream_pool::init<hpx::cuda::experimental::cuda_executor,
                     round_robin_pool<hpx::cuda::experimental::cuda_executor>>(
       8, 0, false);
-  hpx::cuda::experimental::cuda_executor executor2 =
-      std::get<0>(stream_pool::get_interface<
-                  hpx::cuda::experimental::cuda_executor,
-                  round_robin_pool<hpx::cuda::experimental::cuda_executor>>());
   stream_pool::init<Dummy_Executor, round_robin_pool<Dummy_Executor>>(8);
+
   stream_pool::init<Aggregated_Executor<Dummy_Executor>,
                     round_robin_pool<Aggregated_Executor<Dummy_Executor>>>(
       8, 4, Aggregated_Executor_Modes::STRICT);
+
+  stream_pool::init<Aggregated_Executor<Dummy_Executor>,
+                    aggregation_pool<Aggregated_Executor<Dummy_Executor>>>(
+      8, static_cast<size_t>(2));
 
   /*hpx::cuda::experimental::cuda_executor executor1 =
       std::get<0>(stream_pool::get_interface<
@@ -787,9 +862,16 @@ int hpx_main(int argc, char *argv[]) {
   hpx::cout << "Sequential test with all executor slices" << std::endl;
   hpx::cout << "----------------------------------------" << std::endl;
   {
-    static const char kernelname1[] = "Dummy Kernel 1";
-    Aggregated_Executor<decltype(executor1)> agg_exec{
-        4, Aggregated_Executor_Modes::STRICT};
+    /*Aggregated_Executor<decltype(executor1)> agg_exec{
+        4, Aggregated_Executor_Modes::STRICT};*/
+    /*auto &agg_exec =
+        std::get<0>(stream_pool::get_interface<
+                    Aggregated_Executor<Dummy_Executor>,
+                    round_robin_pool<Aggregated_Executor<Dummy_Executor>>>());*/
+    auto &agg_exec =
+        std::get<0>(stream_pool::get_interface<
+                    Aggregated_Executor<Dummy_Executor>,
+                    aggregation_pool<Aggregated_Executor<Dummy_Executor>>>());
 
     auto slice_fut1 = agg_exec.request_executor_slice();
 
@@ -910,7 +992,6 @@ int hpx_main(int argc, char *argv[]) {
   hpx::cout << "Sequential test with interruption:" << std::endl;
   hpx::cout << "----------------------------------" << std::endl;
   {
-    static const char kernelname1[] = "Dummy Kernel 2";
     Aggregated_Executor<decltype(executor1)> agg_exec{
         4, Aggregated_Executor_Modes::EAGER};
 
@@ -1018,8 +1099,12 @@ int hpx_main(int argc, char *argv[]) {
   hpx::cout << "--------------------------------------------------------"
             << std::endl;
   {
-    Aggregated_Executor<decltype(executor1)> agg_exec{
-        4, Aggregated_Executor_Modes::STRICT};
+    /*Aggregated_Executor<decltype(executor1)> agg_exec{
+        4, Aggregated_Executor_Modes::STRICT};*/
+    auto &agg_exec =
+        std::get<0>(stream_pool::get_interface<
+                    Aggregated_Executor<Dummy_Executor>,
+                    round_robin_pool<Aggregated_Executor<Dummy_Executor>>>());
     std::vector<float> erg(512);
 
     auto slice_fut1 = agg_exec.request_executor_slice();
@@ -1170,8 +1255,12 @@ int hpx_main(int argc, char *argv[]) {
   hpx::cout << "----------------------------------------------------"
             << std::endl;
   {
-    Aggregated_Executor<decltype(executor1)> agg_exec{
-        4, Aggregated_Executor_Modes::STRICT};
+    /*Aggregated_Executor<decltype(executor1)> agg_exec{
+        4, Aggregated_Executor_Modes::STRICT};*/
+    auto &agg_exec =
+        std::get<0>(stream_pool::get_interface<
+                    Aggregated_Executor<Dummy_Executor>,
+                    round_robin_pool<Aggregated_Executor<Dummy_Executor>>>());
     std::vector<float> erg(512);
 
     auto slice_fut1 = agg_exec.request_executor_slice();
