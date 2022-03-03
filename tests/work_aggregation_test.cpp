@@ -637,7 +637,8 @@ public:
           }
         });
       }
-      if (current_slices >= max_slices && mode != Aggregated_Executor_Modes::ENDLESS) {
+      if (current_slices >= max_slices &&
+          mode != Aggregated_Executor_Modes::ENDLESS) {
         slices_exhausted = true;
         size_t id = 0;
         for (auto &slice_promise : executor_slices) {
@@ -730,10 +731,54 @@ operator!=(Allocator_Slice<T, Host_Allocator, Executor> const &,
 //===============================================================================
 // Pool Strategy:
 
-// TODO Do I need the ref_counters?
-// TODO Do I actually need a mutex for most of this (except emplace back and ref
-// counter)?
-template <class Interface> class aggregation_pool {
+template <const char *kernelname, class Interface, class Pool>
+class aggregation_pool {
+public:
+  /// interface
+  template <typename... Ts>
+  static void init(size_t number_of_executors, size_t slices_per_executor,
+                   Aggregated_Executor_Modes mode) {
+    std::lock_guard<std::mutex> guard(instance.pool_mutex);
+    assert(instance.aggregation_pool.empty());
+    for (int i = 0; i < number_of_executors; i++) {
+      instance.aggregation_executor_pool.emplace_back(slices_per_executor, mode);
+    }
+    instance.slices_per_executor = slices_per_executor;
+    instance.mode = mode;
+  }
+  static decltype(auto) request_executor_slice(void) {
+    assert(!instance.aggregation_pool.empty());
+    // TODO impl
+  }
+  static decltype(auto) request_optional_executor_slice(void) {
+    assert(!instance.aggregation_pool.empty());
+    // TODO impl
+  }
+
+private:
+  std::deque<Aggregated_Executor<Interface>> aggregation_executor_pool;
+  std::atomic<size_t> current_interface{0};
+  size_t slices_per_executor;
+  Aggregated_Executor_Modes mode;
+
+private:
+  /// Required for dealing with adding elements to the deque of
+  /// aggregated_executors
+  static inline std::mutex pool_mutex;
+  /// Global access instance
+  static inline aggregation_pool instance{};
+  aggregation_pool() = default;
+
+public:
+  ~aggregation_pool() = default;
+  // Bunch of constructors we don't need
+  aggregation_pool(aggregation_pool const &other) = delete;
+  aggregation_pool &operator=(aggregation_pool const &other) = delete;
+  aggregation_pool(aggregation_pool &&other) = delete;
+  aggregation_pool &operator=(aggregation_pool &&other) = delete;
+};
+
+/*template <class Interface> class aggregation_pool {
 private:
   std::deque<Interface> pool{};
   std::vector<size_t> ref_counters{};
@@ -793,17 +838,7 @@ public:
   size_t get_next_device_id() {
     return 0; // single gpu pool
   }
-};
-
-template <class Interface> 
-hpx::lcos::future<typename Interface::Executor_Slice> request_aggregation_executor() {
-  // Note: This may cause us to use number_slices + x exector slices due to racing
-  auto &agg_exec =
-  std::get<0>(stream_pool::get_interface<
-              Aggregated_Executor<Dummy_Executor>,
-              aggregation_pool<Aggregated_Executor<Dummy_Executor>>>());
-  return agg_exec.request_executor_slice();
-}
+};*/
 
 //===============================================================================
 //===============================================================================
@@ -846,9 +881,10 @@ int hpx_main(int argc, char *argv[]) {
                     round_robin_pool<Aggregated_Executor<Dummy_Executor>>>(
       8, 4, Aggregated_Executor_Modes::STRICT);
 
-  stream_pool::init<Aggregated_Executor<Dummy_Executor>,
-                    aggregation_pool<Aggregated_Executor<Dummy_Executor>>>(
-      8, static_cast<size_t>(2));
+  static const char kernelname[] = "kernel1";
+  using kernel_pool1 = aggregation_pool<kernelname, Dummy_Executor,
+                                        round_robin_pool<Dummy_Executor>>;
+  kernel_pool1::init(8, 4, Aggregated_Executor_Modes::EAGER);
 
   /*hpx::cuda::experimental::cuda_executor executor1 =
       std::get<0>(stream_pool::get_interface<
@@ -864,14 +900,10 @@ int hpx_main(int argc, char *argv[]) {
   {
     /*Aggregated_Executor<decltype(executor1)> agg_exec{
         4, Aggregated_Executor_Modes::STRICT};*/
-    /*auto &agg_exec =
-        std::get<0>(stream_pool::get_interface<
-                    Aggregated_Executor<Dummy_Executor>,
-                    round_robin_pool<Aggregated_Executor<Dummy_Executor>>>());*/
     auto &agg_exec =
         std::get<0>(stream_pool::get_interface<
                     Aggregated_Executor<Dummy_Executor>,
-                    aggregation_pool<Aggregated_Executor<Dummy_Executor>>>());
+                    round_robin_pool<Aggregated_Executor<Dummy_Executor>>>());
 
     auto slice_fut1 = agg_exec.request_executor_slice();
 
