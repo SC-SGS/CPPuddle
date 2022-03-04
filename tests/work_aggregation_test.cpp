@@ -38,7 +38,6 @@
 #include "../include/stream_manager.hpp"
 #include <hpx/futures/future.hpp>
 
-
 //===============================================================================
 //===============================================================================
 // Helper functions/classes
@@ -198,7 +197,11 @@ public:
     if (async_mode)
       potential_async_promises.resize(number_slices);
   }
-  ~aggregated_function_call(void) { assert(slice_counter == number_slices); }
+  ~aggregated_function_call(void) {
+    //std::cerr << slice_counter << " vs " << number_slices << std::endl;
+    //std::cin.get();
+    assert(slice_counter == number_slices);
+  }
   template <typename F, typename... Ts>
   void post_when(hpx::lcos::future<void> &stream_future, F &&f, Ts &&...ts) {
 #ifndef NDEBUG
@@ -421,6 +424,7 @@ public:
     /// behaviour of kernel launches
     size_t launch_counter{0};
     size_t buffer_counter{0};
+    bool notify_parent_about_destruction{true};
 
   public:
     /// How many slices are there overall - required to check the launch
@@ -430,11 +434,33 @@ public:
     using executor_t = Executor;
     Executor_Slice(Aggregated_Executor &parent, const size_t slice_id,
                    const size_t number_slices)
-        : parent(parent), number_slices(number_slices), id(slice_id) {}
+        : parent(parent), notify_parent_about_destruction(true),
+          number_slices(number_slices), id(slice_id) {}
     ~Executor_Slice(void) {
+
       // Just checking that all buffers have been released before executor goes
       // out of scope
-      assert(buffer_counter == 0);
+      if (notify_parent_about_destruction) {
+        assert(buffer_counter == 0);
+        assert(launch_counter == parent.function_calls.size());
+      }
+    }
+    Executor_Slice(const Executor_Slice &other) = delete;
+    Executor_Slice &operator=(const Executor_Slice &other) = delete;
+    Executor_Slice(Executor_Slice &&other)
+        : parent(other.parent), launch_counter(std::move(other.launch_counter)),
+          buffer_counter(std::move(other.buffer_counter)),
+          number_slices(std::move(other.number_slices)),
+          id(std::move(other.id)) {
+      other.notify_parent_about_destruction = false;
+    }
+    Executor_Slice &operator=(Executor_Slice &&other) {
+      parent = other.parent;
+      launch_counter = std::move(other.launch_counter);
+      buffer_counter = std::move(other.buffer_counter);
+      number_slices = std::move(other.number_slices);
+      id = std::move(other.id);
+      other.notify_parent_about_destruction = false;
     }
     template <typename T, typename Host_Allocator>
     Allocator_Slice<T, Host_Allocator, Executor> make_allocator() {
@@ -667,7 +693,7 @@ public:
     // After that everything should be cleaned up already by the Slice executors
     // going out of scope
     // TODO fix function calls assert
-    //assert(function_calls.empty());
+    // assert(function_calls.empty());
     // assert(buffer_allocations.empty());
   }
 
@@ -946,8 +972,8 @@ int hpx_main(int argc, char *argv[]) {
   hpx::cout << "Sequential test with all executor slices" << std::endl;
   hpx::cout << "----------------------------------------" << std::endl;
   {
-    /*Aggregated_Executor<decltype(executor1)> agg_exec{
-        4, Aggregated_Executor_Modes::STRICT};*/
+    // Aggregated_Executor<decltype(executor1)> agg_exec{
+    //   4, Aggregated_Executor_Modes::STRICT};*/
     auto &agg_exec =
         std::get<0>(stream_pool::get_interface<
                     Aggregated_Executor<Dummy_Executor>,
@@ -1029,7 +1055,7 @@ int hpx_main(int argc, char *argv[]) {
         hpx::cout << "Executor 3 ID is " << slice_exec.id << std::endl;
         std::vector<float, decltype(alloc)> some_data(
             slice_exec.number_slices * 10, float{}, alloc);
-        std::vector<float, decltype(alloc)> some_data2(
+        std::vector<float, decltype(alloc)> somedata2(
             slice_exec.number_slices * 20, float{}, alloc);
         std::vector<int, decltype(alloc_int)> some_ints(
             slice_exec.number_slices * 20, int{}, alloc_int);
@@ -1386,8 +1412,9 @@ int hpx_main(int argc, char *argv[]) {
     auto final_fut = hpx::lcos::when_all(slices_done_futs);
     final_fut.get();
 
-    hpx::cout << "Number add_pointer_launches=" << add_pointer_launches << std::endl;
-    assert(add_pointer_launches == 1);
+    hpx::cout << "Number add_pointer_launches=" << add_pointer_launches
+              << std::endl;
+    assert(add_pointer_launches == 2);
     hpx::cout << "Checking erg: " << std::endl;
     for (int slice = 0; slice < 4; slice++) {
       for (int i = slice * 128; i < (slice + 1) * 128; i++) {
