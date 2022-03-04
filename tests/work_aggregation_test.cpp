@@ -20,6 +20,7 @@
 #include <typeinfo>
 #include <utility>
 
+#undef NDEBUG
 #include <hpx/hpx_init.hpp>
 #include <hpx/include/async.hpp>
 #include <hpx/include/iostreams.hpp>
@@ -37,7 +38,6 @@
 #include "../include/stream_manager.hpp"
 #include <hpx/futures/future.hpp>
 
-#undef NDEBUG
 
 //===============================================================================
 //===============================================================================
@@ -124,26 +124,25 @@ void print_stuff2(int i, double d) {
   hpx::cout << "d is " << d << std::endl;
 }
 void print_stuff3(int i) { hpx::cout << "i is " << i << std::endl; }
+
+size_t add_pointer_launches = 0.0;
 template <typename T>
 void add_pointer(size_t aggregation_size, T *A, T *B, T *C) {
-  static std::atomic<size_t> already_called = 0;
-  assert(512 % aggregation_size == 0);
-  assert(already_called++ < 512 / aggregation_size);
+  add_pointer_launches++;
   const size_t start_id = 0;
   for (size_t i = 0; i < aggregation_size; i++) {
     C[start_id + i] = B[start_id + i] + A[start_id + i];
   }
 }
 
+size_t add_launches = 0.0;
 template <typename Container>
 void add(size_t slice_size, Container &A, Container &B, Container &C) {
-  static bool already_called = false;
-  assert(!already_called);
+  add_launches++;
   const size_t start_id = 0;
   for (size_t i = 0; i < 4 * slice_size; i++) {
     C[start_id + i] = B[start_id + i] + A[start_id + i];
   }
-  already_called = true;
 }
 /*void print_stuff1(int *used_slices, int i) {
   hpx::cout << "i is " << i << "(Slice " << *used_slices << ")" << std::endl;
@@ -667,8 +666,9 @@ public:
     current_continuation.get();
     // After that everything should be cleaned up already by the Slice executors
     // going out of scope
-    assert(function_calls.empty());
-    assert(buffer_allocations.empty());
+    // TODO fix function calls assert
+    //assert(function_calls.empty());
+    // assert(buffer_allocations.empty());
   }
 
   // TODO Change executor constructor to query stream manager
@@ -746,7 +746,7 @@ public:
   static void init(size_t number_of_executors, size_t slices_per_executor,
                    Aggregated_Executor_Modes mode) {
     std::lock_guard<std::mutex> guard(instance.pool_mutex);
-    assert(instance.aggregation_pool.empty());
+    assert(instance.aggregation_executor_pool.empty());
     for (int i = 0; i < number_of_executors; i++) {
       instance.aggregation_executor_pool.emplace_back(slices_per_executor,
                                                       mode);
@@ -757,7 +757,7 @@ public:
 
   /// Will always return a valid executor slice
   static decltype(auto) request_executor_slice(void) {
-    assert(!instance.aggregation_pool.empty());
+    assert(!instance.aggregation_executor_pool.empty());
     std::optional<hpx::lcos::future<
         typename Aggregated_Executor<Interface>::Executor_Slice>>
         ret;
@@ -1232,9 +1232,12 @@ int hpx_main(int argc, char *argv[]) {
         size_t chunksize = 512 / slice_exec.number_slices;
         const size_t task_id = 0;
         // Get slice buffers
-        std::vector<float, decltype(alloc)> A(128 * slice_exec.number_slices, float{}, alloc);
-        std::vector<float, decltype(alloc)> B(128 * slice_exec.number_slices, float{}, alloc);
-        std::vector<float, decltype(alloc)> C(128 * slice_exec.number_slices, float{}, alloc);
+        std::vector<float, decltype(alloc)> A(128 * slice_exec.number_slices,
+                                              float{}, alloc);
+        std::vector<float, decltype(alloc)> B(128 * slice_exec.number_slices,
+                                              float{}, alloc);
+        std::vector<float, decltype(alloc)> C(128 * slice_exec.number_slices,
+                                              float{}, alloc);
         // Fill slice buffers
         for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
           A[i] = task_id + 1;
@@ -1242,8 +1245,9 @@ int hpx_main(int argc, char *argv[]) {
         }
 
         // Run add function
-        auto kernel_fut = slice_exec.async(add_pointer<float>, slice_exec.number_slices * 128,
-                                           A.data(), B.data(), C.data());
+        auto kernel_fut =
+            slice_exec.async(add_pointer<float>, slice_exec.number_slices * 128,
+                             A.data(), B.data(), C.data());
         // Sync immediately
         kernel_fut.get();
 
@@ -1268,9 +1272,12 @@ int hpx_main(int argc, char *argv[]) {
         size_t chunksize = 512 / slice_exec.number_slices;
         const size_t task_id = 1;
         // Get slice buffers
-        std::vector<float, decltype(alloc)> A(128 * slice_exec.number_slices, float{}, alloc);
-        std::vector<float, decltype(alloc)> B(128 * slice_exec.number_slices, float{}, alloc);
-        std::vector<float, decltype(alloc)> C(128 * slice_exec.number_slices, float{}, alloc);
+        std::vector<float, decltype(alloc)> A(128 * slice_exec.number_slices,
+                                              float{}, alloc);
+        std::vector<float, decltype(alloc)> B(128 * slice_exec.number_slices,
+                                              float{}, alloc);
+        std::vector<float, decltype(alloc)> C(128 * slice_exec.number_slices,
+                                              float{}, alloc);
         // Fill slice buffers
         for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
           A[i] = task_id + 1;
@@ -1278,8 +1285,9 @@ int hpx_main(int argc, char *argv[]) {
         }
 
         // Run add function
-        auto kernel_fut = slice_exec.async(add_pointer<float>, slice_exec.number_slices * 128,
-                                           A.data(), B.data(), C.data());
+        auto kernel_fut =
+            slice_exec.async(add_pointer<float>, slice_exec.number_slices * 128,
+                             A.data(), B.data(), C.data());
         // Sync immediately
         kernel_fut.get();
 
@@ -1304,9 +1312,12 @@ int hpx_main(int argc, char *argv[]) {
         size_t chunksize = 512 / slice_exec.number_slices;
         const size_t task_id = 2;
         // Get slice buffers
-        std::vector<float, decltype(alloc)> A(128 * slice_exec.number_slices, float{}, alloc);
-        std::vector<float, decltype(alloc)> B(128 * slice_exec.number_slices, float{}, alloc);
-        std::vector<float, decltype(alloc)> C(128 * slice_exec.number_slices, float{}, alloc);
+        std::vector<float, decltype(alloc)> A(128 * slice_exec.number_slices,
+                                              float{}, alloc);
+        std::vector<float, decltype(alloc)> B(128 * slice_exec.number_slices,
+                                              float{}, alloc);
+        std::vector<float, decltype(alloc)> C(128 * slice_exec.number_slices,
+                                              float{}, alloc);
         // Fill slice buffers
         for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
           A[i] = task_id + 1;
@@ -1314,8 +1325,9 @@ int hpx_main(int argc, char *argv[]) {
         }
 
         // Run add function
-        auto kernel_fut = slice_exec.async(add_pointer<float>, slice_exec.number_slices * 128,
-                                           A.data(), B.data(), C.data());
+        auto kernel_fut =
+            slice_exec.async(add_pointer<float>, slice_exec.number_slices * 128,
+                             A.data(), B.data(), C.data());
         // Sync immediately
         kernel_fut.get();
 
@@ -1340,9 +1352,12 @@ int hpx_main(int argc, char *argv[]) {
         auto alloc =
             slice_exec.template make_allocator<float, std::allocator<float>>();
         // Get slice buffers
-        std::vector<float, decltype(alloc)> A(128 * slice_exec.number_slices, float{}, alloc);
-        std::vector<float, decltype(alloc)> B(128 * slice_exec.number_slices, float{}, alloc);
-        std::vector<float, decltype(alloc)> C(128 * slice_exec.number_slices, float{}, alloc);
+        std::vector<float, decltype(alloc)> A(128 * slice_exec.number_slices,
+                                              float{}, alloc);
+        std::vector<float, decltype(alloc)> B(128 * slice_exec.number_slices,
+                                              float{}, alloc);
+        std::vector<float, decltype(alloc)> C(128 * slice_exec.number_slices,
+                                              float{}, alloc);
         // Fill slice buffers
         for (int i = slice_exec.id * 128; i < (slice_exec.id + 1) * 128; i++) {
           A[i] = task_id + 1;
@@ -1350,8 +1365,9 @@ int hpx_main(int argc, char *argv[]) {
         }
 
         // Run add function
-        auto kernel_fut = slice_exec.async(add_pointer<float>, slice_exec.number_slices * 128,
-                                           A.data(), B.data(), C.data());
+        auto kernel_fut =
+            slice_exec.async(add_pointer<float>, slice_exec.number_slices * 128,
+                             A.data(), B.data(), C.data());
         // Sync immediately
         kernel_fut.get();
 
@@ -1370,10 +1386,12 @@ int hpx_main(int argc, char *argv[]) {
     auto final_fut = hpx::lcos::when_all(slices_done_futs);
     final_fut.get();
 
+    hpx::cout << "Number add_pointer_launches=" << add_pointer_launches << std::endl;
+    assert(add_pointer_launches == 1);
     hpx::cout << "Checking erg: " << std::endl;
     for (int slice = 0; slice < 4; slice++) {
       for (int i = slice * 128; i < (slice + 1) * 128; i++) {
-        //assert(erg[i] == 3 * slice + 1);
+        assert(erg[i] == 3 * slice + 1);
         hpx::cout << erg[i] << " ";
       }
     }
