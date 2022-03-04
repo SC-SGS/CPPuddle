@@ -198,9 +198,9 @@ public:
       potential_async_promises.resize(number_slices);
   }
   ~aggregated_function_call(void) {
-    //std::cerr << slice_counter << " vs " << number_slices << std::endl;
-    //std::cin.get();
+    // All slices should have done this call
     assert(slice_counter == number_slices);
+    assert(!all_slices_ready.valid());
   }
   template <typename F, typename... Ts>
   void post_when(hpx::lcos::future<void> &stream_future, F &&f, Ts &&...ts) {
@@ -438,11 +438,13 @@ public:
           number_slices(number_slices), id(slice_id) {}
     ~Executor_Slice(void) {
 
-      // Just checking that all buffers have been released before executor goes
-      // out of scope
+      // Don't notify parent if we moved away from this executor_slice
       if (notify_parent_about_destruction) {
+        // Executor should be done by the time of destruction
         assert(buffer_counter == 0);
         assert(launch_counter == parent.function_calls.size());
+        // Notifiy parent that this aggregation slice is one
+        parent.reduce_usage_counter();
       }
     }
     Executor_Slice(const Executor_Slice &other) = delete;
@@ -591,7 +593,7 @@ public:
         recycler::detail::buffer_recycler::mark_unused<T, Host_Allocator>(
             buffer_pointer, buffer_size);
         // mark buffer as invalid to prevent any other slice from marking the
-        // buffer as unsued
+        // buffer as unused
         valid = false;
       }
     }
@@ -660,6 +662,7 @@ public:
           std::lock_guard<std::mutex> guard(mut);
           if (!slices_exhausted) {
             slices_exhausted = true;
+            launched_slices = current_slices;
             size_t id = 0;
             for (auto &slice_promise : executor_slices) {
               slice_promise.set_value(
@@ -673,6 +676,7 @@ public:
       if (current_slices >= max_slices &&
           mode != Aggregated_Executor_Modes::ENDLESS) {
         slices_exhausted = true;
+        launched_slices = current_slices;
         size_t id = 0;
         for (auto &slice_promise : executor_slices) {
           slice_promise.set_value(Executor_Slice{*this, id, current_slices});
@@ -686,15 +690,41 @@ public:
       return std::optional<hpx::lcos::future<Executor_Slice>>{};
     }
   }
+  size_t launched_slices;
+  void reduce_usage_counter(void) {
+    std::lock_guard<std::mutex> guard(mut);
+    assert(slices_exhausted);
+    assert(current_slices >= 0 && current_slices <= launched_slices);
+    // First slice goes out of scope?
+    if (current_slices == launched_slices) {
+      // Finish the continuation to not leave a dangling task!
+      // otherwise the continuation might access data of non-existent object...
+      current_continuation.get();
+      last_stream_launch_done.get();
+    }
+    current_slices--;
+    // Last slice goes out scope?
+    if (current_slices == 0) {
+      std::lock_guard<std::mutex> guard(buffer_mut);
+      function_calls.clear();
+#ifndef NDEBUG
+      for (const auto &buffer_entry : buffer_allocations) {
+        const auto &[buffer_pointer_any, buffer_size, buffer_allocation_counter,
+                     valid] = buffer_entry;
+        assert(!valid);
+      }
+#endif
+      buffer_allocations.clear();
+      // Mark executor fit for reusage
+      slices_exhausted = false;
+    }
+  }
   ~Aggregated_Executor(void) {
-    // Finish the continuation to not leave a dangling task!
-    // otherwise the continuation might access data of non-existent object...
-    current_continuation.get();
-    // After that everything should be cleaned up already by the Slice executors
-    // going out of scope
-    // TODO fix function calls assert
-    // assert(function_calls.empty());
-    // assert(buffer_allocations.empty());
+    // Aggregated exector should only be deleted if there's currently no aggregation calls going on
+    assert(function_calls.empty());
+    assert(buffer_allocations.empty());
+    assert(current_slices == 0);
+    assert(!slices_exhausted);
   }
 
   // TODO Change executor constructor to query stream manager
