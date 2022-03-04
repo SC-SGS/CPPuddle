@@ -247,30 +247,30 @@ public:
               "itself) do not match ");
         }
       } catch (const std::bad_any_cast &e) {
-        hpx::cout
+        std::cerr
             << "\nMismatched types error in aggregated post call of executor "
             << ": " << e.what() << "\n";
-        hpx::cout << "Expected types:\t\t "
+        std::cerr << "Expected types:\t\t "
                   << boost::core::demangle(debug_type_information.c_str());
-        hpx::cout << "\nGot types:\t\t "
+        std::cerr << "\nGot types:\t\t "
                   << boost::core::demangle(
                          typeid(decltype(comparison_tuple)).name())
                   << "\n"
                   << std::endl;
         throw;
       } catch (const std::runtime_error &e) {
-        hpx::cout
+        std::cerr
             << "\nMismatched values error in aggregated post call of executor "
             << ": " << e.what() << std::endl;
-        hpx::cout << "Types (matched):\t "
+        std::cerr << "Types (matched):\t "
                   << boost::core::demangle(debug_type_information.c_str());
         auto orig_call_tuple =
             std::any_cast<decltype(comparison_tuple)>(function_tuple);
-        hpx::cout << "\nExpected values:\t ";
+        std::cerr << "\nExpected values:\t ";
         print_tuple(orig_call_tuple);
-        hpx::cout << "\nGot values:\t\t ";
+        std::cerr << "\nGot values:\t\t ";
         print_tuple(comparison_tuple);
-        hpx::cout << std::endl << std::endl;
+        std::cerr << std::endl << std::endl;
         throw;
       }
 #endif
@@ -336,32 +336,30 @@ public:
               "itself) do not match ");
         }
       } catch (const std::bad_any_cast &e) {
-        hpx::cout
+        std::cerr
             << "\nMismatched types error in aggregated async call of executor "
             << ": " << e.what() << "\n";
-        hpx::cout << "Expected types:\t\t "
+        std::cerr << "Expected types:\t\t "
                   << boost::core::demangle(debug_type_information.c_str());
-        hpx::cout << "\nGot types:\t\t "
+        std::cerr << "\nGot types:\t\t "
                   << boost::core::demangle(
                          typeid(decltype(comparison_tuple)).name())
                   << "\n"
                   << std::endl;
-        std::cin.get();
         throw;
       } catch (const std::runtime_error &e) {
-        hpx::cout
+        std::cerr
             << "\nMismatched values error in aggregated async call of executor "
             << ": " << e.what() << std::endl;
-        hpx::cout << "Types (matched):\t "
+        std::cerr << "Types (matched):\t "
                   << boost::core::demangle(debug_type_information.c_str());
         auto orig_call_tuple =
             std::any_cast<decltype(comparison_tuple)>(function_tuple);
-        hpx::cout << "\nExpected values:\t ";
+        std::cerr << "\nExpected values:\t ";
         print_tuple(orig_call_tuple);
-        hpx::cout << "\nGot values:\t\t ";
+        std::cerr << "\nGot values:\t\t ";
         print_tuple(comparison_tuple);
-        hpx::cout << std::endl << std::endl;
-        std::cin.get();
+        std::cerr << std::endl << std::endl;
         throw;
       }
 #endif
@@ -946,58 +944,14 @@ public:
 
 //===============================================================================
 //===============================================================================
+// Test scenarios
+//
 
-int hpx_main(int argc, char *argv[]) {
-  // Init parameters
-  {
-    std::string filename{};
-    try {
-      boost::program_options::options_description desc{"Options"};
-      desc.add_options()("help", "Help screen");
-
-      boost::program_options::variables_map vm;
-      boost::program_options::parsed_options options =
-          parse_command_line(argc, argv, desc);
-      boost::program_options::store(options, vm);
-      boost::program_options::notify(vm);
-
-      if (vm.count("help") == 0u) {
-        hpx::cout << "Running with parameters:" << std::endl << std::endl;
-      } else {
-        hpx::cout << desc << std::endl;
-        return hpx::finalize();
-      }
-    } catch (const boost::program_options::error &ex) {
-      hpx::cout << "CLI argument problem found: " << ex.what() << '\n';
-    }
-    if (!filename.empty()) {
-      freopen(filename.c_str(), "w", stdout); // NOLINT
-      freopen(filename.c_str(), "w", stderr); // NOLINT
-    }
-  }
-
-  stream_pool::init<hpx::cuda::experimental::cuda_executor,
-                    round_robin_pool<hpx::cuda::experimental::cuda_executor>>(
-      8, 0, false);
-  stream_pool::init<Dummy_Executor, round_robin_pool<Dummy_Executor>>(8);
-
-  stream_pool::init<Aggregated_Executor<Dummy_Executor>,
-                    round_robin_pool<Aggregated_Executor<Dummy_Executor>>>(
-      8, 4, Aggregated_Executor_Modes::STRICT);
-
+void sequential_test(void) {
   static const char kernelname[] = "kernel1";
   using kernel_pool1 = aggregation_pool<kernelname, Dummy_Executor,
                                         round_robin_pool<Dummy_Executor>>;
   kernel_pool1::init(8, 2, Aggregated_Executor_Modes::STRICT);
-
-  /*hpx::cuda::experimental::cuda_executor executor1 =
-      std::get<0>(stream_pool::get_interface<
-                  hpx::cuda::experimental::cuda_executor,
-                  round_robin_pool<hpx::cuda::experimental::cuda_executor>>());*/
-  Dummy_Executor executor1 = std::get<0>(
-      stream_pool::get_interface<Dummy_Executor,
-                                 round_robin_pool<Dummy_Executor>>());
-
   // Sequential test
   hpx::cout << "Sequential test with all executor slices" << std::endl;
   hpx::cout << "----------------------------------------" << std::endl;
@@ -1141,14 +1095,14 @@ int hpx_main(int argc, char *argv[]) {
     final_fut.get();
   }
   hpx::cout << std::endl;
-  // recycler::force_cleanup();
-  // std::cin.get();
+}
 
+void interruption_test(void) {
   // Interruption test
   hpx::cout << "Sequential test with interruption:" << std::endl;
   hpx::cout << "----------------------------------" << std::endl;
   {
-    Aggregated_Executor<decltype(executor1)> agg_exec{
+    Aggregated_Executor<Dummy_Executor> agg_exec{
         4, Aggregated_Executor_Modes::EAGER};
     std::vector<hpx::lcos::future<void>> slices_done_futs;
 
@@ -1205,53 +1159,57 @@ int hpx_main(int argc, char *argv[]) {
   }
   hpx::cout << std::endl;
   // recycler::force_cleanup();
+}
 
+void failure_test(void) {
   // Error test
-  /*hpx::cout << "Error test with all wrong types and values in 2 slices"
+  hpx::cout << "Error test with all wrong types and values in 2 slices"
             << std::endl;
   hpx::cout << "------------------------------------------------------"
             << std::endl;
   {
-    Aggregated_Executor<decltype(executor1)> agg_exec{4};
+    Aggregated_Executor<Dummy_Executor> agg_exec{4, Aggregated_Executor_Modes::STRICT};
 
     auto slice_fut1 = agg_exec.request_executor_slice();
 
     std::vector<hpx::lcos::future<void>> slices_done_futs;
-    slices_done_futs.emplace_back(slice_fut1.then([](auto &&fut) {
+    slices_done_futs.emplace_back(slice_fut1.value().then([](auto &&fut) {
       auto slice_exec = fut.get();
       hpx::cout << "Got executor 1" << std::endl;
       slice_exec.post(print_stuff1, 3);
     }));
 
     auto slice_fut2 = agg_exec.request_executor_slice();
-    slices_done_futs.emplace_back(slice_fut2.then([](auto &&fut) {
+    slices_done_futs.emplace_back(slice_fut2.value().then([](auto &&fut) {
       auto slice_exec = fut.get();
       hpx::cout << "Got executor 2" << std::endl;
       slice_exec.post(print_stuff1, 3);
     }));
 
     auto slice_fut3 = agg_exec.request_executor_slice();
-    slices_done_futs.emplace_back(slice_fut3.then([](auto &&fut) {
+    slices_done_futs.emplace_back(slice_fut3.value().then([](auto &&fut) {
       auto slice_exec = fut.get();
       hpx::cout << "Got executor 3" << std::endl;
       try {
         slice_exec.post(print_stuff1, 3.0f);
       } catch (...) {
-        hpx::cout << "TEST succeeded: Found type error exception!\n"
+        hpx::cerr << "TEST succeeded: Found type error exception!\n"
                   << std::endl;
+        throw;
       }
     }));
 
     auto slice_fut4 = agg_exec.request_executor_slice();
-    slices_done_futs.emplace_back(slice_fut4.then([](auto &&fut) {
+    slices_done_futs.emplace_back(slice_fut4.value().then([](auto &&fut) {
       auto slice_exec = fut.get();
       hpx::cout << "Got executor 4" << std::endl;
       // TODO How to propagate the exception?
       try {
         slice_exec.post(print_stuff_error, 3);
       } catch (...) {
-        hpx::cout << "TEST succeeded: Found value error exception!\n"
+        hpx::cerr << "TEST succeeded: Found value error exception!\n"
                   << std::endl;
+        throw;
       }
     }));
 
@@ -1259,11 +1217,11 @@ int hpx_main(int argc, char *argv[]) {
     hpx::cout << "Realizing by equesting final fut..." << std::endl;
     auto final_fut = hpx::lcos::when_all(slices_done_futs);
     final_fut.get();
-    agg_exec.dummy_stream_promise.set_value();
   }
-  hpx::cout << std::endl;*/
+  hpx::cout << std::endl;
+}
 
-  // Add test 1
+void pointer_add_test(void) {
   hpx::cout << "Host aggregated add pointer example (no references used)"
             << std::endl;
   hpx::cout << "--------------------------------------------------------"
@@ -1456,7 +1414,9 @@ int hpx_main(int argc, char *argv[]) {
   }
   // recycler::force_cleanup();
   hpx::cout << std::endl;
+}
 
+void references_add_test(void) {
   hpx::cout << "Host aggregated add vector example (references used)"
             << std::endl;
   hpx::cout << "----------------------------------------------------"
@@ -1629,10 +1589,86 @@ int hpx_main(int argc, char *argv[]) {
 
   hpx::cout << "Done!" << std::endl;
   hpx::cout << std::endl;
-  // std::cin.get();
+}
 
-  // recycler::force_cleanup(); // Cleanup all buffers and the managers for
-  // better
+//===============================================================================
+//===============================================================================
+int hpx_main(int argc, char *argv[]) {
+  // Init parameters
+  std::string scenario{};
+  std::string filename{};
+  {
+    try {
+    boost::program_options::options_description desc{"Options"};
+    desc.add_options()("help", "Help screen")(
+        "scenario",
+        boost::program_options::value<std::string>(&scenario)->default_value(
+            "all"),
+        "Which scenario to run [sequential_test, interruption_test, failure_test, pointer_add_test, references_add_test, all]")(
+        "outputfile",
+        boost::program_options::value<std::string>(&filename)->default_value(
+            ""),
+        "Redirect stdout/stderr to this file");
+
+      boost::program_options::variables_map vm;
+      boost::program_options::parsed_options options =
+          parse_command_line(argc, argv, desc);
+      boost::program_options::store(options, vm);
+      boost::program_options::notify(vm);
+
+      if (vm.count("help") == 0u) {
+        hpx::cout << "Running with parameters:" << std::endl 
+          << "--scenario=" << scenario << std::endl
+          << "--outputfile=" << filename << std::endl;
+      } else {
+        hpx::cout << desc << std::endl;
+        return hpx::finalize();
+      }
+    } catch (const boost::program_options::error &ex) {
+      hpx::cout << "CLI argument problem found: " << ex.what() << '\n';
+    }
+    if (!filename.empty()) {
+      freopen(filename.c_str(), "w", stdout); // NOLINT
+      freopen(filename.c_str(), "w", stderr); // NOLINT
+    }
+  }
+  if (scenario != "sequential_test" && scenario != "interruption_test" && scenario != "failure_test" && scenario != "pointer_add_test" && scenario != "references_add_test" && scenario != "all") {
+    hpx::cerr << "ERROR: Invalid scenario specified (see --help)" << std::endl;
+    return hpx::finalize();
+  }
+
+  stream_pool::init<hpx::cuda::experimental::cuda_executor,
+                    round_robin_pool<hpx::cuda::experimental::cuda_executor>>(
+      8, 0, false);
+  stream_pool::init<Dummy_Executor, round_robin_pool<Dummy_Executor>>(8);
+
+  stream_pool::init<Aggregated_Executor<Dummy_Executor>,
+                    round_robin_pool<Aggregated_Executor<Dummy_Executor>>>(
+      8, 4, Aggregated_Executor_Modes::STRICT);
+  /*hpx::cuda::experimental::cuda_executor executor1 =
+      std::get<0>(stream_pool::get_interface<
+                  hpx::cuda::experimental::cuda_executor,
+                  round_robin_pool<hpx::cuda::experimental::cuda_executor>>());*/
+
+  // Basic tests:
+  if (scenario == "sequential_test" || scenario == "all" ) {
+    sequential_test();
+  }
+  if (scenario == "interruption_test" || scenario == "all" ) {
+    interruption_test();
+  }
+  if (scenario == "pointer_add_test" || scenario == "all" ) {
+    pointer_add_test();
+  }
+  if (scenario == "references_add_test" || scenario == "all" ) {
+    references_add_test();
+  }
+  // Test that checks failure detection in case of wrong usage (missmatching calls/types/values)
+  if (scenario == "failure_test" ) {
+    failure_test();
+  }
+
+  recycler::force_cleanup(); // Cleanup all buffers and the managers 
   return hpx::finalize();
 }
 
