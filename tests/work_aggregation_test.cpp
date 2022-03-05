@@ -8,7 +8,6 @@
 #include <atomic>
 #include <chrono>
 #include <cstdio>
-#include <hpx/synchronization/mutex.hpp>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -21,13 +20,15 @@
 #include <utility>
 
 #undef NDEBUG
+
+#include <hpx/async_cuda/cuda_executor.hpp>
+#include <hpx/futures/future.hpp>
 #include <hpx/hpx_init.hpp>
 #include <hpx/include/async.hpp>
 #include <hpx/include/iostreams.hpp>
 #include <hpx/include/lcos.hpp>
 #include <hpx/lcos/promise.hpp>
-
-#include <hpx/async_cuda/cuda_executor.hpp>
+#include <hpx/synchronization/mutex.hpp>
 
 #include <boost/core/demangle.hpp>
 #include <boost/format.hpp>
@@ -36,7 +37,6 @@
 #include "../include/buffer_manager.hpp"
 #include "../include/cuda_buffer_util.hpp"
 #include "../include/stream_manager.hpp"
-#include <hpx/futures/future.hpp>
 
 //===============================================================================
 //===============================================================================
@@ -408,7 +408,10 @@ private:
   const Aggregated_Executor_Modes mode;
   const size_t max_slices;
   size_t current_slices;
-  Executor executor;
+  /// Executor reference and its ID in the exextutor pool
+  std::tuple<Executor &, size_t> executor_tuple;
+  /// Reference to the executor (presumably residing in the executor pool)
+  Executor &executor;
 
 public:
   // Subclasses
@@ -713,26 +716,33 @@ public:
       }
 #endif
       buffer_allocations.clear();
+      // Draw new underlying executor
+      // TODO Test if it's better to redraw at the first slice request
+      stream_pool::release_interface<Executor, round_robin_pool<Executor>>(
+          std::get<1>(executor_tuple));
+      executor_tuple =
+          stream_pool::get_interface<Executor, round_robin_pool<Executor>>();
+      executor = std::get<0>(executor_tuple);
       // Mark executor fit for reusage
       slices_exhausted = false;
     }
   }
   ~Aggregated_Executor(void) {
-    // Aggregated exector should only be deleted if there's currently no aggregation calls going on
+    // Aggregated exector should only be deleted if there's currently no
+    // aggregation calls going on
     assert(function_calls.empty());
     assert(buffer_allocations.empty());
     assert(current_slices == 0);
     assert(!slices_exhausted);
   }
 
-  // TODO Change executor constructor to query stream manager
   Aggregated_Executor(const size_t number_slices,
                       Aggregated_Executor_Modes mode)
       : max_slices(number_slices), current_slices(0), slices_exhausted(false),
         mode(mode),
-        executor(std::get<0>(
-            stream_pool::get_interface<Dummy_Executor,
-                                       round_robin_pool<Dummy_Executor>>())),
+        executor_tuple(
+            stream_pool::get_interface<Executor, round_robin_pool<Executor>>()),
+        executor(std::get<0>(executor_tuple)),
         current_continuation(hpx::lcos::make_ready_future()),
         last_stream_launch_done(hpx::lcos::make_ready_future()) {}
   // Not meant to be copied or moved
@@ -1168,7 +1178,8 @@ void failure_test(void) {
   hpx::cout << "------------------------------------------------------"
             << std::endl;
   {
-    Aggregated_Executor<Dummy_Executor> agg_exec{4, Aggregated_Executor_Modes::STRICT};
+    Aggregated_Executor<Dummy_Executor> agg_exec{
+        4, Aggregated_Executor_Modes::STRICT};
 
     auto slice_fut1 = agg_exec.request_executor_slice();
 
@@ -1599,16 +1610,22 @@ int hpx_main(int argc, char *argv[]) {
   std::string filename{};
   {
     try {
-    boost::program_options::options_description desc{"Options"};
-    desc.add_options()("help", "Help screen")(
-        "scenario",
-        boost::program_options::value<std::string>(&scenario)->default_value(
-            "all"),
-        "Which scenario to run [sequential_test, interruption_test, failure_test, pointer_add_test, references_add_test, all]")(
-        "outputfile",
-        boost::program_options::value<std::string>(&filename)->default_value(
-            ""),
-        "Redirect stdout/stderr to this file");
+      boost::program_options::options_description desc{"Options"};
+      desc.add_options()(
+          "help",
+          "Help screen")("scenario",
+                         boost::program_options::value<std::string>(&scenario)
+                             ->default_value("all"),
+                         "Which scenario to run [sequential_test, "
+                         "interruption_test, failure_test, pointer_add_test, "
+                         "references_add_test, all]")("outputfile",
+                                                      boost::program_options::
+                                                          value<std::string>(
+                                                              &filename)
+                                                              ->default_value(
+                                                                  ""),
+                                                      "Redirect stdout/stderr "
+                                                      "to this file");
 
       boost::program_options::variables_map vm;
       boost::program_options::parsed_options options =
@@ -1617,9 +1634,9 @@ int hpx_main(int argc, char *argv[]) {
       boost::program_options::notify(vm);
 
       if (vm.count("help") == 0u) {
-        hpx::cout << "Running with parameters:" << std::endl 
-          << "--scenario=" << scenario << std::endl
-          << "--outputfile=" << filename << std::endl;
+        hpx::cout << "Running with parameters:" << std::endl
+                  << "--scenario=" << scenario << std::endl
+                  << "--outputfile=" << filename << std::endl;
       } else {
         hpx::cout << desc << std::endl;
         return hpx::finalize();
@@ -1632,7 +1649,9 @@ int hpx_main(int argc, char *argv[]) {
       freopen(filename.c_str(), "w", stderr); // NOLINT
     }
   }
-  if (scenario != "sequential_test" && scenario != "interruption_test" && scenario != "failure_test" && scenario != "pointer_add_test" && scenario != "references_add_test" && scenario != "all") {
+  if (scenario != "sequential_test" && scenario != "interruption_test" &&
+      scenario != "failure_test" && scenario != "pointer_add_test" &&
+      scenario != "references_add_test" && scenario != "all") {
     hpx::cerr << "ERROR: Invalid scenario specified (see --help)" << std::endl;
     return hpx::finalize();
   }
@@ -1651,24 +1670,25 @@ int hpx_main(int argc, char *argv[]) {
                   round_robin_pool<hpx::cuda::experimental::cuda_executor>>());*/
 
   // Basic tests:
-  if (scenario == "sequential_test" || scenario == "all" ) {
+  if (scenario == "sequential_test" || scenario == "all") {
     sequential_test();
   }
-  if (scenario == "interruption_test" || scenario == "all" ) {
+  if (scenario == "interruption_test" || scenario == "all") {
     interruption_test();
   }
-  if (scenario == "pointer_add_test" || scenario == "all" ) {
+  if (scenario == "pointer_add_test" || scenario == "all") {
     pointer_add_test();
   }
-  if (scenario == "references_add_test" || scenario == "all" ) {
+  if (scenario == "references_add_test" || scenario == "all") {
     references_add_test();
   }
-  // Test that checks failure detection in case of wrong usage (missmatching calls/types/values)
-  if (scenario == "failure_test" ) {
+  // Test that checks failure detection in case of wrong usage (missmatching
+  // calls/types/values)
+  if (scenario == "failure_test") {
     failure_test();
   }
 
-  recycler::force_cleanup(); // Cleanup all buffers and the managers 
+  recycler::force_cleanup(); // Cleanup all buffers and the managers
   return hpx::finalize();
 }
 
