@@ -143,14 +143,6 @@ void add(size_t slice_size, Container &A, Container &B, Container &C) {
     C[start_id + i] = B[start_id + i] + A[start_id + i];
   }
 }
-/*void print_stuff1(int *used_slices, int i) {
-  hpx::cout << "i is " << i << "(Slice " << *used_slices << ")" << std::endl;
-}
-void print_stuff2(int *used_slices, int i, double d) {
-  hpx::cout << "i is " << i << std::endl;
-  hpx::cout << "d is " << d << std::endl;
-  hpx::cout << "(Slice is " << *used_slices << ")" << std::endl;
-}*/
 
 //===============================================================================
 //===============================================================================
@@ -247,31 +239,31 @@ public:
               "itself) do not match ");
         }
       } catch (const std::bad_any_cast &e) {
-        std::cerr
+        hpx::cout
             << "\nMismatched types error in aggregated post call of executor "
             << ": " << e.what() << "\n";
-        std::cerr << "Expected types:\t\t "
+        hpx::cout << "Expected types:\t\t "
                   << boost::core::demangle(debug_type_information.c_str());
-        std::cerr << "\nGot types:\t\t "
+        hpx::cout << "\nGot types:\t\t "
                   << boost::core::demangle(
                          typeid(decltype(comparison_tuple)).name())
                   << "\n"
                   << std::endl;
-        throw;
+        // throw;
       } catch (const std::runtime_error &e) {
-        std::cerr
+        hpx::cout
             << "\nMismatched values error in aggregated post call of executor "
             << ": " << e.what() << std::endl;
-        std::cerr << "Types (matched):\t "
+        hpx::cout << "Types (matched):\t "
                   << boost::core::demangle(debug_type_information.c_str());
         auto orig_call_tuple =
             std::any_cast<decltype(comparison_tuple)>(function_tuple);
-        std::cerr << "\nExpected values:\t ";
+        hpx::cout << "\nExpected values:\t ";
         print_tuple(orig_call_tuple);
-        std::cerr << "\nGot values:\t\t ";
+        hpx::cout << "\nGot values:\t\t ";
         print_tuple(comparison_tuple);
-        std::cerr << std::endl << std::endl;
-        throw;
+        hpx::cout << std::endl << std::endl;
+        // throw;
       }
 #endif
     }
@@ -336,31 +328,31 @@ public:
               "itself) do not match ");
         }
       } catch (const std::bad_any_cast &e) {
-        std::cerr
+        hpx::cout
             << "\nMismatched types error in aggregated async call of executor "
             << ": " << e.what() << "\n";
-        std::cerr << "Expected types:\t\t "
+        hpx::cout << "Expected types:\t\t "
                   << boost::core::demangle(debug_type_information.c_str());
-        std::cerr << "\nGot types:\t\t "
+        hpx::cout << "\nGot types:\t\t "
                   << boost::core::demangle(
                          typeid(decltype(comparison_tuple)).name())
                   << "\n"
                   << std::endl;
-        throw;
+        // throw;
       } catch (const std::runtime_error &e) {
-        std::cerr
+        hpx::cout
             << "\nMismatched values error in aggregated async call of executor "
             << ": " << e.what() << std::endl;
-        std::cerr << "Types (matched):\t "
+        hpx::cout << "Types (matched):\t "
                   << boost::core::demangle(debug_type_information.c_str());
         auto orig_call_tuple =
             std::any_cast<decltype(comparison_tuple)>(function_tuple);
-        std::cerr << "\nExpected values:\t ";
+        hpx::cout << "\nExpected values:\t ";
         print_tuple(orig_call_tuple);
-        std::cerr << "\nGot values:\t\t ";
+        hpx::cout << "\nGot values:\t\t ";
         print_tuple(comparison_tuple);
-        std::cerr << std::endl << std::endl;
-        throw;
+        hpx::cout << std::endl << std::endl;
+        // throw;
       }
 #endif
     }
@@ -700,14 +692,21 @@ public:
     if (current_slices == launched_slices) {
       // Finish the continuation to not leave a dangling task!
       // otherwise the continuation might access data of non-existent object...
-      current_continuation.get();
-      last_stream_launch_done.get();
+      
+      // TODO It is possible to call this before all functions are launched
+      // (as the first 
+      // current_continuation.get();
+      // last_stream_launch_done.get();
     }
     current_slices--;
     // Last slice goes out scope?
     if (current_slices == 0) {
+      // TODO With this the buffers might be out of scope before the kernels are launched
+      current_continuation.get();
+      last_stream_launch_done.get();
       std::lock_guard<std::mutex> guard(buffer_mut);
       function_calls.clear();
+      // TODO Increase usage counter for buffers by one (i.e start at 2 and decrease it here  
 #ifndef NDEBUG
       for (const auto &buffer_entry : buffer_allocations) {
         const auto &[buffer_pointer_any, buffer_size, buffer_allocation_counter,
@@ -1003,7 +1002,7 @@ void sequential_test(void) {
         kernel_fut.get();
       }));
     } else {
-      hpx::cerr << "ERROR: Slice 1 was not created properly" << std::endl;
+      hpx::cout << "ERROR: Slice 1 was not created properly" << std::endl;
       throw std::runtime_error("ERROR: Slice 1 was not created properly");
     }
 
@@ -1034,7 +1033,7 @@ void sequential_test(void) {
         kernel_fut.get();
       }));
     } else {
-      hpx::cerr << "ERROR: Slice 2 was not created properly" << std::endl;
+      hpx::cout << "ERROR: Slice 2 was not created properly" << std::endl;
       throw std::runtime_error("ERROR: Slice 2 was not created properly");
     }
 
@@ -1065,7 +1064,7 @@ void sequential_test(void) {
         kernel_fut.get();
       }));
     } else {
-      hpx::cerr << "ERROR: Slice 3 was not created properly" << std::endl;
+      hpx::cout << "ERROR: Slice 3 was not created properly" << std::endl;
       throw std::runtime_error("ERROR: Slice 3 was not created properly");
     }
 
@@ -1096,7 +1095,7 @@ void sequential_test(void) {
         kernel_fut.get();
       }));
     } else {
-      hpx::cerr << "ERROR: Slice 4 was not created properly" << std::endl;
+      hpx::cout << "ERROR: Slice 4 was not created properly" << std::endl;
       throw std::runtime_error("ERROR: Slice 4 was not created properly");
     }
     hpx::cout << "Requested all executors!" << std::endl;
@@ -1127,7 +1126,7 @@ void interruption_test(void) {
         kernel_fut.get();
       }));
     } else {
-      hpx::cerr << "ERROR: Slice 1 was not created properly" << std::endl;
+      hpx::cout << "ERROR: Slice 1 was not created properly" << std::endl;
       throw std::runtime_error("ERROR: Slice 1 was not created properly");
     }
 
@@ -1142,7 +1141,7 @@ void interruption_test(void) {
         kernel_fut.get();
       }));
     } else {
-      hpx::cerr << "ERROR: Slice 2 was not created properly" << std::endl;
+      hpx::cout << "ERROR: Slice 2 was not created properly" << std::endl;
       throw std::runtime_error("ERROR: Slice 2 was not created properly");
     }
 
@@ -1157,7 +1156,7 @@ void interruption_test(void) {
         kernel_fut.get();
       }));
     } else {
-      hpx::cerr << "ERROR: Slice 3 was not created properly" << std::endl;
+      hpx::cout << "ERROR: Slice 3 was not created properly" << std::endl;
       throw std::runtime_error("ERROR: Slice 3 was not created properly");
     }*/
 
@@ -1184,45 +1183,60 @@ void failure_test(void) {
     auto slice_fut1 = agg_exec.request_executor_slice();
 
     std::vector<hpx::lcos::future<void>> slices_done_futs;
+    if (slice_fut1.has_value()) {
     slices_done_futs.emplace_back(slice_fut1.value().then([](auto &&fut) {
       auto slice_exec = fut.get();
       hpx::cout << "Got executor 1" << std::endl;
-      slice_exec.post(print_stuff1, 3);
+      slice_exec.post(print_stuff1, 2);
+     // auto async_fut = slice_exec.async(print_stuff1, 3);
+     // async_fut.get();
     }));
+    } else {
+      hpx::cout << "ERROR: Slice 1 was not created properly" << std::endl;
+      throw std::runtime_error("ERROR: Slice 1 was not created properly");
+    }
 
     auto slice_fut2 = agg_exec.request_executor_slice();
+    if (slice_fut2.has_value()) {
     slices_done_futs.emplace_back(slice_fut2.value().then([](auto &&fut) {
       auto slice_exec = fut.get();
       hpx::cout << "Got executor 2" << std::endl;
-      slice_exec.post(print_stuff1, 3);
+      slice_exec.post(print_stuff1, 2);
+     // auto async_fut = slice_exec.async(print_stuff1, 3);
+     // async_fut.get();
     }));
+    } else {
+      hpx::cout << "ERROR: Slice 1 was not created properly" << std::endl;
+      throw std::runtime_error("ERROR: Slice 1 was not created properly");
+    }
 
     auto slice_fut3 = agg_exec.request_executor_slice();
+    if (slice_fut3.has_value()) {
     slices_done_futs.emplace_back(slice_fut3.value().then([](auto &&fut) {
       auto slice_exec = fut.get();
       hpx::cout << "Got executor 3" << std::endl;
-      try {
-        slice_exec.post(print_stuff1, 3.0f);
-      } catch (...) {
-        hpx::cerr << "TEST succeeded: Found type error exception!\n"
-                  << std::endl;
-        throw;
-      }
+      slice_exec.post(print_stuff1, 2);
+     // auto async_fut = slice_exec.async(print_stuff_error, 3);
+      //async_fut.get();
     }));
+    } else {
+      hpx::cout << "ERROR: Slice 1 was not created properly" << std::endl;
+      throw std::runtime_error("ERROR: Slice 1 was not created properly");
+    }
 
     auto slice_fut4 = agg_exec.request_executor_slice();
+    if (slice_fut4.has_value()) {
     slices_done_futs.emplace_back(slice_fut4.value().then([](auto &&fut) {
       auto slice_exec = fut.get();
       hpx::cout << "Got executor 4" << std::endl;
-      // TODO How to propagate the exception?
-      try {
-        slice_exec.post(print_stuff_error, 3);
-      } catch (...) {
-        hpx::cerr << "TEST succeeded: Found value error exception!\n"
-                  << std::endl;
-        throw;
-      }
+      slice_exec.post(print_stuff1, 2);
+     // auto async_fut = slice_exec.async(print_stuff1, 3.0f);
+     // async_fut.get();
     }));
+    } else {
+      hpx::cout << "ERROR: Slice 1 was not created properly" << std::endl;
+      throw std::runtime_error("ERROR: Slice 1 was not created properly");
+    }
 
     hpx::cout << "Requested all executors!" << std::endl;
     hpx::cout << "Realizing by equesting final fut..." << std::endl;
@@ -1283,7 +1297,7 @@ void pointer_add_test(void) {
         }
       }));
     } else {
-      hpx::cerr << "ERROR: Slice 1 was not created properly" << std::endl;
+      hpx::cout << "ERROR: Slice 1 was not created properly" << std::endl;
       throw std::runtime_error("ERROR: Slice 1 was not created properly");
     }
 
@@ -1323,7 +1337,7 @@ void pointer_add_test(void) {
         }
       }));
     } else {
-      hpx::cerr << "ERROR: Slice 2 was not created properly" << std::endl;
+      hpx::cout << "ERROR: Slice 2 was not created properly" << std::endl;
       throw std::runtime_error("ERROR: Slice 2 was not created properly");
     }
 
@@ -1363,7 +1377,7 @@ void pointer_add_test(void) {
         }
       }));
     } else {
-      hpx::cerr << "ERROR: Slice 3 was not created properly" << std::endl;
+      hpx::cout << "ERROR: Slice 3 was not created properly" << std::endl;
       throw std::runtime_error("ERROR: Slice 3 was not created properly");
     }
 
@@ -1403,7 +1417,7 @@ void pointer_add_test(void) {
         }
       }));
     } else {
-      hpx::cerr << "ERROR: Slice 4 was not created properly" << std::endl;
+      hpx::cout << "ERROR: Slice 4 was not created properly" << std::endl;
       throw std::runtime_error("ERROR: Slice 4 was not created properly");
     }
     hpx::cout << "Requested all executors!" << std::endl;
@@ -1474,7 +1488,7 @@ void references_add_test(void) {
         }
       }));
     } else {
-      hpx::cerr << "ERROR: Slice 1 was not created properly" << std::endl;
+      hpx::cout << "ERROR: Slice 1 was not created properly" << std::endl;
       throw std::runtime_error("ERROR: Slice 1 was not created properly");
     }
 
@@ -1509,7 +1523,7 @@ void references_add_test(void) {
         }
       }));
     } else {
-      hpx::cerr << "ERROR: Slice 2 was not created properly" << std::endl;
+      hpx::cout << "ERROR: Slice 2 was not created properly" << std::endl;
       throw std::runtime_error("ERROR: Slice 2 was not created properly");
     }
 
@@ -1544,7 +1558,7 @@ void references_add_test(void) {
         }
       }));
     } else {
-      hpx::cerr << "ERROR: Slice 3 was not created properly" << std::endl;
+      hpx::cout << "ERROR: Slice 3 was not created properly" << std::endl;
       throw std::runtime_error("ERROR: Slice 3 was not created properly");
     }
 
@@ -1579,7 +1593,7 @@ void references_add_test(void) {
         }
       }));
     } else {
-      hpx::cerr << "ERROR: Slice 4 was not created properly" << std::endl;
+      hpx::cout << "ERROR: Slice 4 was not created properly" << std::endl;
       throw std::runtime_error("ERROR: Slice 4 was not created properly");
     }
     hpx::cout << "Requested all executors!" << std::endl;
@@ -1652,7 +1666,7 @@ int hpx_main(int argc, char *argv[]) {
   if (scenario != "sequential_test" && scenario != "interruption_test" &&
       scenario != "failure_test" && scenario != "pointer_add_test" &&
       scenario != "references_add_test" && scenario != "all") {
-    hpx::cerr << "ERROR: Invalid scenario specified (see --help)" << std::endl;
+    hpx::cout << "ERROR: Invalid scenario specified (see --help)" << std::endl;
     return hpx::finalize();
   }
 
