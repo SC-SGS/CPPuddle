@@ -181,7 +181,11 @@ if (CPPUDDLE_WITH_TESTS)
           Boost::boost Boost::program_options HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager stream_manager
           COMPONENT_DEPENDENCIES iostreams
           SOURCES
-          tests/work_aggregation_test.cpp)
+          tests/work_aggregation_test.cpp
+          include/aggregation_manager.hpp
+          include/buffer_manager.hpp
+          include/stream_manager.hpp
+          )
         target_compile_definitions(work_aggregation_test PRIVATE CPPUDDLE_HAVE_CUDA)
       endif() # end WITH KOKKOS
     endif() # end with CUDA
@@ -407,6 +411,114 @@ if (CPPUDDLE_WITH_TESTS)
         add_test(allocator_kokkos_executor_for_loop_test.run allocator_kokkos_executor_for_loop_test -t 4)
         set_tests_properties(allocator_kokkos_executor_for_loop_test.run PROPERTIES
           PROCESSORS 4
+        )
+
+        add_test(aggregation_basic_sequential_test.run work_aggregation_test -t1 --outputfile=aggregation_basic_sequential_test.out --scenario=sequential_test)
+        set_tests_properties(aggregation_basic_sequential_test.run PROPERTIES
+          FIXTURES_SETUP aggregation_basic_sequential_test_output
+        )
+        add_test(aggregation_basic_sequential_test.analyse_int_buffers cat aggregation_basic_sequential_test.out)
+        set_tests_properties(aggregation_basic_sequential_test.analyse_int_buffers PROPERTIES
+          FIXTURES_REQUIRED aggregation_basic_sequential_test_output
+          PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 2"
+        )
+        add_test(aggregation_basic_sequential_test.analyse_float_buffers cat aggregation_basic_sequential_test.out)
+        set_tests_properties(aggregation_basic_sequential_test.analyse_float_buffers PROPERTIES
+          FIXTURES_REQUIRED aggregation_basic_sequential_test_output
+          PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 6"
+        )
+        add_test(aggregation_basic_sequential_test.analyse_cleanup cat aggregation_basic_sequential_test.out)
+        set_tests_properties(aggregation_basic_sequential_test.analyse_cleanup PROPERTIES
+          FIXTURES_REQUIRED aggregation_basic_sequential_test_output
+          PASS_REGULAR_EXPRESSION "--> Number of buffers that were marked as used upon cleanup: [ ]* 0"
+        )
+
+        add_test(aggregation_basic_parallel_test.run work_aggregation_test -t4 --outputfile=aggregation_basic_parallel_test.out --scenario=sequential_test)
+        set_tests_properties(aggregation_basic_parallel_test.run PROPERTIES
+          FIXTURES_SETUP aggregation_basic_parallel_test_output
+          PROCESSORS 4
+        )
+        add_test(aggregation_basic_parallel_test.analyse_int_buffers cat aggregation_basic_parallel_test.out)
+        set_tests_properties(aggregation_basic_parallel_test.analyse_int_buffers PROPERTIES
+          FIXTURES_REQUIRED aggregation_basic_parallel_test_output
+          PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 2"
+        )
+        add_test(aggregation_basic_parallel_test.analyse_float_buffers cat aggregation_basic_parallel_test.out)
+        set_tests_properties(aggregation_basic_parallel_test.analyse_float_buffers PROPERTIES
+          FIXTURES_REQUIRED aggregation_basic_parallel_test_output
+          PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 6"
+        )
+        add_test(aggregation_basic_parallel_test.analyse_cleanup cat aggregation_basic_parallel_test.out)
+        set_tests_properties(aggregation_basic_parallel_test.analyse_cleanup PROPERTIES
+          FIXTURES_REQUIRED aggregation_basic_parallel_test_output
+          PASS_REGULAR_EXPRESSION "--> Number of buffers that were marked as used upon cleanup: [ ]* 0"
+        )
+
+
+
+        add_test(aggregation_interruption_test.run work_aggregation_test -t1 --outputfile=aggregation_interruption_test.out --scenario=interruption_test)
+        set_tests_properties(aggregation_interruption_test.run PROPERTIES
+          FIXTURES_SETUP aggregation_interruption_test_output
+        )
+        add_test(aggregation_interruption_test.analyse_continuation_output cat aggregation_interruption_test.out)
+        set_tests_properties(aggregation_interruption_test.analyse_continuation_output PROPERTIES
+          FIXTURES_REQUIRED aggregation_interruption_test_output
+          PASS_REGULAR_EXPRESSION "Got executor 1"
+        )
+        add_test(aggregation_interruption_test.analyse_kernel_output cat aggregation_interruption_test.out)
+        set_tests_properties(aggregation_interruption_test.analyse_kernel_output PROPERTIES
+          FIXTURES_REQUIRED aggregation_interruption_test_output
+          PASS_REGULAR_EXPRESSION "d is 2"
+        )
+
+
+
+        add_test(aggregation_failure_test.run work_aggregation_test -t1 --outputfile=aggregation_failure_test.out --scenario=failure_test)
+        set_tests_properties(aggregation_failure_test.run PROPERTIES
+          FIXTURES_SETUP aggregation_failure_test_output
+        )
+        add_test(aggregation_failure_test.analyse_value_error cat aggregation_failure_test.out)
+        set_tests_properties(aggregation_failure_test.analyse_value_error PROPERTIES
+          FIXTURES_REQUIRED aggregation_failure_test_output
+          PASS_REGULAR_EXPRESSION "Mismatched values error in aggregated post call of executor"
+        )
+        add_test(aggregation_failure_test.analyse_type_error cat aggregation_failure_test.out)
+        set_tests_properties(aggregation_failure_test.analyse_type_error PROPERTIES
+          FIXTURES_REQUIRED aggregation_failure_test_output
+          PASS_REGULAR_EXPRESSION "Mismatched types error in aggregated post call of executor"
+        )
+
+
+        add_test(aggregation_add_pointer_test.run work_aggregation_test -t4 --outputfile=aggregation_add_pointer_test.out --scenario=pointer_add_test)
+        set_tests_properties(aggregation_add_pointer_test.run PROPERTIES
+          FIXTURES_SETUP aggregation_add_pointer_test_output
+          PROCESSORS 4
+        )
+        add_test(aggregation_add_pointer_test.analyse_number_launches cat aggregation_add_pointer_test.out)
+        set_tests_properties(aggregation_add_pointer_test.analyse_number_launches PROPERTIES
+          FIXTURES_REQUIRED aggregation_add_pointer_test_output
+          PASS_REGULAR_EXPRESSION "Number add_pointer_launches=2"
+        )
+        add_test(aggregation_add_pointer_test.analyse_number_buffers cat aggregation_add_pointer_test.out)
+        set_tests_properties(aggregation_add_pointer_test.analyse_number_buffers PROPERTIES
+          FIXTURES_REQUIRED aggregation_add_pointer_test_output
+          PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 6"
+        )
+
+        add_test(aggregation_add_references_test.run work_aggregation_test -t4 --outputfile=aggregation_add_references_test.out --scenario=references_add_test)
+        set_tests_properties(aggregation_add_references_test.run PROPERTIES
+          FIXTURES_SETUP aggregation_add_references_test_output
+          PROCESSORS 4
+        )
+        add_test(aggregation_add_references_test.analyse_number_launches cat aggregation_add_references_test.out)
+        set_tests_properties(aggregation_add_references_test.analyse_number_launches PROPERTIES
+          FIXTURES_REQUIRED aggregation_add_references_test_output
+          PASS_REGULAR_EXPRESSION "Number add_launches=1"
+        )
+        add_test(aggregation_add_references_test.analyse_number_buffers cat aggregation_add_references_test.out)
+        set_tests_properties(aggregation_add_references_test.analyse_number_buffers PROPERTIES
+          FIXTURES_REQUIRED aggregation_add_references_test_output
+          PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 3"
         )
       endif() # end with KOKKOS
     endif() # end with CUDA
