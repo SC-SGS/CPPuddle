@@ -186,6 +186,18 @@ if (CPPUDDLE_WITH_TESTS)
           include/buffer_manager.hpp
           include/stream_manager.hpp
           )
+
+        add_hpx_executable(
+          work_aggregation_cpu_triad
+          DEPENDENCIES
+          Boost::boost Boost::program_options HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager stream_manager
+          COMPONENT_DEPENDENCIES iostreams
+          SOURCES
+          tests/work_aggregation_cpu_triad.cpp
+          include/aggregation_manager.hpp
+          include/buffer_manager.hpp
+          include/stream_manager.hpp
+          )
         target_compile_definitions(work_aggregation_test PRIVATE CPPUDDLE_HAVE_CUDA)
       endif() # end WITH KOKKOS
     endif() # end with CUDA
