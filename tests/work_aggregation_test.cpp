@@ -546,6 +546,7 @@ public:
         return aggregated_buffer;
       }
     }
+    assert(std::get<3>(buffer_allocations[slice_alloc_counter])); // valid
     assert(std::get<2>(buffer_allocations[slice_alloc_counter]) >= 1);
 
     // Buffer entry should already exist:
@@ -569,6 +570,7 @@ public:
     assert(slice_alloc_counter < buffer_allocations.size());
     auto &[buffer_pointer_any, buffer_size, buffer_allocation_counter, valid] =
         buffer_allocations[slice_alloc_counter];
+    assert(valid);
     T *buffer_pointer = std::any_cast<T *>(buffer_pointer_any);
 
     assert(buffer_size == size);
@@ -688,25 +690,13 @@ public:
     std::lock_guard<std::mutex> guard(mut);
     assert(slices_exhausted);
     assert(current_slices >= 0 && current_slices <= launched_slices);
-    // First slice goes out of scope?
-    if (current_slices == launched_slices) {
-      // Finish the continuation to not leave a dangling task!
-      // otherwise the continuation might access data of non-existent object...
-      
-      // TODO It is possible to call this before all functions are launched
-      // (as the first 
-      // current_continuation.get();
-      // last_stream_launch_done.get();
-    }
     current_slices--;
     // Last slice goes out scope?
     if (current_slices == 0) {
-      // TODO With this the buffers might be out of scope before the kernels are launched
       current_continuation.get();
       last_stream_launch_done.get();
       std::lock_guard<std::mutex> guard(buffer_mut);
       function_calls.clear();
-      // TODO Increase usage counter for buffers by one (i.e start at 2 and decrease it here  
 #ifndef NDEBUG
       for (const auto &buffer_entry : buffer_allocations) {
         const auto &[buffer_pointer_any, buffer_size, buffer_allocation_counter,
@@ -1215,7 +1205,7 @@ void failure_test(void) {
     slices_done_futs.emplace_back(slice_fut3.value().then([](auto &&fut) {
       auto slice_exec = fut.get();
       hpx::cout << "Got executor 3" << std::endl;
-      slice_exec.post(print_stuff1, 2);
+      slice_exec.post(print_stuff_error, 2);
      // auto async_fut = slice_exec.async(print_stuff_error, 3);
       //async_fut.get();
     }));
@@ -1229,7 +1219,7 @@ void failure_test(void) {
     slices_done_futs.emplace_back(slice_fut4.value().then([](auto &&fut) {
       auto slice_exec = fut.get();
       hpx::cout << "Got executor 4" << std::endl;
-      slice_exec.post(print_stuff1, 2);
+      slice_exec.post(print_stuff1, 2.0f);
      // auto async_fut = slice_exec.async(print_stuff1, 3.0f);
      // async_fut.get();
     }));
