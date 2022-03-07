@@ -812,9 +812,13 @@ int hpx_main(int argc, char *argv[]) {
   }
   // Test that checks failure detection in case of wrong usage (missmatching
   // calls/types/values)
-  if (scenario == "failure_test") {
+  if (scenario == "failure_test" || scenario == "all") {
     failure_test();
   }
+  // Flush outout and wait a second for the (non hpx::cout) output to have it in the correct
+  // order for the ctests
+  std::flush(hpx::cout);
+  sleep(1);
 
   recycler::force_cleanup(); // Cleanup all buffers and the managers
   return hpx::finalize();
