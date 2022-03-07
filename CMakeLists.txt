@@ -520,6 +520,17 @@ if (CPPUDDLE_WITH_TESTS)
           FIXTURES_REQUIRED aggregation_add_references_test_output
           PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 3"
         )
+
+
+        add_test(aggregation_all_tests_sequential.run work_aggregation_test -t1 --outputfile=aggregation_all_tests_sequential.out --scenario=all)
+        set_tests_properties(aggregation_all_tests_sequential.run PROPERTIES
+          FIXTURES_SETUP aggregation_all_tests_sequential_output
+        )
+        add_test(aggregation_all_tests_parallel.run work_aggregation_test -t4 --outputfile=aggregation_all_tests_parallel.out --scenario=all)
+        set_tests_properties(aggregation_all_tests_parallel.run PROPERTIES
+          FIXTURES_SETUP aggregation_all_tests_parallel_output
+          PROCESSORS 4
+        )
       endif() # end with KOKKOS
     endif() # end with CUDA
   endif() # end with hpx
