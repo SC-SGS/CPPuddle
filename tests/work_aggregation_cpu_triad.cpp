@@ -3,7 +3,7 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 #include <hpx/futures/future.hpp>
-//#undef NDEBUG
+#undef NDEBUG
 
 
 #include "../include/aggregation_manager.hpp"
@@ -135,7 +135,7 @@ int hpx_main(int argc, char *argv[]) {
   static const char kernelname[] = "cpu_triad";
   using executor_pool = aggregation_pool<kernelname, Dummy_Executor,
                                         round_robin_pool<Dummy_Executor>>;
-  executor_pool::init(number_aggregation_executors, max_slices, Aggregated_Executor_Modes::STRICT);
+  executor_pool::init(number_aggregation_executors, max_slices, Aggregated_Executor_Modes::EAGER);
 
   using float_t = float;
 

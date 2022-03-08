@@ -634,6 +634,8 @@ public:
     if (current_slices == 0) {
       current_continuation.get();
       last_stream_launch_done.get();
+      current_continuation = hpx::lcos::make_ready_future();
+      last_stream_launch_done = hpx::lcos::make_ready_future();
       std::lock_guard<std::mutex> guard(buffer_mut);
       function_calls.clear();
 #ifndef NDEBUG
@@ -785,8 +787,10 @@ public:
     // Everything's busy -> create new aggregation executor (growing pool) OR
     // return empty optional
     if (instance.growing_pool) {
+      std::lock_guard<std::mutex> guard(instance.pool_mutex);
       instance.aggregation_executor_pool.emplace_back(
           instance.slices_per_executor, instance.mode);
+      hpx::cout << "Creating new executor with ID " << instance.aggregation_executor_pool.size() << std::endl;
       ret = instance.aggregation_executor_pool.back().request_executor_slice();
       assert(ret.has_value()); // fresh executor -- should always have slices
                                // available
