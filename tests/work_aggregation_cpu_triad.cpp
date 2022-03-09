@@ -17,7 +17,7 @@
 //===============================================================================
 // Stream benchmark
 
-size_t launch_counter = 0;
+std::atomic<size_t> launch_counter = 0;
 template <typename float_t>
 void triad_kernel(float_t *A, const float_t *B, const float_t *C, const float_t scalar, const size_t start_id, const size_t kernel_size, const size_t problem_size) {
   for (auto int i = 0; i < kernel_size && i + start_id < problem_size; i++) {
@@ -135,14 +135,25 @@ int hpx_main(int argc, char *argv[]) {
   static const char kernelname[] = "cpu_triad";
   using executor_pool = aggregation_pool<kernelname, Dummy_Executor,
                                         round_robin_pool<Dummy_Executor>>;
-  //executor_pool::init(number_aggregation_executors, max_slices, Aggregated_Executor_Modes::EAGER);
-  executor_pool::init(number_aggregation_executors, max_slices, Aggregated_Executor_Modes::EAGER);
-  /* std::cerr << "created pool with slices: " << max_slices << std::endl; */
+  executor_pool::init(number_aggregation_executors, max_slices,
+                      Aggregated_Executor_Modes::EAGER);
 
   using float_t = float;
+  //epsilon for comparison
+  double epsilon;
+  if (sizeof(float_t) == 4) {
+    epsilon = 1.e-6;
+  } else if (sizeof(float_t) == 8) {
+    epsilon = 1.e-13;
+  } else {
+    hpx::cout << "Unexpected float size " << sizeof(float_t) << std::endl;
+    hpx::cout << "Use either double or float - falling back to float epsilon..."
+              << std::endl;
+    epsilon = 1.e-6;
+  }
 
   for (size_t repetition = 0; repetition < repetitions; repetition++) {
-    std::cerr << hpx::get_worker_thread_num() << "Starting repetition: " << repetition << std::endl;
+    /* hpx::cout << hpx::get_worker_thread_num() << "Starting repetition: " << repetition << std::endl; */
 
     std::vector<float_t> A(problem_size, 0.0);
     std::vector<float_t> B(problem_size, 2.0);
@@ -154,76 +165,82 @@ int hpx_main(int argc, char *argv[]) {
 
     for (size_t task_id = 0; task_id < number_tasks; task_id++) {
       // Concurrency Wrapper: Splits stream benchmark into #number_tasks tasks
-      /* std::cerr << hpx::get_worker_thread_num() << "Scheduling task: " << task_id << std::endl; */
       futs.push_back(hpx::async([&, task_id]() {
-        /* std::cerr<< hpx::get_worker_thread_num() << "Running task: " << task_id << std::endl; */
         auto slice_fut1 = executor_pool::request_executor_slice();
         if (slice_fut1.has_value()) {
           // Work aggregation Wrapper: Recombines (some) tasks, depending on the
           // number of slices
         hpx::lcos::future<void> current_fut = slice_fut1.value().then([&, task_id](auto &&fut) {
-            /* std::cerr << hpx::get_worker_thread_num() */
-            /* << " Running kernel continuation: " << task_id << std::endl; */
             auto slice_exec = fut.get();
-            //std::cerr << task_id << " ";
 
-            /* auto alloc = */
-            /*     slice_exec.template make_allocator<float_t, */
-            /*                                        std::allocator<float_t>>(); */
-            /* // Start the actual task */
-            /* std::vector<float_t, decltype(alloc)> local_A( */
-            /*     slice_exec.number_slices * kernel_size, float_t{}, alloc); */
-            /* std::vector<float_t, decltype(alloc)> local_B( */
-            /*     slice_exec.number_slices * kernel_size, float_t{}, alloc); */
-            /* std::vector<float_t, decltype(alloc)> local_C( */
-            /*     slice_exec.number_slices * kernel_size, float_t{}, alloc); */
-            /* for (size_t i = task_id * kernel_size, j = 0; */
-            /*      i < problem_size && j < kernel_size; i++, j++) { */
-            /*   local_B[slice_exec.id * kernel_size + j] = B[i]; */
-            /*   local_C[slice_exec.id * kernel_size + j] = C[i]; */
-            /*   local_A[slice_exec.id * kernel_size + j] = 0.0; */
-            /* } */
-            /* const size_t start_id = */
-            /*     task_id * kernel_size - slice_exec.id * kernel_size; */
-            /* auto kernel_done = slice_exec.async( */
-            /*     triad_kernel<float_t>, local_A.data(), local_B.data(), */
-            /*     local_C.data(), scalar, 0, */
-            /*     kernel_size * slice_exec.number_slices, problem_size); */
-            /* kernel_done.get(); */
-            /* for (size_t i = task_id * kernel_size, j = 0; */
-            /*      i < problem_size && j < kernel_size; i++, j++) { */
-            /*   A[i] = local_A[slice_exec.id * kernel_size + j]; */
-            /* } */
+            auto alloc =
+                slice_exec.template make_allocator<float_t,
+                                                   std::allocator<float_t>>();
+            // Start the actual task
+            std::vector<float_t, decltype(alloc)> local_A(
+                slice_exec.number_slices * kernel_size, float_t{}, alloc);
+            std::vector<float_t, decltype(alloc)> local_B(
+                slice_exec.number_slices * kernel_size, float_t{}, alloc);
+            std::vector<float_t, decltype(alloc)> local_C(
+                slice_exec.number_slices * kernel_size, float_t{}, alloc);
+            for (size_t i = task_id * kernel_size, j = 0;
+                 i < problem_size && j < kernel_size; i++, j++) {
+              local_B[slice_exec.id * kernel_size + j] = B[i];
+              local_C[slice_exec.id * kernel_size + j] = C[i];
+              local_A[slice_exec.id * kernel_size + j] = 0.0;
+            }
+            const size_t start_id =
+                task_id * kernel_size - slice_exec.id * kernel_size;
+            auto kernel_done = slice_exec.async(
+                triad_kernel<float_t>, local_A.data(), local_B.data(),
+                local_C.data(), scalar, 0,
+                kernel_size * slice_exec.number_slices, problem_size);
+            kernel_done.get();
+            for (size_t i = task_id * kernel_size, j = 0;
+                 i < problem_size && j < kernel_size; i++, j++) {
+              A[i] = local_A[slice_exec.id * kernel_size + j];
+            }
             // end actual task
-            /* std::cerr << hpx::get_worker_thread_num() */
-            /* << " End of task: " << task_id << std::endl; */
           }); 
         //current_fut.get();
         return current_fut;
         } else {
-          std::cerr << "Executor was not properly initialized!" << std::endl;
+          hpx::cout << "Executor was not properly initialized!" << std::endl;
           return hpx::lcos::make_ready_future();
         }
       })); 
-      /* std::cerr<< hpx::get_worker_thread_num() << "Waiting ... " << task_id << std::endl; */
-      /* futs[futs.size()-1].get(); */
-      /* std::cerr<< hpx::get_worker_thread_num() << "Waiting done " << task_id << std::endl; */
     }
     auto final_fut = hpx::lcos::when_all(futs);
     final_fut.get();
 
-    /* for (size_t i = 0; i < problem_size; i++) { */
-    /*   if (i < 100) */
-    /*     hpx::cout << A[i] << " "; */
-    /* } */
+    bool results_correct = true;
+    for (size_t i = 0; i < problem_size; i++) {
+      /* if (i < 100) */
+      /*   hpx::cout << A[i] << " "; */
+
+      // result should be 5.0
+      if (std::abs(A[i] - 5.0) > epsilon) {
+        hpx::cout << "Found error at " << i << " : " << A[i]
+                  << " instead of 5.0" << std::endl;
+        assert(false); // in debug build: crash
+        results_correct = false;
+      }
+    }
+    if (!results_correct) {
+      hpx::cout << "ERROR in repetition " << repetition << ": Wrong results"
+                << std::endl;
+    } else {
+      hpx::cout << "SUCCESS: Repetition " << repetition << " - Correct results"
+                << std::endl;
+    }
   }
   hpx::cout << std::endl;
   hpx::cout << "Kernel launch counter: " << launch_counter << std::endl;
 
   // Flush outout and wait a second for the (non hpx::cout) output to have it in the correct
   // order for the ctests
-  //std::flush(hpx::cout);
-  //sleep(1);
+  std::flush(hpx::cout);
+  sleep(1);
 
   recycler::force_cleanup(); // Cleanup all buffers and the managers
   return hpx::finalize();
