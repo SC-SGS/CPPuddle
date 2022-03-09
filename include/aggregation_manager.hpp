@@ -596,7 +596,6 @@ public:
       hpx::lcos::future<Executor_Slice> ret_fut =
           executor_slices[current_slices].get_future();
 
-      current_slices++;
       const size_t local_slice_id = ++current_slices;
       /* if (local_slice_id == 1 && (mode == Aggregated_Executor_Modes::EAGER || */
       /*                             mode == Aggregated_Executor_Modes::ENDLESS)) */
