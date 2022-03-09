@@ -368,11 +368,11 @@ public:
                    const size_t number_slices)
         : parent(parent), notify_parent_about_destruction(true),
           number_slices(number_slices), id(slice_id) {
-      std::cerr << "cons" << std::endl;
+      /* std::cerr << "cons" << std::endl; */
   }
     ~Executor_Slice(void) {
 
-      std::cerr << "des" << std::endl;
+      /* std::cerr << "des" << std::endl; */
       // Don't notify parent if we moved away from this executor_slice
       if (notify_parent_about_destruction) {
         // Executor should be done by the time of destruction
@@ -389,7 +389,7 @@ public:
           buffer_counter(std::move(other.buffer_counter)),
           number_slices(std::move(other.number_slices)),
           id(std::move(other.id)) {
-      std::cerr << "move" << std::endl;
+      /* std::cerr << "move" << std::endl; */
       other.notify_parent_about_destruction = false;
     }
     Executor_Slice &operator=(Executor_Slice &&other) {
@@ -399,7 +399,7 @@ public:
       number_slices = std::move(other.number_slices);
       id = std::move(other.id);
       other.notify_parent_about_destruction = false;
-      std::cerr << "move" << std::endl;
+      /* std::cerr << "move" << std::endl; */
     }
     template <typename T, typename Host_Allocator>
     Allocator_Slice<T, Host_Allocator, Executor> make_allocator() {
@@ -589,7 +589,7 @@ public:
     /*         << " Reduce usage:" << current_slices << " slicesS" << std::endl; */
     /* std::cerr  << hpx::get_worker_thread_num() << "Trying to get executor ..." << std::endl; */
     // TODO Re-enable
-    /* std::lock_guard<hpx::mutex> guard(mut); */
+    std::lock_guard<hpx::mutex> guard(mut);
     /* std::cerr  << hpx::get_worker_thread_num() << "Got it! " << std::endl; */
     if (!slices_exhausted) {
       executor_slices.emplace_back(hpx::lcos::local::promise<Executor_Slice>{});
@@ -597,7 +597,8 @@ public:
           executor_slices[current_slices].get_future();
 
       current_slices++;
-      /* if (current_slices == 1 && (mode == Aggregated_Executor_Modes::EAGER || */
+      const size_t local_slice_id = ++current_slices;
+      /* if (local_slice_id == 1 && (mode == Aggregated_Executor_Modes::EAGER || */
       /*                             mode == Aggregated_Executor_Modes::ENDLESS)) */
       /* { */
       /*   // TODO get future and add continuation for when the stream does its */
@@ -619,20 +620,20 @@ public:
       /*     } */
       /*   }); */
       /* } */
-      if (current_slices >= max_slices &&
+      if (local_slice_id >= max_slices &&
           mode != Aggregated_Executor_Modes::ENDLESS) {
         slices_exhausted = true;
-        std::cerr << "Starting" << std::endl;
+        /* std::cerr << "Starting" << std::endl; */
         launched_slices = current_slices;
         size_t id = 0;
         for (auto &slice_promise : executor_slices) {
-        std::cerr << "Slice " << id << "/" <<executor_slices.size() << std::endl;
+        /* std::cerr << "Slice " << id << "/" <<executor_slices.size() << std::endl; */
           slice_promise.set_value(Executor_Slice{*this, id, current_slices});
-        std::cerr << "Slice " << id << " done " << std::endl;
+        /* std::cerr << "Slice " << id << " done " << std::endl; */
           id++;
         }
         executor_slices.clear();
-        std::cerr << "Starting done" << std::endl;
+        /* std::cerr << "Starting done" << std::endl; */
       }
       return ret_fut;
     } else {
@@ -643,41 +644,41 @@ public:
   }
   size_t launched_slices;
   void reduce_usage_counter(void) {
-    std::cerr << hpx::get_worker_thread_num()
-            << " Reduce usage:" << current_slices << " slicesS" << std::endl;
-    /* std::lock_guard<hpx::mutex> guard(mut); */
-    assert(slices_exhausted);
+    /* std::cerr << hpx::get_worker_thread_num() */
+            /* << " Reduce usage:" << current_slices << " slicesS" << std::endl; */
     assert(launched_slices >= 1);
     assert(current_slices >= 0 && current_slices <= launched_slices);
-    current_slices--;
+    const size_t local_slice_id = --current_slices;
     // Last slice goes out scope?
-    if (current_slices == 0) {
-      /* current_continuation.get(); */
-      /* current_continuation = hpx::lcos::make_ready_future(); */
-      /* last_stream_launch_done.get(); */
-      /* last_stream_launch_done = hpx::lcos::make_ready_future(); */
-      /* std::lock_guard<hpx::mutex> guard(buffer_mut); */
-      function_calls.clear();
+    if (local_slice_id == 0) {
+
+        // TODO Move cleanup to request executor slice 1 
+        /* current_continuation.get(); */
+        /* current_continuation = hpx::lcos::make_ready_future(); */
+        /* last_stream_launch_done.get(); */
+        /* last_stream_launch_done = hpx::lcos::make_ready_future(); */
+
+        function_calls.clear();
 #ifndef NDEBUG
-      /* for (const auto &buffer_entry : buffer_allocations) { */
-      /*   const auto &[buffer_pointer_any, buffer_size, buffer_allocation_counter, */
-      /*                valid] = buffer_entry; */
-      /*   assert(!valid); */
-      /* } */
-#endif
-      buffer_allocations.clear();
-      // Draw new underlying executor
-      // TODO Test if it's better to redraw at the first slice request
-     // stream_pool::release_interface<Executor, round_robin_pool<Executor>>(
-     //     std::get<1>(executor_tuple));
-      //executor_tuple =
-       //   stream_pool::get_interface<Executor, round_robin_pool<Executor>>();
-     // executor = std::get<0>(executor_tuple);
-      // Mark executor fit for reusage
-      slices_exhausted = false;
+        /* for (const auto &buffer_entry : buffer_allocations) { */
+        /*   const auto &[buffer_pointer_any, buffer_size,
+         * buffer_allocation_counter, */
+        /*                valid] = buffer_entry; */
+        /*   assert(!valid); */
+        /* } */
+#endif buffer_allocations.clear();
+        // Draw new underlying executor TODO Test if it's better to redraw at
+        // the first slice request stream_pool::release_interface<Executor,
+        // round_robin_pool<Executor>>( std::get<1>(executor_tuple));
+        // executor_tuple = stream_pool::get_interface<Executor,
+        // round_robin_pool<Executor>>(); executor =
+        // std::get<0>(executor_tuple); 
+        
+        // Mark executor fit for reusage
+        slices_exhausted = false;
     }
-    std::cerr << hpx::get_worker_thread_num()
-            << " Reduce usage done:" << current_slices << " sliceS" <<  std::endl;
+    /* std::cerr << hpx::get_worker_thread_num() */
+            /* << " Reduce usage done:" << current_slices << " sliceS" <<  std::endl; */
   }
   ~Aggregated_Executor(void) {
     // Aggregated exector should only be deleted if there's currently no
@@ -776,7 +777,7 @@ public:
   /// Will always return a valid executor slice
   static decltype(auto) request_executor_slice(void) {
     std::lock_guard<hpx::mutex> guard(instance.pool_mutex);
-    std::cerr << hpx::get_worker_thread_num()  << "start" << std::endl;
+    /* std::cerr << hpx::get_worker_thread_num()  << "start" << std::endl; */
     assert(!instance.aggregation_executor_pool.empty());
     std::optional<hpx::lcos::future<
         typename Aggregated_Executor<Interface>::Executor_Slice>>
@@ -787,7 +788,7 @@ public:
     ret = instance.aggregation_executor_pool[local_id].request_executor_slice();
     // Expected case: current aggregation executor is free
     if (ret.has_value()) {
-    std::cerr << hpx::get_worker_thread_num()  << local_id << std::endl;
+    /* std::cerr << hpx::get_worker_thread_num()  << local_id << std::endl; */
       /* std::cerr  << hpx::get_worker_thread_num() << "got slice " << local_id << " from pool " << std::endl; */
       return ret;
     }
@@ -809,11 +810,11 @@ public:
     do {
       local_id = (++(instance.current_interface)) % // increment interface
                  instance.aggregation_executor_pool.size();
-    std::cerr << hpx::get_worker_thread_num() << "Request slice " << local_id << " from pool again " << std::endl;
+    /* std::cerr << hpx::get_worker_thread_num() << "Request slice " << local_id << " from pool again " << std::endl; */
       ret =
           instance.aggregation_executor_pool[local_id].request_executor_slice();
       if (ret.has_value()) {
-      std::cerr << local_id << std::endl;
+      /* std::cerr << local_id << std::endl; */
       /* std::cerr  << hpx::get_worker_thread_num() << "got slice " << local_id << "from poolll " << std::endl; */
         return ret;
       }
@@ -821,17 +822,17 @@ public:
     } while (abort_counter <= abort_number);
     // Everything's busy -> create new aggregation executor (growing pool) OR
     // return empty optional
-    /* if (instance.growing_pool) { */
-    /*   instance.aggregation_executor_pool.emplace_back( */
-    /*       instance.slices_per_executor, instance.mode); */
-    /*   hpx::cout  << hpx::get_worker_thread_num() << "Creating new executor with ID " << instance.aggregation_executor_pool.size() << std::endl; */
-    /*   instance.current_interface = instance.aggregation_executor_pool.size() - 1; */
-    /*   ret = instance.aggregation_executor_pool[instance.current_interface].request_executor_slice(); */
-    /*   assert(ret.has_value()); // fresh executor -- should always have slices */
-    /*                            // available */
-    /* } */
-      std::cerr << hpx::get_worker_thread_num() << "got bad slice from pool " << std::endl;
-    std::cin.get();
+    if (instance.growing_pool) {
+      instance.aggregation_executor_pool.emplace_back(
+          instance.slices_per_executor, instance.mode);
+      std::cerr << hpx::get_worker_thread_num() << "Creating new executor with ID " << instance.aggregation_executor_pool.size() << std::endl;
+      instance.current_interface = instance.aggregation_executor_pool.size() - 1;
+      ret = instance.aggregation_executor_pool[instance.current_interface].request_executor_slice();
+      assert(ret.has_value()); // fresh executor -- should always have slices
+                               // available
+    }
+      /* std::cerr << hpx::get_worker_thread_num() << "got bad slice from pool " << std::endl; */
+    /* std::cin.get(); */
     return ret;
   }
 
