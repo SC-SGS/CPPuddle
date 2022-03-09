@@ -588,18 +588,41 @@ public:
     /* std::cerr << hpx::get_worker_thread_num() */
     /*         << " Reduce usage:" << current_slices << " slicesS" << std::endl; */
     /* std::cerr  << hpx::get_worker_thread_num() << "Trying to get executor ..." << std::endl; */
-    // TODO Re-enable
     std::lock_guard<hpx::mutex> guard(mut);
     /* std::cerr  << hpx::get_worker_thread_num() << "Got it! " << std::endl; */
     if (!slices_exhausted) {
+      const size_t local_slice_id = ++current_slices;
+      // anything leftover from last run? If yes, they need to be done
+      if (local_slice_id == 1) {
+        // TODO do this work within mutex?
+        current_continuation.get();
+        current_continuation = hpx::lcos::make_ready_future();
+        last_stream_launch_done.get();
+        last_stream_launch_done = hpx::lcos::make_ready_future();
+        function_calls.clear();
+        std::lock_guard<hpx::mutex> guard(buffer_mut);
+#ifndef NDEBUG
+        for (const auto &buffer_entry : buffer_allocations) {
+           const auto &[buffer_pointer_any, buffer_size,
+          buffer_allocation_counter, 
+                       valid] = buffer_entry;
+          assert(!valid);
+        }
+#endif 
+        buffer_allocations.clear();
+      }
+
+      // Create Slice future
       executor_slices.emplace_back(hpx::lcos::local::promise<Executor_Slice>{});
       hpx::lcos::future<Executor_Slice> ret_fut =
-          executor_slices[current_slices].get_future();
+          executor_slices[local_slice_id - 1].get_future();
 
-      const size_t local_slice_id = ++current_slices;
+      // Add continuation in case underlying stream get ready
       if (local_slice_id == 1 && (mode == Aggregated_Executor_Modes::EAGER ||
                                   mode == Aggregated_Executor_Modes::ENDLESS))
       {
+
+
         // TODO get future and add continuation for when the stream does its
         // thing
         // auto fut = dummy_stream_promise.get_future();
@@ -651,21 +674,6 @@ public:
     // Last slice goes out scope?
     if (local_slice_id == 0) {
 
-        // TODO Move cleanup to request executor slice 1 
-        /* current_continuation.get(); */
-        /* current_continuation = hpx::lcos::make_ready_future(); */
-        /* last_stream_launch_done.get(); */
-        /* last_stream_launch_done = hpx::lcos::make_ready_future(); */
-
-        function_calls.clear();
-#ifndef NDEBUG
-        /* for (const auto &buffer_entry : buffer_allocations) { */
-        /*   const auto &[buffer_pointer_any, buffer_size,
-         * buffer_allocation_counter, */
-        /*                valid] = buffer_entry; */
-        /*   assert(!valid); */
-        /* } */
-#endif buffer_allocations.clear();
         // Draw new underlying executor TODO Test if it's better to redraw at
         // the first slice request stream_pool::release_interface<Executor,
         // round_robin_pool<Executor>>( std::get<1>(executor_tuple));
@@ -684,8 +692,6 @@ public:
     // aggregation calls going on
     current_continuation.get();
     last_stream_launch_done.get();
-    assert(function_calls.empty());
-    assert(buffer_allocations.empty());
     assert(current_slices == 0);
     assert(!slices_exhausted);
   }
