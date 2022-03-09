@@ -136,7 +136,7 @@ int hpx_main(int argc, char *argv[]) {
   using executor_pool = aggregation_pool<kernelname, Dummy_Executor,
                                         round_robin_pool<Dummy_Executor>>;
   //executor_pool::init(number_aggregation_executors, max_slices, Aggregated_Executor_Modes::EAGER);
-  executor_pool::init(number_aggregation_executors, max_slices, Aggregated_Executor_Modes::STRICT);
+  executor_pool::init(number_aggregation_executors, max_slices, Aggregated_Executor_Modes::EAGER);
   /* std::cerr << "created pool with slices: " << max_slices << std::endl; */
 
   using float_t = float;

@@ -597,28 +597,28 @@ public:
           executor_slices[current_slices].get_future();
 
       const size_t local_slice_id = ++current_slices;
-      /* if (local_slice_id == 1 && (mode == Aggregated_Executor_Modes::EAGER || */
-      /*                             mode == Aggregated_Executor_Modes::ENDLESS)) */
-      /* { */
-      /*   // TODO get future and add continuation for when the stream does its */
-      /*   // thing */
-      /*   // auto fut = dummy_stream_promise.get_future(); */
-      /*   auto fut = executor.get_future(); */
-      /*   current_continuation = fut.then([this](auto &&fut) { */
-      /*     std::lock_guard<hpx::mutex> guard(mut); */
-      /*     if (!slices_exhausted) { */
-      /*       slices_exhausted = true; */
-      /*       launched_slices = current_slices; */
-      /*       size_t id = 0; */
-      /*       for (auto &slice_promise : executor_slices) { */
-      /*         slice_promise.set_value( */
-      /*             Executor_Slice{*this, id, current_slices}); */
-      /*         id++; */
-      /*       } */
-      /*       executor_slices.clear(); */
-      /*     } */
-      /*   }); */
-      /* } */
+      if (local_slice_id == 1 && (mode == Aggregated_Executor_Modes::EAGER ||
+                                  mode == Aggregated_Executor_Modes::ENDLESS))
+      {
+        // TODO get future and add continuation for when the stream does its
+        // thing
+        // auto fut = dummy_stream_promise.get_future();
+        auto fut = executor.get_future();
+        current_continuation = fut.then([this](auto &&fut) {
+          std::lock_guard<hpx::mutex> guard(mut);
+          if (!slices_exhausted) {
+            slices_exhausted = true;
+            launched_slices = current_slices;
+            size_t id = 0;
+            for (auto &slice_promise : executor_slices) {
+              slice_promise.set_value(
+                  Executor_Slice{*this, id, current_slices});
+              id++;
+            }
+            executor_slices.clear();
+          }
+        });
+      }
       if (local_slice_id >= max_slices &&
           mode != Aggregated_Executor_Modes::ENDLESS) {
         slices_exhausted = true;
