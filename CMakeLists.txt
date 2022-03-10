@@ -1,5 +1,5 @@
 # Copyright (c) 2020-2021 Gregor Daiß
-#
+
 # Distributed under the Boost Software License, Version 1.0. (See accompanying
 # file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
@@ -9,6 +9,7 @@ project(CPPuddle CXX C) # Some random project name
 set(CMAKE_CXX_STANDARD 17)
 
 option(CPPUDDLE_WITH_TESTS "Build tests/examples" OFF)
+set(CPPUDDLE_WITH_DEADLOCK_TEST_REPETITONS "10000" CACHE STRING "Number of repetitions for the aggregation executor deadlock tests")
 option(CPPUDDLE_WITH_COUNTERS "Turns on allocations counters. Useful for extended testing" OFF)
 option(CPPUDDLE_WITH_CUDA "Enable CUDA tests/examples" OFF)
 option(CPPUDDLE_WITH_MULTIGPU_SUPPORT "Enables experimental MultiGPU support" OFF)
@@ -531,6 +532,181 @@ if (CPPUDDLE_WITH_TESTS)
         set_tests_properties(aggregation_add_references_test.analyse_number_buffers PROPERTIES
           FIXTURES_REQUIRED aggregation_add_references_test_output
           PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 3"
+        )
+
+
+      # STREAM TESTS
+
+      # set to larger value for Jenkins checks?
+      set(deadlock_check_repetitions ${CPPUDDLE_WITH_DEADLOCK_TEST_REPETITONS})
+      #set(deadlock_check_repetitions "100000")
+      message(STATUS "Deadlock check repetitions set to ${deadlock_check_repetitions}")
+
+      # Try with few slices -- good to detect deadlocking on errors with the continuations
+        add_test(aggregation_stream_triad_cpu_eager_test1.run work_aggregation_cpu_triad -t 4 --number_aggregation_executors=1 --number_underlying_executors=2048 --problem_size=25600 --kernel_size=256 --max_slices=2 --repetitions=${deadlock_check_repetitions} --executor_type=EAGER --outputfile=aggregation_stream_triad_cpu_eager_test1.out)
+        set_tests_properties(aggregation_stream_triad_cpu_eager_test1.run PROPERTIES
+          FIXTURES_SETUP aggregation_stream_triad_cpu_eager_test_output1
+          PROCESSORS 4
+          TIMEOUT 600
+        )
+        add_test(aggregation_stream_triad_cpu_eager_test1.check_errors cat aggregation_stream_triad_cpu_eager_test1.out)
+        set_tests_properties(aggregation_stream_triad_cpu_eager_test1.check_errors PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cpu_eager_test_output1
+          FAIL_REGULAR_EXPRESSION "ERROR"
+        )
+        add_test(aggregation_stream_triad_cpu_eager_test1.check_success cat aggregation_stream_triad_cpu_eager_test1.out)
+        set_tests_properties(aggregation_stream_triad_cpu_eager_test1.check_success PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cpu_eager_test_output1
+          PASS_REGULAR_EXPRESSION "SUCCESS"
+        )
+
+
+      # Try with odd number of slices
+      # This would deadlock given the STRICT executor, the EAGER one should have no problem
+        add_test(aggregation_stream_triad_cpu_eager_test2.run work_aggregation_cpu_triad -t 4 --number_aggregation_executors=1 --number_underlying_executors=2048 --problem_size=25600 --kernel_size=256 --max_slices=17 --repetitions=${deadlock_check_repetitions} --executor_type=EAGER --outputfile=aggregation_stream_triad_cpu_eager_test2.out)
+        set_tests_properties(aggregation_stream_triad_cpu_eager_test2.run PROPERTIES
+          FIXTURES_SETUP aggregation_stream_triad_cpu_eager_test_output2
+          PROCESSORS 4
+          TIMEOUT 600
+        )
+        add_test(aggregation_stream_triad_cpu_eager_test2.check_errors cat aggregation_stream_triad_cpu_eager_test2.out)
+        set_tests_properties(aggregation_stream_triad_cpu_eager_test2.check_errors PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cpu_eager_test_output2
+          FAIL_REGULAR_EXPRESSION "ERROR"
+        )
+        add_test(aggregation_stream_triad_cpu_eager_test2.check_success cat aggregation_stream_triad_cpu_eager_test2.out)
+        set_tests_properties(aggregation_stream_triad_cpu_eager_test2.check_success PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cpu_eager_test_output2
+          PASS_REGULAR_EXPRESSION "SUCCESS"
+        )
+
+
+      # Try with large number of slices -- this is basically what should be used in production, hence it should be tested
+        add_test(aggregation_stream_triad_cpu_eager_test3.run work_aggregation_cpu_triad -t 4 --number_aggregation_executors=1 --number_underlying_executors=2048 --problem_size=25600 --kernel_size=256 --max_slices=100 --repetitions=${deadlock_check_repetitions} --executor_type=EAGER --outputfile=aggregation_stream_triad_cpu_eager_test3.out)
+        set_tests_properties(aggregation_stream_triad_cpu_eager_test3.run PROPERTIES
+          FIXTURES_SETUP aggregation_stream_triad_cpu_eager_test_output3
+          PROCESSORS 4
+          TIMEOUT 600
+        )
+        add_test(aggregation_stream_triad_cpu_eager_test3.check_errors cat aggregation_stream_triad_cpu_eager_test3.out)
+        set_tests_properties(aggregation_stream_triad_cpu_eager_test3.check_errors PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cpu_eager_test_output3
+          FAIL_REGULAR_EXPRESSION "ERROR"
+        )
+        add_test(aggregation_stream_triad_cpu_eager_test3.check_success cat aggregation_stream_triad_cpu_eager_test3.out)
+        set_tests_properties(aggregation_stream_triad_cpu_eager_test3.check_success PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cpu_eager_test_output3
+          PASS_REGULAR_EXPRESSION "SUCCESS"
+        )
+
+
+      # Basic test for the ENDLESS executor -- number slices should not matter here, hence the large value for it
+      add_test(aggregation_stream_triad_cpu_endless_test1.run work_aggregation_cpu_triad -t 4 --number_aggregation_executors=1 --number_underlying_executors=2048 --problem_size=25600 --kernel_size=256 --max_slices=99999999 --repetitions=${deadlock_check_repetitions} --executor_type=ENDLESS --outputfile=aggregation_stream_triad_cpu_endless_test1.out)
+        set_tests_properties(aggregation_stream_triad_cpu_endless_test1.run PROPERTIES
+          FIXTURES_SETUP aggregation_stream_triad_cpu_endless_test_output1
+          PROCESSORS 4
+          TIMEOUT 600
+        )
+        add_test(aggregation_stream_triad_cpu_endless_test1.check_errors cat aggregation_stream_triad_cpu_endless_test1.out)
+        set_tests_properties(aggregation_stream_triad_cpu_endless_test1.check_errors PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cpu_endless_test_output1
+          FAIL_REGULAR_EXPRESSION "ERROR"
+        )
+        add_test(aggregation_stream_triad_cpu_endless_test1.check_success cat aggregation_stream_triad_cpu_endless_test1.out)
+        set_tests_properties(aggregation_stream_triad_cpu_endless_test1.check_success PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cpu_endless_test_output1
+          PASS_REGULAR_EXPRESSION "SUCCESS"
+        )
+
+
+      # Basic test for the STRICT executor 
+      add_test(aggregation_stream_triad_cpu_strict_test1.run work_aggregation_cpu_triad -t 4 --number_aggregation_executors=1 --number_underlying_executors=2048 --problem_size=25600 --kernel_size=256 --max_slices=100 --repetitions=${deadlock_check_repetitions} --executor_type=STRICT --outputfile=aggregation_stream_triad_cpu_strict_test1.out)
+        set_tests_properties(aggregation_stream_triad_cpu_strict_test1.run PROPERTIES
+          FIXTURES_SETUP aggregation_stream_triad_cpu_strict_test_output1
+          PROCESSORS 4
+          TIMEOUT 600
+        )
+        add_test(aggregation_stream_triad_cpu_strict_test1.check_errors cat aggregation_stream_triad_cpu_strict_test1.out)
+        set_tests_properties(aggregation_stream_triad_cpu_strict_test1.check_errors PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cpu_strict_test_output1
+          FAIL_REGULAR_EXPRESSION "ERROR"
+        )
+        add_test(aggregation_stream_triad_cpu_strict_test1.check_success cat aggregation_stream_triad_cpu_strict_test1.out)
+        set_tests_properties(aggregation_stream_triad_cpu_strict_test1.check_success PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cpu_strict_test_output1
+          PASS_REGULAR_EXPRESSION "SUCCESS"
+        )
+
+
+      # STRICT number of kernel launches should always be same -- hence we can check the aggregation working correctly here -- here it should be exactly 200 (no aggregation happening)
+      add_test(aggregation_stream_triad_cpu_strict_aggregation_test1.run work_aggregation_cpu_triad -t 4 --number_aggregation_executors=1 --number_underlying_executors=2048 --problem_size=25600 --kernel_size=256 --max_slices=1 --repetitions=2 --executor_type=STRICT --outputfile=aggregation_stream_triad_cpu_strict_aggregation_test1.out)
+        set_tests_properties(aggregation_stream_triad_cpu_strict_aggregation_test1.run PROPERTIES
+          FIXTURES_SETUP aggregation_stream_triad_cpu_strict_aggregation_test_output1
+          PROCESSORS 4
+          TIMEOUT 90
+        )
+        add_test(aggregation_stream_triad_cpu_strict_aggregation_test1.check_errors cat aggregation_stream_triad_cpu_strict_aggregation_test1.out)
+        set_tests_properties(aggregation_stream_triad_cpu_strict_aggregation_test1.check_errors PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cpu_strict_aggregation_test_output1
+          FAIL_REGULAR_EXPRESSION "ERROR"
+        )
+        add_test(aggregation_stream_triad_cpu_strict_aggregation_test1.check_success cat aggregation_stream_triad_cpu_strict_aggregation_test1.out)
+        set_tests_properties(aggregation_stream_triad_cpu_strict_aggregation_test1.check_success PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cpu_strict_aggregation_test_output1
+          PASS_REGULAR_EXPRESSION "SUCCESS"
+        )
+        add_test(aggregation_stream_triad_cpu_strict_aggregation_test1.check_launch_counter cat aggregation_stream_triad_cpu_strict_aggregation_test1.out)
+        set_tests_properties(aggregation_stream_triad_cpu_strict_aggregation_test1.check_launch_counter PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cpu_strict_aggregation_test_output1
+          PASS_REGULAR_EXPRESSION "Kernel launch counter: 200"
+        )
+
+
+      # STRICT number of kernel launches should always be same -- hence we can check the aggregation working correctly here -- here it should be exactly 30
+      add_test(aggregation_stream_triad_cpu_strict_aggregation_test2.run work_aggregation_cpu_triad -t 4 --number_aggregation_executors=1 --number_underlying_executors=2048 --problem_size=25600 --kernel_size=256 --max_slices=10 --repetitions=3 --executor_type=STRICT --outputfile=aggregation_stream_triad_cpu_strict_aggregation_test2.out)
+        set_tests_properties(aggregation_stream_triad_cpu_strict_aggregation_test2.run PROPERTIES
+          FIXTURES_SETUP aggregation_stream_triad_cpu_strict_aggregation_test_output2
+          PROCESSORS 4
+          TIMEOUT 90
+        )
+        add_test(aggregation_stream_triad_cpu_strict_aggregation_test2.check_errors cat aggregation_stream_triad_cpu_strict_aggregation_test2.out)
+        set_tests_properties(aggregation_stream_triad_cpu_strict_aggregation_test2.check_errors PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cpu_strict_aggregation_test_output2
+          FAIL_REGULAR_EXPRESSION "ERROR"
+        )
+        add_test(aggregation_stream_triad_cpu_strict_aggregation_test2.check_success cat aggregation_stream_triad_cpu_strict_aggregation_test2.out)
+        set_tests_properties(aggregation_stream_triad_cpu_strict_aggregation_test2.check_success PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cpu_strict_aggregation_test_output2
+          PASS_REGULAR_EXPRESSION "SUCCESS"
+        )
+        add_test(aggregation_stream_triad_cpu_strict_aggregation_test2.check_launch_counter cat aggregation_stream_triad_cpu_strict_aggregation_test2.out)
+        set_tests_properties(aggregation_stream_triad_cpu_strict_aggregation_test2.check_launch_counter PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cpu_strict_aggregation_test_output2
+          PASS_REGULAR_EXPRESSION "Kernel launch counter: 30"
+        )
+
+
+      # STRICT number of kernel launches should always be same -- hence we can check the aggregation working correctly here -- here it should be exactly 1
+      add_test(aggregation_stream_triad_cpu_strict_aggregation_test3.run work_aggregation_cpu_triad -t 4 --number_aggregation_executors=1 --number_underlying_executors=2048 --problem_size=25600 --kernel_size=256 --max_slices=100 --repetitions=1 --executor_type=STRICT --outputfile=aggregation_stream_triad_cpu_strict_aggregation_test3.out)
+        set_tests_properties(aggregation_stream_triad_cpu_strict_aggregation_test3.run PROPERTIES
+          FIXTURES_SETUP aggregation_stream_triad_cpu_strict_aggregation_test_output3
+          PROCESSORS 4
+          TIMEOUT 90
+        )
+        add_test(aggregation_stream_triad_cpu_strict_aggregation_test3.check_errors cat aggregation_stream_triad_cpu_strict_aggregation_test3.out)
+        set_tests_properties(aggregation_stream_triad_cpu_strict_aggregation_test3.check_errors PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cpu_strict_aggregation_test_output3
+          FAIL_REGULAR_EXPRESSION "ERROR"
+        )
+        add_test(aggregation_stream_triad_cpu_strict_aggregation_test3.check_success cat aggregation_stream_triad_cpu_strict_aggregation_test3.out)
+        set_tests_properties(aggregation_stream_triad_cpu_strict_aggregation_test3.check_success PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cpu_strict_aggregation_test_output3
+          PASS_REGULAR_EXPRESSION "SUCCESS"
+        )
+        add_test(aggregation_stream_triad_cpu_strict_aggregation_test3.check_launch_counter cat aggregation_stream_triad_cpu_strict_aggregation_test3.out)
+        set_tests_properties(aggregation_stream_triad_cpu_strict_aggregation_test3.check_launch_counter PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cpu_strict_aggregation_test_output3
+          PASS_REGULAR_EXPRESSION "Kernel launch counter: 1"
         )
 
       endif() # end with KOKKOS

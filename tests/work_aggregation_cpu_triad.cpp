@@ -184,40 +184,40 @@ int hpx_main(int argc, char *argv[]) {
         if (slice_fut1.has_value()) {
           // Work aggregation Wrapper: Recombines (some) tasks, depending on the
           // number of slices
-        hpx::lcos::future<void> current_fut = slice_fut1.value().then([&, task_id](auto &&fut) {
-            auto slice_exec = fut.get();
+          hpx::lcos::future<void> current_fut =
+              slice_fut1.value().then([&, task_id](auto &&fut) {
+                auto slice_exec = fut.get();
 
-            auto alloc =
-                slice_exec.template make_allocator<float_t,
-                                                   std::allocator<float_t>>();
-            // Start the actual task
-            std::vector<float_t, decltype(alloc)> local_A(
-                slice_exec.number_slices * kernel_size, float_t{}, alloc);
-            std::vector<float_t, decltype(alloc)> local_B(
-                slice_exec.number_slices * kernel_size, float_t{}, alloc);
-            std::vector<float_t, decltype(alloc)> local_C(
-                slice_exec.number_slices * kernel_size, float_t{}, alloc);
-            for (size_t i = task_id * kernel_size, j = 0;
-                 i < problem_size && j < kernel_size; i++, j++) {
-              local_B[slice_exec.id * kernel_size + j] = B[i];
-              local_C[slice_exec.id * kernel_size + j] = C[i];
-              local_A[slice_exec.id * kernel_size + j] = 0.0;
-            }
-            const size_t start_id =
-                task_id * kernel_size - slice_exec.id * kernel_size;
-            auto kernel_done = slice_exec.async(
-                triad_kernel<float_t>, local_A.data(), local_B.data(),
-                local_C.data(), scalar, 0,
-                kernel_size * slice_exec.number_slices, problem_size);
-            kernel_done.get();
-            for (size_t i = task_id * kernel_size, j = 0;
-                 i < problem_size && j < kernel_size; i++, j++) {
-              A[i] = local_A[slice_exec.id * kernel_size + j];
-            }
-            // end actual task
-          }); 
-        //current_fut.get();
-        return current_fut;
+                auto alloc = slice_exec.template make_allocator<
+                    float_t, std::allocator<float_t>>();
+                // Start the actual task
+                std::vector<float_t, decltype(alloc)> local_A(
+                    slice_exec.number_slices * kernel_size, float_t{}, alloc);
+                std::vector<float_t, decltype(alloc)> local_B(
+                    slice_exec.number_slices * kernel_size, float_t{}, alloc);
+                std::vector<float_t, decltype(alloc)> local_C(
+                    slice_exec.number_slices * kernel_size, float_t{}, alloc);
+                for (size_t i = task_id * kernel_size, j = 0;
+                     i < problem_size && j < kernel_size; i++, j++) {
+                  local_B[slice_exec.id * kernel_size + j] = B[i];
+                  local_C[slice_exec.id * kernel_size + j] = C[i];
+                  local_A[slice_exec.id * kernel_size + j] = 0.0;
+                }
+                const size_t start_id =
+                    task_id * kernel_size - slice_exec.id * kernel_size;
+                auto kernel_done = slice_exec.async(
+                    triad_kernel<float_t>, local_A.data(), local_B.data(),
+                    local_C.data(), scalar, 0,
+                    kernel_size * slice_exec.number_slices, problem_size);
+                kernel_done.get();
+                for (size_t i = task_id * kernel_size, j = 0;
+                     i < problem_size && j < kernel_size; i++, j++) {
+                  A[i] = local_A[slice_exec.id * kernel_size + j];
+                }
+                // end actual task
+              });
+          // current_fut.get();
+          return current_fut;
         } else {
           hpx::cout << "ERROR: Executor was not properly initialized!" << std::endl;
           return hpx::lcos::make_ready_future();
