@@ -586,11 +586,15 @@ public:
       const size_t local_slice_id = ++current_slices;
       // anything leftover from last run? If yes, they need to be done
       if (local_slice_id == 1) {
-        // TODO do this work within mutex?
-        current_continuation.get();
-        current_continuation = hpx::lcos::make_ready_future();
-        last_stream_launch_done.get();
-        last_stream_launch_done = hpx::lcos::make_ready_future();
+        // TODO do these work within mutex? - apparently not unfortunately
+        // at least with a low slice count they lead to problems on reusage
+        // To test run
+        // ./work_aggregation_cpu_triad -t 4 --number_aggregation_executors=1 --number_underlying_executors=2048 --problem_size=25600 --kernel_size=256 --max_slices=2 --repetitions=1000000
+        // this fails (deadllock) for EAGER with the future.get here
+        /* current_continuation.get(); */
+        /* current_continuation = hpx::lcos::make_ready_future(); */
+        /* last_stream_launch_done.get(); */
+        /* last_stream_launch_done = hpx::lcos::make_ready_future(); */
         function_calls.clear();
         std::lock_guard<hpx::mutex> guard(buffer_mut);
 #ifndef NDEBUG
@@ -618,10 +622,10 @@ public:
         // TODO get future and add continuation for when the stream does its
         // thing
         // auto fut = dummy_stream_promise.get_future();
-        auto fut = executor.get_future();
+        auto fut = executor.get_future(); // TODO Try with when_any to always use this continuation to set the promises?
         current_continuation = fut.then([this](auto &&fut) {
           std::lock_guard<hpx::mutex> guard(mut);
-          if (!slices_exhausted) {
+          if (!slices_exhausted && current_slices > 0) {
             slices_exhausted = true;
             launched_slices = current_slices;
             size_t id = 0;
