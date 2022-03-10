@@ -442,6 +442,7 @@ public:
 
   //===============================================================================
 
+  hpx::lcos::local::promise<void> slices_full_promise;
   /// Promises with the slice executors -- to be set when the starting criteria
   /// is met
   std::vector<hpx::lcos::local::promise<Executor_Slice>> executor_slices;
@@ -584,17 +585,8 @@ public:
     std::lock_guard<hpx::mutex> guard(mut);
     if (!slices_exhausted) {
       const size_t local_slice_id = ++current_slices;
-      // anything leftover from last run? If yes, they need to be done
       if (local_slice_id == 1) {
-        // TODO do these work within mutex? - apparently not unfortunately
-        // at least with a low slice count they lead to problems on reusage
-        // To test run
-        // ./work_aggregation_cpu_triad -t 4 --number_aggregation_executors=1 --number_underlying_executors=2048 --problem_size=25600 --kernel_size=256 --max_slices=2 --repetitions=1000000
-        // this fails (deadllock) for EAGER with the future.get here
-        /* current_continuation.get(); */
-        /* current_continuation = hpx::lcos::make_ready_future(); */
-        /* last_stream_launch_done.get(); */
-        /* last_stream_launch_done = hpx::lcos::make_ready_future(); */
+        // Cleanup leftovers from last run if any
         function_calls.clear();
         std::lock_guard<hpx::mutex> guard(buffer_mut);
 #ifndef NDEBUG
@@ -608,46 +600,54 @@ public:
         buffer_allocations.clear();
       }
 
-      // Create Slice future
+      // Create Executor Slice future -- that will be returned later
       executor_slices.emplace_back(hpx::lcos::local::promise<Executor_Slice>{});
       hpx::lcos::future<Executor_Slice> ret_fut =
           executor_slices[local_slice_id - 1].get_future();
 
-      // Add continuation in case underlying stream get ready
-      if (local_slice_id == 1 && (mode == Aggregated_Executor_Modes::EAGER ||
-                                  mode == Aggregated_Executor_Modes::ENDLESS))
-      {
-
-
-        // TODO get future and add continuation for when the stream does its
-        // thing
-        // auto fut = dummy_stream_promise.get_future();
-        auto fut = executor.get_future(); // TODO Try with when_any to always use this continuation to set the promises?
+      // Are we the first slice? If yes, add continuation set the
+      // Executor_Slice
+      // futures to ready if the launch conditions are met
+      if (local_slice_id == 1) {
+        // Renew promise that all slices will be ready as the primary launch criteria...
+        slices_full_promise = hpx::lcos::local::promise<void>{};
+        auto slices_full_fut = slices_full_promise.get_future();
+        hpx::lcos::future<void> fut;
+        if (mode == Aggregated_Executor_Modes::EAGER || mode == Aggregated_Executor_Modes::ENDLESS) {
+          // Fallback launch condidtion: Launch as soon as the underlying stream is ready
+          auto exec_fut = executor.get_future(); 
+          // Combine both (sufficient) launch conditions
+          fut = hpx::when_any(exec_fut, slices_full_fut);
+        } else {
+          // Just use the slices launch condition
+          fut = std::move(slices_full_fut);
+        }
+        // Launch all executor slices within this continuation
         current_continuation = fut.then([this](auto &&fut) {
           std::lock_guard<hpx::mutex> guard(mut);
-          if (!slices_exhausted && current_slices > 0) {
-            slices_exhausted = true;
-            launched_slices = current_slices;
-            size_t id = 0;
-            for (auto &slice_promise : executor_slices) {
-              slice_promise.set_value(
-                  Executor_Slice{*this, id, current_slices});
-              id++;
-            }
-            executor_slices.clear();
+          /* if (!slices_exhausted && current_slices > 0) { */   
+          slices_exhausted = true;
+          launched_slices = current_slices;
+          size_t id = 0;
+          for (auto &slice_promise : executor_slices) {
+            slice_promise.set_value(
+                Executor_Slice{*this, id, current_slices});
+            id++;
           }
+          executor_slices.clear();
+          // in case the continuation was triggered via the executor future
+          // we should not leave the slices_full_promise dangling 
+          // hence we just set here
+          if (mode != Aggregated_Executor_Modes::STRICT && slices_full_promise.valid())
+            slices_full_promise.set_value();
+          /* } */
         });
       }
       if (local_slice_id >= max_slices &&
           mode != Aggregated_Executor_Modes::ENDLESS) {
-        slices_exhausted = true;
-        launched_slices = current_slices;
-        size_t id = 0;
-        for (auto &slice_promise : executor_slices) {
-          slice_promise.set_value(Executor_Slice{*this, id, current_slices});
-          id++;
-        }
-        executor_slices.clear();
+        slices_exhausted = true; // prevents any more threads from entering before the continuation is launched
+        slices_full_promise.set_value(); // Trigger slices launch condition continuation 
+        // that continuation will set all executor slices so far handed out to ready
       }
       return ret_fut;
     } else {
@@ -675,10 +675,7 @@ public:
     }
   }
   ~Aggregated_Executor(void) {
-    // Aggregated exector should only be deleted if there's currently no
-    // aggregation calls going on
-    current_continuation.get();
-    last_stream_launch_done.get();
+
     assert(current_slices == 0);
   }
 
