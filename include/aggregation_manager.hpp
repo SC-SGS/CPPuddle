@@ -626,6 +626,7 @@ public:
         current_continuation = fut.then([this](auto &&fut) {
           std::lock_guard<hpx::mutex> guard(mut);
           /* if (!slices_exhausted && current_slices > 0) { */   
+          if (!slices_exhausted) slices_full_promise.set_value();
           slices_exhausted = true;
           launched_slices = current_slices;
           size_t id = 0;
@@ -635,11 +636,12 @@ public:
             id++;
           }
           executor_slices.clear();
+          
           // in case the continuation was triggered via the executor future
           // we should not leave the slices_full_promise dangling 
           // hence we just set here
-          if (mode != Aggregated_Executor_Modes::STRICT && slices_full_promise.valid())
-            slices_full_promise.set_value();
+          /* if (mode != Aggregated_Executor_Modes::STRICT && slices_full_promise.valid()) */
+          /*   slices_full_promise.set_value(); */
           /* } */
         });
       }
