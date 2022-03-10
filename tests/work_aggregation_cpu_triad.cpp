@@ -20,7 +20,7 @@
 std::atomic<size_t> launch_counter = 0;
 template <typename float_t>
 void triad_kernel(float_t *A, const float_t *B, const float_t *C, const float_t scalar, const size_t start_id, const size_t kernel_size, const size_t problem_size) {
-  for (auto int i = 0; i < kernel_size && i + start_id < problem_size; i++) {
+  for (size_t i = 0; i < kernel_size && i + start_id < problem_size; i++) {
     A[i] = B[i] + scalar * C[i];
   }
   launch_counter++;
