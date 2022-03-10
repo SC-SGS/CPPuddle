@@ -657,7 +657,6 @@ public:
   }
   size_t launched_slices;
   void reduce_usage_counter(void) {
-            /* << " Reduce usage:" << current_slices << " slicesS" << std::endl; */
     assert(launched_slices >= 1);
     assert(current_slices >= 0 && current_slices <= launched_slices);
     const size_t local_slice_id = --current_slices;
