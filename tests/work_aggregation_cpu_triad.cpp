@@ -59,7 +59,6 @@ struct Dummy_Executor {
 //===============================================================================
 int hpx_main(int argc, char *argv[]) {
   // Init parameters
-  std::string filename{};
   size_t problem_size{0};
   size_t kernel_size{0};
   size_t max_slices{0};
@@ -67,40 +66,41 @@ int hpx_main(int argc, char *argv[]) {
   size_t number_aggregation_executors{0};
   size_t number_underlying_executors{0};
   bool print_launch_counter{false};
+  std::string executor_type_string{};
+  Aggregated_Executor_Modes executor_mode{Aggregated_Executor_Modes::EAGER};
+  std::string filename{};
   {
     try {
       boost::program_options::options_description desc{"Options"};
       desc.add_options()(
           "help",
           "Help screen")("problem_size",
-                         boost::program_options::value<size_t>(&problem_size)
-                             ->default_value(12800),
-                         "Number of vector elements for triad test")("kernel_size",
-                         boost::program_options::value<size_t>(&kernel_size)
-                             ->default_value(128),
-                         "Number of vector elements per kernel launch")("max_slices",
-                         boost::program_options::value<size_t>(&max_slices)
-                             ->default_value(8),
-                         "Max number of work aggregation slices")("number_aggregation_executors",
-                         boost::program_options::value<size_t>(&number_aggregation_executors)
-                             ->default_value(8),
-                         "Start number of aggregation executors")("number_underlying_executors",
-                         boost::program_options::value<size_t>(&number_underlying_executors)
-                             ->default_value(8),
-                         "Number of host executors that are used")("repetitions",
-                         boost::program_options::value<size_t>(&repetitions)
-                             ->default_value(1),
-                         "Number of times the test should be repeated")("print_launch_counter",
-                         boost::program_options::value<bool>(&print_launch_counter)
-                             ->default_value(true),
-                         "Print number of kernel launches as verification the aggregation works")("outputfile",
-                                                      boost::program_options::
-                                                          value<std::string>(
-                                                              &filename)
-                                                              ->default_value(
-                                                                  ""),
-                                                      "Redirect stdout/stderr "
-                                                      "to this file");
+           boost::program_options::value<size_t>(&problem_size)
+           ->default_value(12800),
+           "Number of vector elements for triad test")("kernel_size",
+           boost::program_options::value<size_t>(&kernel_size)
+           ->default_value(128),
+           "Number of vector elements per kernel launch")("max_slices",
+           boost::program_options::value<size_t>(&max_slices)
+           ->default_value(8),
+           "Max number of work aggregation slices")("number_aggregation_executors",
+           boost::program_options::value<size_t>(&number_aggregation_executors)
+           ->default_value(8),
+           "Start number of aggregation executors")("number_underlying_executors",
+           boost::program_options::value<size_t>(&number_underlying_executors)
+           ->default_value(8),
+           "Number of host executors that are used")("repetitions",
+           boost::program_options::value<size_t>(&repetitions)
+           ->default_value(1),
+           "Number of times the test should be repeated")("print_launch_counter",
+           boost::program_options::value<bool>(&print_launch_counter)
+           ->default_value(true),
+           "Print number of kernel launches")("executor_type",
+           boost::program_options::value<std::string>(&executor_type_string)
+           ->default_value("EAGER"),
+           "Aggregation executor type [EAGER,STRICT,ENDLESS")("outputfile",
+           boost::program_options::value<std::string>(&filename)->default_value(""),
+           "Redirect stdout/stderr to this file");
 
       boost::program_options::variables_map vm;
       boost::program_options::parsed_options options =
@@ -109,18 +109,33 @@ int hpx_main(int argc, char *argv[]) {
       boost::program_options::notify(vm);
 
       if (vm.count("help") == 0u) {
-        /*hpx::cout << "Running with parameters:" << std::endl
+        hpx::cout << "Running with parameters:" << std::endl
                   << "--problem_size=" << problem_size << std::endl
                   << "--kernel_size=" << kernel_size << std::endl
                   << "--max_slices=" << max_slices << std::endl
-                  << "--number_aggregation_executors=" << number_aggregation_executors << std::endl
-                  << "--number_underlying_executors=" << number_underlying_executors << std::endl
+                  << "--number_aggregation_executors="
+                  << number_aggregation_executors << std::endl
+                  << "--number_underlying_executors="
+                  << number_underlying_executors << std::endl
                   << "--repetitions=" << repetitions << std::endl
-                  << "--print_launch_counter=" << print_launch_counter << std::endl
-                  << "--outputfile=" << filename << std::endl;*/
+                  << "--print_launch_counter=" << print_launch_counter
+                  << std::endl
+                  << "--executor_type=" << executor_type_string << std::endl
+                  << "--outputfile=" << filename << std::endl;
       } else {
         hpx::cout << desc << std::endl;
         return hpx::finalize();
+      }
+      if (executor_type_string == "EAGER") {
+        executor_mode = Aggregated_Executor_Modes::EAGER;
+      } else if (executor_type_string == "STRICT") {
+        executor_mode = Aggregated_Executor_Modes::STRICT;
+      } else if (executor_type_string == "ENDLESS") {
+        executor_mode = Aggregated_Executor_Modes::ENDLESS;
+      } else {
+        std::cerr << "ERROR: Unknown executor mode " << executor_type_string
+                  << "\n Valid choices are: EAGER,STRICT,ENDLESS" << std::endl;
+        exit(1);
       }
     } catch (const boost::program_options::error &ex) {
       hpx::cout << "CLI argument problem found: " << ex.what() << '\n';
@@ -131,12 +146,12 @@ int hpx_main(int argc, char *argv[]) {
     }
   }
 
-  stream_pool::init<Dummy_Executor, round_robin_pool<Dummy_Executor>>(number_underlying_executors);
+  stream_pool::init<Dummy_Executor, round_robin_pool<Dummy_Executor>>(
+      number_underlying_executors);
   static const char kernelname[] = "cpu_triad";
   using executor_pool = aggregation_pool<kernelname, Dummy_Executor,
-                                        round_robin_pool<Dummy_Executor>>;
-  executor_pool::init(number_aggregation_executors, max_slices,
-                      Aggregated_Executor_Modes::EAGER);
+                                         round_robin_pool<Dummy_Executor>>;
+  executor_pool::init(number_aggregation_executors, max_slices, executor_mode);
 
   using float_t = float;
   //epsilon for comparison
@@ -153,7 +168,6 @@ int hpx_main(int argc, char *argv[]) {
   }
 
   for (size_t repetition = 0; repetition < repetitions; repetition++) {
-    /* hpx::cout << hpx::get_worker_thread_num() << "Starting repetition: " << repetition << std::endl; */
 
     std::vector<float_t> A(problem_size, 0.0);
     std::vector<float_t> B(problem_size, 2.0);
@@ -205,7 +219,7 @@ int hpx_main(int argc, char *argv[]) {
         //current_fut.get();
         return current_fut;
         } else {
-          hpx::cout << "Executor was not properly initialized!" << std::endl;
+          hpx::cout << "ERROR: Executor was not properly initialized!" << std::endl;
           return hpx::lcos::make_ready_future();
         }
       })); 
