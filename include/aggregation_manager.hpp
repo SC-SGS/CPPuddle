@@ -85,6 +85,14 @@ template <class... T> void print_tuple(const std::tuple<T...> &_tup) {
 
 //===============================================================================
 //===============================================================================
+template <typename Executor, typename F, typename... Ts>
+void exec_post_wrapper(Executor & exec, F &&f, Ts &&...ts) {
+  exec.post(std::forward<F>(f), std::forward<Ts>(ts)...);
+}
+template <typename Executor, typename F, typename... Ts>
+hpx::lcos::future<void> exec_async_wrapper(Executor & exec, F &&f, Ts &&...ts) {
+  return exec.async(std::forward<F>(f), std::forward<Ts>(ts)...);
+}
 
 /// Manages the launch conditions for aggregated function calls
 /// type/value-errors
@@ -109,6 +117,8 @@ private:
   const size_t number_slices;
   const bool async_mode;
 
+  Executor &underlying_executor;
+
 #ifndef NDEBUG
 #pragma message                                                                \
     "Running slow work aggegator debug build! Run with NDEBUG defined for fast build..."
@@ -123,8 +133,8 @@ private:
   std::vector<hpx::lcos::local::promise<void>> potential_async_promises{};
 
 public:
-  aggregated_function_call(const size_t number_slices, bool async_mode)
-      : number_slices(number_slices), async_mode(async_mode) {
+  aggregated_function_call(const size_t number_slices, bool async_mode, Executor &exec)
+      : number_slices(number_slices), async_mode(async_mode), underlying_executor(exec) {
     if (async_mode)
       potential_async_promises.resize(number_slices);
   }
@@ -146,12 +156,13 @@ public:
 
     // auto args_tuple(
     if (local_counter == 0) {
-      std::tuple<Ts...> args =
-          make_tuple_supporting_references(std::forward<Ts>(ts)...);
+      std::tuple<Executor &, F, Ts...> args = make_tuple_supporting_references(
+          underlying_executor, std::forward<F>(f), std::forward<Ts>(ts)...);
       stream_future =
           hpx::lcos::when_all(stream_future, all_slices_ready)
-              .then([f, args = std::move(args)](auto &&old_fut) mutable {
-                std::apply(f, std::move(args));
+              .then([args = std::move(args)](auto &&old_fut) mutable {
+                std::apply(exec_post_wrapper<Executor, F, Ts...>,
+                           std::move(args));
                 return;
               });
 #ifndef NDEBUG
@@ -226,16 +237,16 @@ public:
     assert(!potential_async_promises.empty());
     const size_t local_counter = slice_counter++;
     if (local_counter == 0) {
-      std::tuple<Ts...> args =
-          make_tuple_supporting_references(std::forward<Ts>(ts)...);
+      std::tuple<Executor &, F, Ts...> args = make_tuple_supporting_references(
+          underlying_executor, std::forward<F>(f), std::forward<Ts>(ts)...);
       std::vector<hpx::lcos::local::promise<void>> &potential_async_promises =
           this->potential_async_promises;
       stream_future =
           hpx::lcos::when_all(stream_future, all_slices_ready)
-              .then([f, args = std::move(args),
+              .then([args = std::move(args),
                      &potential_async_promises](auto &&old_fut) mutable {
-                std::apply(f, std::move(args));
-                hpx::lcos::future<void> fut = hpx::lcos::make_ready_future();
+                hpx::lcos::future<void> fut = std::apply(
+                    exec_async_wrapper<Executor, F, Ts...>, std::move(args));
                 fut.then([&potential_async_promises](auto &&fut) {
                   for (auto &promise : potential_async_promises) {
                     promise.set_value();
@@ -551,7 +562,7 @@ public:
     if (function_calls.size() <= slice_launch_counter) {
       std::lock_guard<hpx::mutex> guard(mut);
       if (function_calls.size() <= slice_launch_counter) {
-        function_calls.emplace_back(current_slices, false);
+        function_calls.emplace_back(current_slices, false, executor);
       }
     }
 
@@ -568,7 +579,7 @@ public:
     if (function_calls.size() <= slice_launch_counter) {
       std::lock_guard<hpx::mutex> guard(mut);
       if (function_calls.size() <= slice_launch_counter) {
-        function_calls.emplace_back(current_slices, true);
+        function_calls.emplace_back(current_slices, true, executor);
       }
     }
 

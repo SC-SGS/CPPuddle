@@ -171,7 +171,7 @@ int hpx_main(int argc, char *argv[]) {
                                                         decltype(alloc_device)>
                     device_A(slice_exec.number_slices * kernel_size, 0,
                              alloc_device);
-                slice_exec.template post<decltype(func)>(cudaMemcpyAsync, device_A.device_side_buffer, local_A.data(), slice_exec.number_slices * kernel_size * sizeof(float_t), cudaMemcpyHostToDevice, cudaStream_t{});
+                /* slice_exec.template post<decltype(func)>(cudaMemcpyAsync, device_A.device_side_buffer, local_A.data(), slice_exec.number_slices * kernel_size * sizeof(float_t), cudaMemcpyHostToDevice, cudaStream_t{}); */
                 /* slice_exec.template post(cudaMemcpyAsync, device_A.device_side_buffer, local_A.data(), slice_exec.number_slices * kernel_size * sizeof(float_t), cudaMemcpyHostToDevice); */
 
                 std::vector<float_t, decltype(alloc_host)> local_B(
