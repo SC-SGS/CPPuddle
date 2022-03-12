@@ -48,7 +48,7 @@ struct Dummy_Executor {
   }
   /// async -- executores immediately and returns ready future
   template <typename F, typename... Ts>
-  hpx::lcos::future<void> async(F &&f, Ts &&...ts) {
+  hpx::lcos::future<void> async_execute(F &&f, Ts &&...ts) {
     f(std::forward<Ts>(ts)...);
     return hpx::make_ready_future();
   }

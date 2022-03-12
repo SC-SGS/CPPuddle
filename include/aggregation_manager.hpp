@@ -91,7 +91,7 @@ void exec_post_wrapper(Executor & exec, F &&f, Ts &&...ts) {
 }
 template <typename Executor, typename F, typename... Ts>
 hpx::lcos::future<void> exec_async_wrapper(Executor & exec, F &&f, Ts &&...ts) {
-  return exec.async(std::forward<F>(f), std::forward<Ts>(ts)...);
+  return exec.async_execute(std::forward<F>(f), std::forward<Ts>(ts)...);
 }
 
 /// Manages the launch conditions for aggregated function calls
@@ -485,12 +485,13 @@ public:
       std::lock_guard<hpx::mutex> guard(buffer_mut);
       // ... and recheck
       if (buffer_allocations.size() <= slice_alloc_counter) {
+        constexpr bool manage_content_lifetime = false;
         // Get shiny and new buffer that will be shared between all slices
         // Buffer might be recycled from previous allocations by the
         // buffer_recycler...
         T *aggregated_buffer =
             recycler::detail::buffer_recycler::get<T, Host_Allocator>(size,
-                                                                      true);
+                                                                      manage_content_lifetime);
         // Create buffer entry for this buffer
         buffer_allocations.emplace_back(aggregated_buffer, size, 1, true);
 

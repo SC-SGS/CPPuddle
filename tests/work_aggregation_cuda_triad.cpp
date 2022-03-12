@@ -115,9 +115,11 @@ int hpx_main(int argc, char *argv[]) {
     }
   }
 
+  hpx::cuda::experimental::detail::register_polling(hpx::resource::get_thread_pool(0));
+
   using executor_t = hpx::cuda::experimental::cuda_executor;
   stream_pool::init<executor_t, round_robin_pool<executor_t>>(
-      number_underlying_executors, false);
+      number_underlying_executors, 0, true);
   static const char kernelname2[] = "cuda_triad";
   using executor_pool = aggregation_pool<kernelname2, executor_t,
                                          round_robin_pool<executor_t>>;
@@ -164,49 +166,64 @@ int hpx_main(int argc, char *argv[]) {
                     float_t, recycler::detail::cuda_pinned_allocator<float_t>>();
                 auto alloc_device = slice_exec.template make_allocator<
                     float_t, recycler::detail::cuda_device_allocator<float_t>>();
+
                 // Start the actual task
+
+                // todo -- one slice gets a buffer that's not vaild anymore
                 std::vector<float_t, decltype(alloc_host)> local_A(
                     slice_exec.number_slices * kernel_size, float_t{}, alloc_host);
+
                 recycler::cuda_aggregated_device_buffer<float,
                                                         decltype(alloc_device)>
                     device_A(slice_exec.number_slices * kernel_size, 0,
                              alloc_device);
-                /* slice_exec.template post<decltype(func)>(cudaMemcpyAsync, device_A.device_side_buffer, local_A.data(), slice_exec.number_slices * kernel_size * sizeof(float_t), cudaMemcpyHostToDevice, cudaStream_t{}); */
-                /* slice_exec.template post(cudaMemcpyAsync, device_A.device_side_buffer, local_A.data(), slice_exec.number_slices * kernel_size * sizeof(float_t), cudaMemcpyHostToDevice); */
+                auto result_fut = slice_exec.template async<decltype(func)>(
+                    cudaMemcpyAsync, device_A.device_side_buffer,
+                    local_A.data(),
+                    slice_exec.number_slices * kernel_size * sizeof(float_t),
+                    cudaMemcpyHostToDevice);
+                result_fut.get();
 
-                std::vector<float_t, decltype(alloc_host)> local_B(
-                    slice_exec.number_slices * kernel_size, float_t{},
-                    alloc_host);
-                recycler::cuda_aggregated_device_buffer<float,
-                                                        decltype(alloc_device)>
-                    device_B(slice_exec.number_slices * kernel_size, 0,
-                             alloc_device);
+                /* std::vector<float_t, decltype(alloc_host)> local_B( */
+                /*     slice_exec.number_slices * kernel_size, float_t{}, */
+                /*     alloc_host); */
+                /* recycler::cuda_aggregated_device_buffer<float, */
+                /*                                         decltype(alloc_device)> */
+                /*     device_B(slice_exec.number_slices * kernel_size, 0, */
+                /*              alloc_device); */
                 
-                std::vector<float_t, decltype(alloc_host)> local_C(
-                    slice_exec.number_slices * kernel_size, float_t{},
-                    alloc_host);
-                recycler::cuda_aggregated_device_buffer<float,
-                                                        decltype(alloc_device)>
-                    device_C(slice_exec.number_slices * kernel_size, 0,
-                             alloc_device);
+                /* std::vector<float_t, decltype(alloc_host)> local_C( */
+                /*     slice_exec.number_slices * kernel_size, float_t{}, */
+                /*     alloc_host); */
+                /* recycler::cuda_aggregated_device_buffer<float, */
+                /*                                         decltype(alloc_device)> */
+                /*     device_C(slice_exec.number_slices * kernel_size, 0, */
+                /*              alloc_device); */
 
-                for (size_t i = task_id * kernel_size, j = 0;
-                     i < problem_size && j < kernel_size; i++, j++) {
-                  local_B[slice_exec.id * kernel_size + j] = B[i];
-                  local_C[slice_exec.id * kernel_size + j] = C[i];
-                  local_A[slice_exec.id * kernel_size + j] = 0.0;
-                }
-                const size_t start_id =
-                    task_id * kernel_size - slice_exec.id * kernel_size;
-                /* auto kernel_done = slice_exec.async( */
-                /*     triad_kernel<float_t>, local_A.data(), local_B.data(), */
-                /*     local_C.data(), scalar, 0, */
-                /*     kernel_size * slice_exec.number_slices, problem_size); */
-                /* kernel_done.get(); */
-                for (size_t i = task_id * kernel_size, j = 0;
-                     i < problem_size && j < kernel_size; i++, j++) {
-                  A[i] = local_A[slice_exec.id * kernel_size + j];
-                }
+                /* for (size_t i = task_id * kernel_size, j = 0; */
+                /*      i < problem_size && j < kernel_size; i++, j++) { */
+                /*   local_B[slice_exec.id * kernel_size + j] = B[i]; */
+                /*   local_C[slice_exec.id * kernel_size + j] = C[i]; */
+                /*   local_A[slice_exec.id * kernel_size + j] = 0.0; */
+                /* } */
+                /* slice_exec.template post<decltype(func)>(cudaMemcpyAsync, local_C.data(), device_C.device_side_buffer, slice_exec.number_slices * kernel_size * sizeof(float_t), cudaMemcpyDeviceToHost); */
+                /* const size_t start_id = */
+                /*     task_id * kernel_size - slice_exec.id * kernel_size; */
+                /* /1* auto kernel_done = slice_exec.async( *1/ */
+                /* /1*     triad_kernel<float_t>, local_A.data(), local_B.data(), *1/ */
+                /* /1*     local_C.data(), scalar, 0, *1/ */
+                /* /1*     kernel_size * slice_exec.number_slices, problem_size); *1/ */
+                /* /1* kernel_done.get(); *1/ */
+                /* auto result_fut = slice_exec.template async<decltype(func)>( */
+                /*     cudaMemcpyAsync, device_B.device_side_buffer, */
+                /*     local_B.data(), */
+                /*     slice_exec.number_slices * kernel_size * sizeof(float_t), */
+                /*     cudaMemcpyHostToDevice); */
+                /* result_fut.get(); */
+                /* for (size_t i = task_id * kernel_size, j = 0; */
+                /*      i < problem_size && j < kernel_size; i++, j++) { */
+                /*   A[i] = local_A[slice_exec.id * kernel_size + j]; */
+                /* } */
                 // end actual task
               });
           // current_fut.get();
@@ -219,35 +236,37 @@ int hpx_main(int argc, char *argv[]) {
     }
     auto final_fut = hpx::lcos::when_all(futs);
     final_fut.get();
+    /* std::cin.get(); */
 
-    bool results_correct = true;
-    for (size_t i = 0; i < problem_size; i++) {
-      /* if (i < 100) */
-      /*   hpx::cout << A[i] << " "; */
+    /* bool results_correct = true; */
+    /* for (size_t i = 0; i < problem_size; i++) { */
+    /*   /1* if (i < 100) *1/ */
+    /*   /1*   hpx::cout << A[i] << " "; *1/ */
 
-      // result should be 5.0
-      if (std::abs(A[i] - 5.0) > epsilon) {
-        hpx::cout << "Found error at " << i << " : " << A[i]
-                  << " instead of 5.0" << std::endl;
-        assert(false); // in debug build: crash
-        results_correct = false;
-      }
-    }
-    if (!results_correct) {
-      hpx::cout << "ERROR in repetition " << repetition << ": Wrong results"
-                << std::endl;
-    } else {
-      hpx::cout << "SUCCESS: Repetition " << repetition << " - Correct results"
-                << std::endl;
-    }
+    /*   // result should be 5.0 */
+    /*   if (std::abs(A[i] - 5.0) > epsilon) { */
+    /*     hpx::cout << "Found error at " << i << " : " << A[i] */
+    /*               << " instead of 5.0" << std::endl; */
+    /*     assert(false); // in debug build: crash */
+    /*     results_correct = false; */
+    /*   } */
+    /* } */
+    /* if (!results_correct) { */
+    /*   hpx::cout << "ERROR in repetition " << repetition << ": Wrong results" */
+    /*             << std::endl; */
+    /* } else { */
+    /*   hpx::cout << "SUCCESS: Repetition " << repetition << " - Correct results" */
+    /*             << std::endl; */
+    /* } */
   }
   hpx::cout << std::endl;
 
   // Flush outout and wait a second for the (non hpx::cout) output to have it in the correct
   // order for the ctests
-  std::flush(hpx::cout);
-  sleep(1);
+  /* std::flush(hpx::cout); */
+  /* sleep(1); */
 
+  hpx::cuda::experimental::detail::unregister_polling(hpx::resource::get_thread_pool(0));
   recycler::force_cleanup(); // Cleanup all buffers and the managers
   return hpx::finalize();
 }
