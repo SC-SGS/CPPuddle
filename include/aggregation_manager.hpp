@@ -127,8 +127,8 @@ private:
   std::any function_tuple;
   /// Stores the string of the first function call for debug output
   std::string debug_type_information;
-  hpx::mutex debug_mut;
 #endif
+  hpx::mutex debug_mut;
 
   std::vector<hpx::lcos::local::promise<void>> potential_async_promises{};
 
@@ -148,8 +148,8 @@ public:
 #ifndef NDEBUG
     // needed for concurrent access to function_tuple and debug_type_information
     // Not required for normal use
-    std::lock_guard<hpx::mutex> guard(debug_mut);
 #endif
+    std::lock_guard<hpx::mutex> guard(debug_mut);
     assert(!async_mode);
     assert(potential_async_promises.empty());
     const size_t local_counter = slice_counter++;
@@ -183,11 +183,11 @@ public:
       try {
         auto orig_call_tuple =
             std::any_cast<decltype(comparison_tuple)>(function_tuple);
-        if (comparison_tuple != orig_call_tuple) {
-          throw std::runtime_error(
-              "Values of post function arguments (or function "
-              "itself) do not match ");
-        }
+        /* if (comparison_tuple != orig_call_tuple) { */
+        /*   throw std::runtime_error( */
+        /*       "Values of post function arguments (or function " */
+        /*       "itself) do not match "); */
+        /* } */
       } catch (const std::bad_any_cast &e) {
         hpx::cout
             << "\nMismatched types error in aggregated post call of executor "
@@ -231,8 +231,8 @@ public:
 #ifndef NDEBUG
     // needed for concurrent access to function_tuple and debug_type_information
     // Not required for normal use
-    std::lock_guard<hpx::mutex> guard(debug_mut);
 #endif
+    std::lock_guard<hpx::mutex> guard(debug_mut);
     assert(async_mode);
     assert(!potential_async_promises.empty());
     const size_t local_counter = slice_counter++;
@@ -272,11 +272,11 @@ public:
       try {
         auto orig_call_tuple =
             std::any_cast<decltype(comparison_tuple)>(function_tuple);
-        if (comparison_tuple != orig_call_tuple) {
-          throw std::runtime_error(
-              "Values of async function arguments (or function "
-              "itself) do not match ");
-        }
+        /* if (comparison_tuple != orig_call_tuple) { */
+        /*   throw std::runtime_error( */
+        /*       "Values of async function arguments (or function " */
+        /*       "itself) do not match "); */
+        /* } */
       } catch (const std::bad_any_cast &e) {
         hpx::cout
             << "\nMismatched types error in aggregated async call of executor "

@@ -2,6 +2,7 @@
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+#include <chrono>
 #include <hpx/futures/future.hpp>
 //#undef NDEBUG
 
@@ -18,7 +19,7 @@
 // Stream benchmark
 
 template <typename float_t>
-__global__ void __launch_bounds__(256, 32) triad_kernel(float_t *A, const float_t *B, const float_t *C, const float_t scalar, const size_t start_id, const size_t kernel_size, const size_t problem_size) {
+__global__ void __launch_bounds__(1024, 4) triad_kernel(float_t *A, const float_t *B, const float_t *C, const float_t scalar, const size_t start_id, const size_t kernel_size, const size_t problem_size) {
   const size_t i = start_id + blockIdx.x * blockDim.x + threadIdx.x;
   A[i] = B[i] + scalar * C[i];
 }
@@ -125,7 +126,7 @@ int hpx_main(int argc, char *argv[]) {
                                          round_robin_pool<executor_t>>;
   executor_pool::init(number_aggregation_executors, max_slices, executor_mode);
 
-  using float_t = double;
+  using float_t = float;
   //epsilon for comparison
   double epsilon;
   if (sizeof(float_t) == 4) {
@@ -138,7 +139,7 @@ int hpx_main(int argc, char *argv[]) {
               << std::endl;
     epsilon = 1.e-6;
   }
-  const size_t variant = 1;
+  const size_t variant = 0;
 
   if (variant == 0) {
     for (size_t repetition = 0; repetition < repetitions; repetition++) {
@@ -153,6 +154,8 @@ int hpx_main(int argc, char *argv[]) {
       cudaError_t(*func)(void*,const void*,size_t,cudaMemcpyKind,cudaStream_t) = cudaMemcpyAsync;
 
 
+      std::chrono::steady_clock::time_point begin =
+          std::chrono::steady_clock::now();
       for (size_t task_id = 0; task_id < number_tasks; task_id++) {
         // Concurrency Wrapper: Splits stream benchmark into #number_tasks tasks
         futs.push_back(hpx::async([&, task_id]() {
@@ -252,6 +255,8 @@ int hpx_main(int argc, char *argv[]) {
       }
       auto final_fut = hpx::lcos::when_all(futs);
       final_fut.get();
+      std::chrono::steady_clock::time_point end =
+          std::chrono::steady_clock::now();
       /* std::cin.get(); */
 
       bool results_correct = true;
@@ -265,18 +270,24 @@ int hpx_main(int argc, char *argv[]) {
                     << " instead of 5.0" << std::endl;
           assert(false); // in debug build: crash
           results_correct = false;
+          break;
         }
       }
       if (!results_correct) {
         hpx::cout << "ERROR in repetition " << repetition << ": Wrong results"
                   << std::endl;
       } else {
-        hpx::cout << "SUCCESS: Repetition " << repetition << " - Correct results"
-                  << std::endl;
+        hpx::cout << "SUCCESS: Repetition " << repetition << " runtime = "
+                  << std::chrono::duration_cast<std::chrono::microseconds>(end -
+                                                                           begin)
+                         .count()
+                  << "[µs]" << std::endl;
       }
     }
     hpx::cout << std::endl;
   } else if (variant == 1) {
+    std::chrono::steady_clock::time_point begin =
+        std::chrono::steady_clock::now();
     std::vector<float_t> A(problem_size, 0.0);
     std::vector<float_t> B(problem_size, 2.0);
     std::vector<float_t> C(problem_size, 1.0);
@@ -290,6 +301,23 @@ int hpx_main(int argc, char *argv[]) {
     cudaMemcpy(device_C.device_side_buffer, C.data(),
                problem_size * sizeof(float_t), cudaMemcpyHostToDevice);
     float_t scalar = 3.0;
+    dim3 const grid_spec(problem_size / kernel_size, 1, 1);
+    dim3 const threads_per_block(kernel_size, 1, 1);
+    size_t arg1 = 0;
+    size_t arg2 = 0;
+
+    triad_kernel<float_t><<<grid_spec, threads_per_block>>>(
+        (device_A.device_side_buffer), (device_B.device_side_buffer),
+        (device_C.device_side_buffer), scalar, arg1, arg2, problem_size);
+    
+    cudaDeviceSynchronize();
+    std::chrono::steady_clock::time_point end =
+        std::chrono::steady_clock::now();
+    std::cout << "Orig runtime = "
+              << std::chrono::duration_cast<std::chrono::microseconds>(end -
+                                                                       begin)
+                     .count()
+              << "[µs]" << std::endl;
     for (size_t repetition = 0; repetition < repetitions; repetition++) {
 
       size_t number_tasks = problem_size / kernel_size;
@@ -297,6 +325,8 @@ int hpx_main(int argc, char *argv[]) {
       cudaError_t(*func)(void*,const void*,size_t,cudaMemcpyKind,cudaStream_t) = cudaMemcpyAsync;
 
 
+      std::chrono::steady_clock::time_point begin =
+          std::chrono::steady_clock::now();
       for (size_t task_id = 0; task_id < number_tasks; task_id++) {
         // Concurrency Wrapper: Splits stream benchmark into #number_tasks tasks
         futs.push_back(hpx::async([&, task_id]() {
@@ -331,6 +361,7 @@ int hpx_main(int argc, char *argv[]) {
               });
             // current_fut.get();
             return current_fut;
+            return hpx::make_ready_future();
           } else {
             hpx::cout << "ERROR: Executor was not properly initialized!" << std::endl;
             return hpx::lcos::make_ready_future();
@@ -339,7 +370,13 @@ int hpx_main(int argc, char *argv[]) {
       }
       auto final_fut = hpx::lcos::when_all(futs);
       final_fut.get();
-      hpx::cout << "Repetition " << repetition << " done! " << std::endl;
+    std::chrono::steady_clock::time_point end =
+        std::chrono::steady_clock::now();
+    std::cout << "SUCCESS: Repetition " << repetition << " runtime = "
+              << std::chrono::duration_cast<std::chrono::microseconds>(end -
+                                                                       begin)
+                     .count()
+              << "[µs]" << std::endl;
     }
     cudaMemcpy(device_C.device_side_buffer, C.data(),
                problem_size * sizeof(float_t), cudaMemcpyHostToDevice);
