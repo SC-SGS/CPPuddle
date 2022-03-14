@@ -127,8 +127,8 @@ private:
   std::any function_tuple;
   /// Stores the string of the first function call for debug output
   std::string debug_type_information;
-#endif
   hpx::mutex debug_mut;
+#endif
 
   std::vector<hpx::lcos::local::promise<void>> potential_async_promises{};
 
@@ -148,14 +148,12 @@ public:
 #ifndef NDEBUG
     // needed for concurrent access to function_tuple and debug_type_information
     // Not required for normal use
+    std::lock_guard<hpx::mutex> guard(debug_mut);
 #endif
     assert(!async_mode);
     assert(potential_async_promises.empty());
     const size_t local_counter = slice_counter++;
 
-    if (local_counter == 0 || local_counter == number_slices - 1) {
-    /* std::lock_guard<hpx::mutex> guard(debug_mut); */
-    // auto args_tuple(
     if (local_counter == 0) {
       std::tuple<Executor &, F, Ts...> args = make_tuple_supporting_references(
           underlying_executor, std::forward<F>(f), std::forward<Ts>(ts)...);
@@ -225,7 +223,6 @@ public:
     if (local_counter == number_slices - 1) {
       slices_ready_promise.set_value();
     }
-    }
   }
   template <typename F, typename... Ts>
   hpx::lcos::future<void> async_when(hpx::lcos::future<void> &stream_future,
@@ -233,12 +230,11 @@ public:
 #ifndef NDEBUG
     // needed for concurrent access to function_tuple and debug_type_information
     // Not required for normal use
+    std::lock_guard<hpx::mutex> guard(debug_mut);
 #endif
     assert(async_mode);
     assert(!potential_async_promises.empty());
     const size_t local_counter = slice_counter++;
-    if (local_counter == 0 || local_counter == number_slices - 1) {
-    std::lock_guard<hpx::mutex> guard(debug_mut);
     if (local_counter == 0) {
       std::tuple<Executor &, F, Ts...> args = make_tuple_supporting_references(
           underlying_executor, std::forward<F>(f), std::forward<Ts>(ts)...);
@@ -311,7 +307,6 @@ public:
     }
     if (local_counter == number_slices - 1) {
       slices_ready_promise.set_value();
-    }
     }
     assert(local_counter < number_slices);
     assert(slice_counter < number_slices + 1);
@@ -630,11 +625,10 @@ public:
 #endif 
         buffer_allocations.clear();
         buffer_counter = 0;
-        if (launch_by_slices)
-          launch_by_slices = false;
-        else
-          slices_full_promise.set_value(); //do not leave dangling
-        slices_full_promise = hpx::lcos::local::promise<void>{};
+
+        if (mode == Aggregated_Executor_Modes::STRICT ) {
+          slices_full_promise = hpx::lcos::local::promise<void>{};
+        }
       }
 
       // Create Executor Slice future -- that will be returned later
@@ -650,11 +644,11 @@ public:
         hpx::lcos::future<void> fut;
         if (mode == Aggregated_Executor_Modes::EAGER || mode == Aggregated_Executor_Modes::ENDLESS) {
           // Fallback launch condidtion: Launch as soon as the underlying stream is ready
-          auto slices_full_fut = slices_full_promise.get_future();
+          /* auto slices_full_fut = slices_full_promise.get_future(); */
           auto exec_fut = executor.get_future(); 
           // Combine both (sufficient) launch conditions
-          fut = hpx::when_any(exec_fut, slices_full_fut);
-          /* fut = std::move(exec_fut); */
+          /* fut = hpx::when_any(exec_fut, slices_full_fut); */
+          fut = std::move(exec_fut);
         } else {
           auto slices_full_fut = slices_full_promise.get_future();
           // Just use the slices launch condition
@@ -676,7 +670,7 @@ public:
           size_t id = 0;
           for (auto &slice_promise : executor_slices) {
             slice_promise.set_value(
-                Executor_Slice{*this, id, current_slices});
+                Executor_Slice{*this, id, launched_slices});
             id++;
           }
           executor_slices.clear();
@@ -686,7 +680,9 @@ public:
           mode != Aggregated_Executor_Modes::ENDLESS) {
         slices_exhausted = true; // prevents any more threads from entering before the continuation is launched
         launch_by_slices = true;
+        if (mode == Aggregated_Executor_Modes::STRICT ) {
         slices_full_promise.set_value(); // Trigger slices launch condition continuation 
+        }
         // that continuation will set all executor slices so far handed out to ready
       }
       return ret_fut;
@@ -717,6 +713,9 @@ public:
   ~Aggregated_Executor(void) {
 
     assert(current_slices == 0);
+    if (mode != Aggregated_Executor_Modes::STRICT ) {
+        slices_full_promise.set_value(); // Trigger slices launch condition continuation 
+    }
   }
 
   Aggregated_Executor(const size_t number_slices,
