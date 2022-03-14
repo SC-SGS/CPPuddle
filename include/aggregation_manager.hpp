@@ -149,11 +149,12 @@ public:
     // needed for concurrent access to function_tuple and debug_type_information
     // Not required for normal use
 #endif
-    std::lock_guard<hpx::mutex> guard(debug_mut);
     assert(!async_mode);
     assert(potential_async_promises.empty());
     const size_t local_counter = slice_counter++;
 
+    if (local_counter == 0 || local_counter == number_slices - 1) {
+    /* std::lock_guard<hpx::mutex> guard(debug_mut); */
     // auto args_tuple(
     if (local_counter == 0) {
       std::tuple<Executor &, F, Ts...> args = make_tuple_supporting_references(
@@ -224,6 +225,7 @@ public:
     if (local_counter == number_slices - 1) {
       slices_ready_promise.set_value();
     }
+    }
   }
   template <typename F, typename... Ts>
   hpx::lcos::future<void> async_when(hpx::lcos::future<void> &stream_future,
@@ -232,10 +234,11 @@ public:
     // needed for concurrent access to function_tuple and debug_type_information
     // Not required for normal use
 #endif
-    std::lock_guard<hpx::mutex> guard(debug_mut);
     assert(async_mode);
     assert(!potential_async_promises.empty());
     const size_t local_counter = slice_counter++;
+    if (local_counter == 0 || local_counter == number_slices - 1) {
+    std::lock_guard<hpx::mutex> guard(debug_mut);
     if (local_counter == 0) {
       std::tuple<Executor &, F, Ts...> args = make_tuple_supporting_references(
           underlying_executor, std::forward<F>(f), std::forward<Ts>(ts)...);
@@ -306,6 +309,10 @@ public:
       }
 #endif
     }
+    if (local_counter == number_slices - 1) {
+      slices_ready_promise.set_value();
+    }
+    }
     assert(local_counter < number_slices);
     assert(slice_counter < number_slices + 1);
     assert(potential_async_promises.size() == number_slices);
@@ -313,9 +320,6 @@ public:
         potential_async_promises[local_counter].get_future();
     // Check exit criteria: Launch function call continuation by setting the
     // slices promise
-    if (local_counter == number_slices - 1) {
-      slices_ready_promise.set_value();
-    }
     return ret_fut;
   }
   // We need to be able to copy or no-except move for std::vector..
@@ -473,6 +477,7 @@ public:
   std::deque<buffer_entry_t> buffer_allocations;
   /// For synchronizing the access to the buffer_allocations
   hpx::mutex buffer_mut;
+  std::atomic<size_t> buffer_counter = 0;
 
   /// Get new buffer OR get buffer already allocated by different slice
   template <typename T, typename Host_Allocator>
@@ -480,11 +485,11 @@ public:
     assert(slices_exhausted == true);
     // Add aggreated buffer entry in case it hasn't happened yet for this call
     // First: Check if it already has happened
-    if (buffer_allocations.size() <= slice_alloc_counter) {
+    if (buffer_counter <= slice_alloc_counter) {
       // we might be the first! Lock...
       std::lock_guard<hpx::mutex> guard(buffer_mut);
       // ... and recheck
-      if (buffer_allocations.size() <= slice_alloc_counter) {
+      if (buffer_counter <= slice_alloc_counter) {
         constexpr bool manage_content_lifetime = false;
         // Get shiny and new buffer that will be shared between all slices
         // Buffer might be recycled from previous allocations by the
@@ -494,6 +499,7 @@ public:
                                                                       manage_content_lifetime);
         // Create buffer entry for this buffer
         buffer_allocations.emplace_back(aggregated_buffer, size, 1, true);
+        buffer_counter = buffer_allocations.size();
 
         // Return buffer
         return aggregated_buffer;
@@ -554,33 +560,44 @@ public:
 public:
   hpx::lcos::future<void> current_continuation;
   hpx::lcos::future<void> last_stream_launch_done;
+  std::atomic<size_t> overall_launch_counter = 0;
 
   /// Only meant to be accessed by the slice executors
   template <typename F, typename... Ts>
   void post(const size_t slice_launch_counter, F &&f, Ts &&...ts) {
+      std::lock_guard<hpx::mutex> guard(mut);
     assert(slices_exhausted == true);
     // Add function call object in case it hasn't happened for this launch yet
-    if (function_calls.size() <= slice_launch_counter) {
-      std::lock_guard<hpx::mutex> guard(mut);
-      if (function_calls.size() <= slice_launch_counter) {
+    if (overall_launch_counter <= slice_launch_counter) {
+      /* std::lock_guard<hpx::mutex> guard(mut); */
+      if (overall_launch_counter <= slice_launch_counter) {
         function_calls.emplace_back(current_slices, false, executor);
+        overall_launch_counter = function_calls.size();
+        function_calls[slice_launch_counter].post_when(
+            last_stream_launch_done, std::forward<F>(f), std::forward<Ts>(ts)...);
+        return;
       }
     }
 
     function_calls[slice_launch_counter].post_when(
         last_stream_launch_done, std::forward<F>(f), std::forward<Ts>(ts)...);
+    return;
   }
 
   /// Only meant to be accessed by the slice executors
   template <typename F, typename... Ts>
   hpx::lcos::future<void> async(const size_t slice_launch_counter, F &&f,
                                 Ts &&...ts) {
+      std::lock_guard<hpx::mutex> guard(mut);
     assert(slices_exhausted == true);
     // Add function call object in case it hasn't happened for this launch yet
-    if (function_calls.size() <= slice_launch_counter) {
-      std::lock_guard<hpx::mutex> guard(mut);
-      if (function_calls.size() <= slice_launch_counter) {
+    if (overall_launch_counter <= slice_launch_counter) {
+      /* std::lock_guard<hpx::mutex> guard(mut); */
+      if (overall_launch_counter <= slice_launch_counter) {
         function_calls.emplace_back(current_slices, true, executor);
+        overall_launch_counter = function_calls.size();
+        return function_calls[slice_launch_counter].async_when(
+            last_stream_launch_done, std::forward<F>(f), std::forward<Ts>(ts)...);
       }
     }
 
@@ -592,6 +609,7 @@ public:
     std::lock_guard<hpx::mutex> guard(mut);
     return !slices_exhausted;
   }
+  std::atomic<bool> launch_by_slices = false;
 
   std::optional<hpx::lcos::future<Executor_Slice>> request_executor_slice() {
     std::lock_guard<hpx::mutex> guard(mut);
@@ -600,6 +618,7 @@ public:
       if (local_slice_id == 1) {
         // Cleanup leftovers from last run if any
         function_calls.clear();
+        overall_launch_counter = 0;
         std::lock_guard<hpx::mutex> guard(buffer_mut);
 #ifndef NDEBUG
         for (const auto &buffer_entry : buffer_allocations) {
@@ -610,6 +629,12 @@ public:
         }
 #endif 
         buffer_allocations.clear();
+        buffer_counter = 0;
+        if (launch_by_slices)
+          launch_by_slices = false;
+        else
+          slices_full_promise.set_value(); //do not leave dangling
+        slices_full_promise = hpx::lcos::local::promise<void>{};
       }
 
       // Create Executor Slice future -- that will be returned later
@@ -622,15 +647,16 @@ public:
       // futures to ready if the launch conditions are met
       if (local_slice_id == 1) {
         // Renew promise that all slices will be ready as the primary launch criteria...
-        slices_full_promise = hpx::lcos::local::promise<void>{};
-        auto slices_full_fut = slices_full_promise.get_future();
         hpx::lcos::future<void> fut;
         if (mode == Aggregated_Executor_Modes::EAGER || mode == Aggregated_Executor_Modes::ENDLESS) {
           // Fallback launch condidtion: Launch as soon as the underlying stream is ready
+          auto slices_full_fut = slices_full_promise.get_future();
           auto exec_fut = executor.get_future(); 
           // Combine both (sufficient) launch conditions
           fut = hpx::when_any(exec_fut, slices_full_fut);
+          /* fut = std::move(exec_fut); */
         } else {
+          auto slices_full_fut = slices_full_promise.get_future();
           // Just use the slices launch condition
           fut = std::move(slices_full_fut);
         }
@@ -642,8 +668,9 @@ public:
           // in case the continuation was triggered via the executor future
           // we should not leave the slices_full_promise dangling 
           // hence we just set here
-          if (!slices_exhausted)
-            slices_full_promise.set_value();
+          /* if (!slices_exhausted) */
+          /*   slices_full_promise.set_value(); */
+          /* hpx::cerr << "in" << std::endl; */
           slices_exhausted = true;
           launched_slices = current_slices;
           size_t id = 0;
@@ -658,6 +685,7 @@ public:
       if (local_slice_id >= max_slices &&
           mode != Aggregated_Executor_Modes::ENDLESS) {
         slices_exhausted = true; // prevents any more threads from entering before the continuation is launched
+        launch_by_slices = true;
         slices_full_promise.set_value(); // Trigger slices launch condition continuation 
         // that continuation will set all executor slices so far handed out to ready
       }
@@ -669,6 +697,7 @@ public:
   }
   size_t launched_slices;
   void reduce_usage_counter(void) {
+    /* std::lock_guard<hpx::mutex> guard(mut); */
     assert(launched_slices >= 1);
     assert(current_slices >= 0 && current_slices <= launched_slices);
     const size_t local_slice_id = --current_slices;
@@ -681,7 +710,6 @@ public:
         // executor_tuple = stream_pool::get_interface<Executor,
         // round_robin_pool<Executor>>(); executor =
         // std::get<0>(executor_tuple); 
-        
         // Mark executor fit for reusage
         slices_exhausted = false;
     }

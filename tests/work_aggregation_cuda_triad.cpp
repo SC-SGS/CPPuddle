@@ -19,7 +19,7 @@
 // Stream benchmark
 
 template <typename float_t>
-__global__ void __launch_bounds__(1024, 4) triad_kernel(float_t *A, const float_t *B, const float_t *C, const float_t scalar, const size_t start_id, const size_t kernel_size, const size_t problem_size) {
+__global__ void __launch_bounds__(1024, 2) triad_kernel(float_t *A, const float_t *B, const float_t *C, const float_t scalar, const size_t start_id, const size_t kernel_size, const size_t problem_size) {
   const size_t i = start_id + blockIdx.x * blockDim.x + threadIdx.x;
   A[i] = B[i] + scalar * C[i];
 }
@@ -142,12 +142,40 @@ int hpx_main(int argc, char *argv[]) {
   const size_t variant = 0;
 
   if (variant == 0) {
+    std::chrono::steady_clock::time_point begin =
+        std::chrono::steady_clock::now();
+    std::vector<float_t> A(problem_size, 0.0);
+    std::vector<float_t> B(problem_size, 2.0);
+    std::vector<float_t> C(problem_size, 1.0);
+    recycler::cuda_device_buffer<float_t> device_A(problem_size, 0);
+    recycler::cuda_device_buffer<float_t> device_B(problem_size, 0);
+    recycler::cuda_device_buffer<float_t> device_C(problem_size, 0);
+    cudaMemcpy(device_A.device_side_buffer, A.data(),
+               problem_size * sizeof(float_t), cudaMemcpyHostToDevice);
+    cudaMemcpy(device_B.device_side_buffer, B.data(),
+               problem_size * sizeof(float_t), cudaMemcpyHostToDevice);
+    cudaMemcpy(device_C.device_side_buffer, C.data(),
+               problem_size * sizeof(float_t), cudaMemcpyHostToDevice);
+    float_t scalar = 3.0;
+    dim3 const grid_spec(problem_size / kernel_size, 1, 1);
+    dim3 const threads_per_block(kernel_size, 1, 1);
+    size_t arg1 = 0;
+    size_t arg2 = 0;
+
+    triad_kernel<float_t><<<grid_spec, threads_per_block>>>(
+        (device_A.device_side_buffer), (device_B.device_side_buffer),
+        (device_C.device_side_buffer), scalar, arg1, arg2, problem_size);
+    
+    cudaDeviceSynchronize();
+    std::chrono::steady_clock::time_point end =
+        std::chrono::steady_clock::now();
+    hpx::cout << "Orig runtime = "
+              << std::chrono::duration_cast<std::chrono::microseconds>(end -
+                                                                       begin)
+                     .count()
+              << "[µs]" << std::endl;
     for (size_t repetition = 0; repetition < repetitions; repetition++) {
 
-      std::vector<float_t> A(problem_size, 0.0);
-      std::vector<float_t> B(problem_size, 2.0);
-      std::vector<float_t> C(problem_size, 1.0);
-      float_t scalar = 3.0;
 
       size_t number_tasks = problem_size / kernel_size;
       std::vector<hpx::lcos::future<void>> futs;
@@ -286,8 +314,6 @@ int hpx_main(int argc, char *argv[]) {
     }
     hpx::cout << std::endl;
   } else if (variant == 1) {
-    std::chrono::steady_clock::time_point begin =
-        std::chrono::steady_clock::now();
     std::vector<float_t> A(problem_size, 0.0);
     std::vector<float_t> B(problem_size, 2.0);
     std::vector<float_t> C(problem_size, 1.0);
@@ -300,6 +326,8 @@ int hpx_main(int argc, char *argv[]) {
                problem_size * sizeof(float_t), cudaMemcpyHostToDevice);
     cudaMemcpy(device_C.device_side_buffer, C.data(),
                problem_size * sizeof(float_t), cudaMemcpyHostToDevice);
+    std::chrono::steady_clock::time_point begin =
+        std::chrono::steady_clock::now();
     float_t scalar = 3.0;
     dim3 const grid_spec(problem_size / kernel_size, 1, 1);
     dim3 const threads_per_block(kernel_size, 1, 1);
@@ -313,7 +341,7 @@ int hpx_main(int argc, char *argv[]) {
     cudaDeviceSynchronize();
     std::chrono::steady_clock::time_point end =
         std::chrono::steady_clock::now();
-    std::cout << "Orig runtime = "
+    hpx::cout << "Orig runtime = "
               << std::chrono::duration_cast<std::chrono::microseconds>(end -
                                                                        begin)
                      .count()
