@@ -161,7 +161,8 @@ int main(int argc, char *argv[]) {
 
 #ifdef USE_HPX_MAIN
 int main(int argc, char *argv[]) {
-  std::vector<std::string> cfg = {"hpx.commandline.allow_unknown=1"};
-  return hpx::init(argc, argv, cfg);
+  hpx::init_params p;
+  p.cfg = {"hpx.commandline.allow_unknown=1"};
+  return hpx::init(argc, argv, p);
 }
 #endif
