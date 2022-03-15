@@ -502,11 +502,11 @@ if (CPPUDDLE_WITH_TESTS)
         set_tests_properties(aggregation_failure_test.run PROPERTIES
           FIXTURES_SETUP aggregation_failure_test_output
         )
-        add_test(aggregation_failure_test.analyse_value_error cat aggregation_failure_test.out)
-        set_tests_properties(aggregation_failure_test.analyse_value_error PROPERTIES
-          FIXTURES_REQUIRED aggregation_failure_test_output
-          PASS_REGULAR_EXPRESSION "Mismatched values error in aggregated post call of executor"
-        )
+        # add_test(aggregation_failure_test.analyse_value_error cat aggregation_failure_test.out)
+        # set_tests_properties(aggregation_failure_test.analyse_value_error PROPERTIES
+        #   FIXTURES_REQUIRED aggregation_failure_test_output
+        #   PASS_REGULAR_EXPRESSION "Mismatched values error in aggregated post call of executor"
+        # )
         add_test(aggregation_failure_test.analyse_type_error cat aggregation_failure_test.out)
         set_tests_properties(aggregation_failure_test.analyse_type_error PROPERTIES
           FIXTURES_REQUIRED aggregation_failure_test_output
@@ -547,7 +547,7 @@ if (CPPUDDLE_WITH_TESTS)
         )
 
 
-      # STREAM TESTS
+      # STREAM TESTS CPU
 
       # set to larger value for Jenkins checks?
       set(deadlock_check_repetitions ${CPPUDDLE_WITH_DEADLOCK_TEST_REPETITONS})
@@ -720,6 +720,104 @@ if (CPPUDDLE_WITH_TESTS)
           FIXTURES_REQUIRED aggregation_stream_triad_cpu_strict_aggregation_test_output3
           PASS_REGULAR_EXPRESSION "Kernel launch counter: 1"
         )
+
+      # STREAM TESTS CUDA
+
+      # Try with few slices -- good to detect deadlocking on errors with the continuations
+        add_test(aggregation_stream_triad_cuda_eager_test1.run work_aggregation_cuda_triad -t 4 --number_aggregation_executors=1 --number_underlying_executors=4 --problem_size=102400 --kernel_size=1024 --max_slices=2 --repetitions=${deadlock_check_repetitions} --executor_type=EAGER --outputfile=aggregation_stream_triad_cuda_eager_test1.out)
+        set_tests_properties(aggregation_stream_triad_cuda_eager_test1.run PROPERTIES
+          FIXTURES_SETUP aggregation_stream_triad_cuda_eager_test_output1
+          PROCESSORS 4
+          TIMEOUT 600
+        )
+        add_test(aggregation_stream_triad_cuda_eager_test1.check_errors cat aggregation_stream_triad_cuda_eager_test1.out)
+        set_tests_properties(aggregation_stream_triad_cuda_eager_test1.check_errors PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cuda_eager_test_output1
+          FAIL_REGULAR_EXPRESSION "ERROR"
+        )
+        add_test(aggregation_stream_triad_cuda_eager_test1.check_success cat aggregation_stream_triad_cuda_eager_test1.out)
+        set_tests_properties(aggregation_stream_triad_cuda_eager_test1.check_success PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cuda_eager_test_output1
+          PASS_REGULAR_EXPRESSION "SUCCESS"
+        )
+
+
+      # Try with odd number of slices
+      # This would deadlock given the STRICT executor, the EAGER one should have no problem
+        add_test(aggregation_stream_triad_cuda_eager_test2.run work_aggregation_cuda_triad -t 4 --number_aggregation_executors=1 --number_underlying_executors=4 --problem_size=102400 --kernel_size=1024 --max_slices=17 --repetitions=${deadlock_check_repetitions} --executor_type=EAGER --outputfile=aggregation_stream_triad_cuda_eager_test2.out)
+        set_tests_properties(aggregation_stream_triad_cuda_eager_test2.run PROPERTIES
+          FIXTURES_SETUP aggregation_stream_triad_cuda_eager_test_output2
+          PROCESSORS 4
+          TIMEOUT 600
+        )
+        add_test(aggregation_stream_triad_cuda_eager_test2.check_errors cat aggregation_stream_triad_cuda_eager_test2.out)
+        set_tests_properties(aggregation_stream_triad_cuda_eager_test2.check_errors PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cuda_eager_test_output2
+          FAIL_REGULAR_EXPRESSION "ERROR"
+        )
+        add_test(aggregation_stream_triad_cuda_eager_test2.check_success cat aggregation_stream_triad_cuda_eager_test2.out)
+        set_tests_properties(aggregation_stream_triad_cuda_eager_test2.check_success PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cuda_eager_test_output2
+          PASS_REGULAR_EXPRESSION "SUCCESS"
+        )
+
+
+      # Try with large number of slices -- this is basically what should be used in production, hence it should be tested
+        add_test(aggregation_stream_triad_cuda_eager_test3.run work_aggregation_cuda_triad -t 4 --number_aggregation_executors=1 --number_underlying_executors=4 --problem_size=102400 --kernel_size=1024 --max_slices=100 --repetitions=${deadlock_check_repetitions} --executor_type=EAGER --outputfile=aggregation_stream_triad_cuda_eager_test3.out)
+        set_tests_properties(aggregation_stream_triad_cuda_eager_test3.run PROPERTIES
+          FIXTURES_SETUP aggregation_stream_triad_cuda_eager_test_output3
+          PROCESSORS 4
+          TIMEOUT 600
+        )
+        add_test(aggregation_stream_triad_cuda_eager_test3.check_errors cat aggregation_stream_triad_cuda_eager_test3.out)
+        set_tests_properties(aggregation_stream_triad_cuda_eager_test3.check_errors PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cuda_eager_test_output3
+          FAIL_REGULAR_EXPRESSION "ERROR"
+        )
+        add_test(aggregation_stream_triad_cuda_eager_test3.check_success cat aggregation_stream_triad_cuda_eager_test3.out)
+        set_tests_properties(aggregation_stream_triad_cuda_eager_test3.check_success PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cuda_eager_test_output3
+          PASS_REGULAR_EXPRESSION "SUCCESS"
+        )
+
+
+      # Basic test for the ENDLESS executor -- number slices should not matter here, hence the large value for it
+      add_test(aggregation_stream_triad_cuda_endless_test1.run work_aggregation_cuda_triad -t 4 --number_aggregation_executors=1 --number_underlying_executors=4 --problem_size=102400 --kernel_size=1024 --max_slices=99999999 --repetitions=${deadlock_check_repetitions} --executor_type=ENDLESS --outputfile=aggregation_stream_triad_cuda_endless_test1.out)
+        set_tests_properties(aggregation_stream_triad_cuda_endless_test1.run PROPERTIES
+          FIXTURES_SETUP aggregation_stream_triad_cuda_endless_test_output1
+          PROCESSORS 4
+          TIMEOUT 600
+        )
+        add_test(aggregation_stream_triad_cuda_endless_test1.check_errors cat aggregation_stream_triad_cuda_endless_test1.out)
+        set_tests_properties(aggregation_stream_triad_cuda_endless_test1.check_errors PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cuda_endless_test_output1
+          FAIL_REGULAR_EXPRESSION "ERROR"
+        )
+        add_test(aggregation_stream_triad_cuda_endless_test1.check_success cat aggregation_stream_triad_cuda_endless_test1.out)
+        set_tests_properties(aggregation_stream_triad_cuda_endless_test1.check_success PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cuda_endless_test_output1
+          PASS_REGULAR_EXPRESSION "SUCCESS"
+        )
+
+
+      # Basic test for the STRICT executor 
+      add_test(aggregation_stream_triad_cuda_strict_test1.run work_aggregation_cuda_triad -t 4 --number_aggregation_executors=1 --number_underlying_executors=4 --problem_size=102400 --kernel_size=1024 --max_slices=100 --repetitions=${deadlock_check_repetitions} --executor_type=STRICT --outputfile=aggregation_stream_triad_cuda_strict_test1.out)
+        set_tests_properties(aggregation_stream_triad_cuda_strict_test1.run PROPERTIES
+          FIXTURES_SETUP aggregation_stream_triad_cuda_strict_test_output1
+          PROCESSORS 4
+          TIMEOUT 600
+        )
+        add_test(aggregation_stream_triad_cuda_strict_test1.check_errors cat aggregation_stream_triad_cuda_strict_test1.out)
+        set_tests_properties(aggregation_stream_triad_cuda_strict_test1.check_errors PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cuda_strict_test_output1
+          FAIL_REGULAR_EXPRESSION "ERROR"
+        )
+        add_test(aggregation_stream_triad_cuda_strict_test1.check_success cat aggregation_stream_triad_cuda_strict_test1.out)
+        set_tests_properties(aggregation_stream_triad_cuda_strict_test1.check_success PROPERTIES
+          FIXTURES_REQUIRED aggregation_stream_triad_cuda_strict_test_output1
+          PASS_REGULAR_EXPRESSION "SUCCESS"
+        )
+
 
       endif() # end with KOKKOS
     endif() # end with CUDA
