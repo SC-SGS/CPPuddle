@@ -522,8 +522,12 @@ public:
   void mark_unused(T *p, const size_t size, const size_t slice_alloc_counter) {
     assert(slices_exhausted == true);
     assert(slice_alloc_counter < buffer_allocations.size());
-    auto &[buffer_pointer_any, buffer_size, buffer_allocation_counter, valid] =
-        buffer_allocations[slice_alloc_counter];
+    /*auto &[buffer_pointer_any, buffer_size, buffer_allocation_counter, valid] =
+        buffer_allocations[slice_alloc_counter];*/
+    auto buffer_pointer_any = std::get<0>(buffer_allocations[slice_alloc_counter]);
+    auto buffer_size = std::get<1>(buffer_allocations[slice_alloc_counter]);
+    auto &buffer_allocation_counter = std::get<2>(buffer_allocations[slice_alloc_counter]);
+    auto &valid = std::get<3>(buffer_allocations[slice_alloc_counter]);
     assert(valid);
     T *buffer_pointer = std::any_cast<T *>(buffer_pointer_any);
 
