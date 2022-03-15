@@ -608,7 +608,6 @@ public:
     std::lock_guard<hpx::mutex> guard(mut);
     return !slices_exhausted;
   }
-  std::atomic<bool> launch_by_slices = false;
 
   std::optional<hpx::lcos::future<Executor_Slice>> request_executor_slice() {
     std::lock_guard<hpx::mutex> guard(mut);
@@ -683,9 +682,8 @@ public:
       if (local_slice_id >= max_slices &&
           mode != Aggregated_Executor_Modes::ENDLESS) {
         slices_exhausted = true; // prevents any more threads from entering before the continuation is launched
-        launch_by_slices = true;
         if (mode == Aggregated_Executor_Modes::STRICT ) {
-        slices_full_promise.set_value(); // Trigger slices launch condition continuation 
+          slices_full_promise.set_value(); // Trigger slices launch condition continuation 
         }
         // that continuation will set all executor slices so far handed out to ready
       }
