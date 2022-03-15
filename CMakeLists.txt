@@ -112,7 +112,7 @@ install(TARGETS stream_manager EXPORT CPPuddle
 )
 # install all headers
 install(
-  DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_PREFIX}/include/cppuddle
+  DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_PREFIX}/include
 )
 
 install(FILES cppuddle-config.cmake DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/cmake/CPPuddle/)
