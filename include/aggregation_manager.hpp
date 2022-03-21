@@ -123,7 +123,7 @@ private:
 
   Executor &underlying_executor;
 
-#ifndef NDEBUG
+#if !(defined(NDEBUG)) && defined(DEBUG_AGGREGATION_CALLS)
 #pragma message                                                                \
     "Running slow work aggegator debug build! Run with NDEBUG defined for fast build..."
   /// Stores the function call of the first slice as reference for error
@@ -149,7 +149,7 @@ public:
   }
   template <typename F, typename... Ts>
   void post_when(hpx::lcos::future<void> &stream_future, F &&f, Ts &&...ts) {
-#ifndef NDEBUG
+#if !(defined(NDEBUG)) && defined(DEBUG_AGGREGATION_CALLS)
     // needed for concurrent access to function_tuple and debug_type_information
     // Not required for normal use
     std::lock_guard<aggregation_mutex_t> guard(debug_mut);
@@ -168,7 +168,7 @@ public:
                            std::move(args));
                 return;
               });
-#ifndef NDEBUG
+#if !(defined(NDEBUG)) && defined(DEBUG_AGGREGATION_CALLS)
       auto tmp_tuple =
           make_tuple_supporting_references(f, std::forward<Ts>(ts)...);
       function_tuple = tmp_tuple;
@@ -180,7 +180,7 @@ public:
       // This scope checks if both the type and the values of the current call
       // match the original call To be used in debug build...
       //
-#ifndef NDEBUG
+#if !(defined(NDEBUG)) && defined(DEBUG_AGGREGATION_CALLS)
       auto comparison_tuple =
           make_tuple_supporting_references(f, std::forward<Ts>(ts)...);
       try {
@@ -231,7 +231,7 @@ public:
   template <typename F, typename... Ts>
   hpx::lcos::future<void> async_when(hpx::lcos::future<void> &stream_future,
                                      F &&f, Ts &&...ts) {
-#ifndef NDEBUG
+#if !(defined(NDEBUG)) && defined(DEBUG_AGGREGATION_CALLS)
     // needed for concurrent access to function_tuple and debug_type_information
     // Not required for normal use
     std::lock_guard<aggregation_mutex_t> guard(debug_mut);
@@ -257,7 +257,7 @@ public:
                 });
                 return;
               });
-#ifndef NDEBUG
+#if !(defined(NDEBUG)) && defined(DEBUG_AGGREGATION_CALLS)
       auto tmp_tuple =
           make_tuple_supporting_references(f, std::forward<Ts>(ts)...);
       function_tuple = tmp_tuple;
@@ -269,7 +269,7 @@ public:
       // This scope checks if both the type and the values of the current call
       // match the original call To be used in debug build...
       //
-#ifndef NDEBUG
+#if !(defined(NDEBUG)) && defined(DEBUG_AGGREGATION_CALLS)
       auto comparison_tuple =
           make_tuple_supporting_references(f, std::forward<Ts>(ts)...);
       try {
