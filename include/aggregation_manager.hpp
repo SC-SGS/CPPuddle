@@ -114,9 +114,9 @@ private:
   std::atomic<size_t> slice_counter = 0;
 
   /// Promise to be set when all slices have visited this function call
-  hpx::lcos::local::promise<void> slices_ready_promise;
+  /* hpx::lcos::local::promise<void> slices_ready_promise; */
   /// Tracks if all slices have visited this function call
-  hpx::lcos::future<void> all_slices_ready = slices_ready_promise.get_future();
+  /* hpx::lcos::future<void> all_slices_ready = slices_ready_promise.get_future(); */
   /// How many slices can we expect?
   const size_t number_slices;
   const bool async_mode;
@@ -145,7 +145,7 @@ public:
   ~aggregated_function_call(void) {
     // All slices should have done this call
     assert(slice_counter == number_slices);
-    assert(!all_slices_ready.valid());
+    // assert(!all_slices_ready.valid());
   }
   template <typename F, typename... Ts>
   void post_when(hpx::lcos::future<void> &stream_future, F &&f, Ts &&...ts) {
@@ -159,15 +159,15 @@ public:
     const size_t local_counter = slice_counter++;
 
     if (local_counter == 0) {
-      std::tuple<Executor &, F, Ts...> args = make_tuple_supporting_references(
-          underlying_executor, std::forward<F>(f), std::forward<Ts>(ts)...);
-      stream_future =
-          hpx::lcos::when_all(stream_future, all_slices_ready)
-              .then([args = std::move(args)](auto &&old_fut) mutable {
-                std::apply(exec_post_wrapper<Executor, F, Ts...>,
-                           std::move(args));
-                return;
-              });
+      /* std::tuple<Executor &, F, Ts...> args = make_tuple_supporting_references( */
+      /*     underlying_executor, std::forward<F>(f), std::forward<Ts>(ts)...); */
+      /* stream_future = */
+      /*     hpx::lcos::when_all(stream_future, all_slices_ready) */
+      /*         .then([args = std::move(args)](auto &&old_fut) mutable { */
+      /*           std::apply(exec_post_wrapper<Executor, F, Ts...>, */
+      /*                      std::move(args)); */
+      /*           return; */
+      /*         }); */
 #if !(defined(NDEBUG)) && defined(DEBUG_AGGREGATION_CALLS)
       auto tmp_tuple =
           make_tuple_supporting_references(f, std::forward<Ts>(ts)...);
@@ -225,7 +225,8 @@ public:
     // Check exit criteria: Launch function call continuation by setting the
     // slices promise
     if (local_counter == number_slices - 1) {
-      slices_ready_promise.set_value();
+      exec_post_wrapper<Executor, F, Ts...>(underlying_executor, std::forward<F>(f), std::forward<Ts>(ts)...);
+      //slices_ready_promise.set_value();
     }
   }
   template <typename F, typename... Ts>
@@ -240,23 +241,23 @@ public:
     assert(!potential_async_promises.empty());
     const size_t local_counter = slice_counter++;
     if (local_counter == 0) {
-      std::tuple<Executor &, F, Ts...> args = make_tuple_supporting_references(
-          underlying_executor, std::forward<F>(f), std::forward<Ts>(ts)...);
-      std::vector<hpx::lcos::local::promise<void>> &potential_async_promises =
-          this->potential_async_promises;
-      stream_future =
-          hpx::lcos::when_all(stream_future, all_slices_ready)
-              .then([args = std::move(args),
-                     &potential_async_promises](auto &&old_fut) mutable {
-                hpx::lcos::future<void> fut = std::apply(
-                    exec_async_wrapper<Executor, F, Ts...>, std::move(args));
-                fut.then([&potential_async_promises](auto &&fut) {
-                  for (auto &promise : potential_async_promises) {
-                    promise.set_value();
-                  }
-                });
-                return;
-              });
+      /* std::tuple<Executor &, F, Ts...> args = make_tuple_supporting_references( */
+      /*     underlying_executor, std::forward<F>(f), std::forward<Ts>(ts)...); */
+      /* std::vector<hpx::lcos::local::promise<void>> &potential_async_promises = */
+      /*     this->potential_async_promises; */
+      /* stream_future = */
+      /*     hpx::lcos::when_all(stream_future, all_slices_ready) */
+      /*         .then([args = std::move(args), */
+      /*                &potential_async_promises](auto &&old_fut) mutable { */
+      /*           hpx::lcos::future<void> fut = std::apply( */
+      /*               exec_async_wrapper<Executor, F, Ts...>, std::move(args)); */
+      /*           fut.then([&potential_async_promises](auto &&fut) { */
+      /*             for (auto &promise : potential_async_promises) { */
+      /*               promise.set_value(); */
+      /*             } */
+      /*           }); */
+      /*           return; */
+      /*         }); */
 #if !(defined(NDEBUG)) && defined(DEBUG_AGGREGATION_CALLS)
       auto tmp_tuple =
           make_tuple_supporting_references(f, std::forward<Ts>(ts)...);
@@ -309,14 +310,20 @@ public:
       }
 #endif
     }
-    if (local_counter == number_slices - 1) {
-      slices_ready_promise.set_value();
-    }
     assert(local_counter < number_slices);
     assert(slice_counter < number_slices + 1);
     assert(potential_async_promises.size() == number_slices);
     hpx::lcos::future<void> ret_fut =
         potential_async_promises[local_counter].get_future();
+    if (local_counter == number_slices - 1) {
+      /* slices_ready_promise.set_value(); */
+      auto fut = exec_async_wrapper<Executor, F, Ts...>(underlying_executor, std::forward<F>(f), std::forward<Ts>(ts)...);
+      fut.then([this](auto &&fut) {
+        for (auto &promise : potential_async_promises) {
+          promise.set_value();
+        }
+      });
+    }
     // Check exit criteria: Launch function call continuation by setting the
     // slices promise
     return ret_fut;
