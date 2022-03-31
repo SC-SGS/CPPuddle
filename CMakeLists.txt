@@ -37,9 +37,9 @@ if (CPPUDDLE_WITH_KOKKOS)
   if (NOT CPPUDDLE_WITH_HPX)
     message(FATAL_ERROR "KOKKOS support requires HPX flag to be turned on")
   endif()
-  if (NOT CPPUDDLE_WITH_CUDA)
-    message(FATAL_ERROR "KOKKOS support requires CUDA flag to be turned on")
-  endif()
+  #if (NOT CPPUDDLE_WITH_CUDA AND NOT CPPUDDLE_WITH_HIP)
+  #  message(FATAL_ERROR "KOKKOS support requires CUDA flag to be turned on")
+  #endif()
 
   # Check that Kokkos and HPX options are consistent.
   if(Kokkos_ENABLE_CUDA)
