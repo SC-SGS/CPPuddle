@@ -646,9 +646,16 @@ public:
       }
 
       // Create Executor Slice future -- that will be returned later
-      executor_slices.emplace_back(hpx::lcos::local::promise<Executor_Slice>{});
-      hpx::lcos::future<Executor_Slice> ret_fut =
-          executor_slices[local_slice_id - 1].get_future();
+      hpx::lcos::future<Executor_Slice> ret_fut;
+      if (local_slice_id < max_slices) {
+        executor_slices.emplace_back(hpx::lcos::local::promise<Executor_Slice>{});
+        ret_fut =
+            executor_slices[local_slice_id - 1].get_future();
+      } else {
+        launched_slices = current_slices;
+        ret_fut = hpx::make_ready_future(Executor_Slice{*this,
+            executor_slices.size(), launched_slices});
+      }
 
       // Are we the first slice? If yes, add continuation set the
       // Executor_Slice
@@ -671,14 +678,6 @@ public:
         // Launch all executor slices within this continuation
         current_continuation = fut.then([this](auto &&fut) {
           std::lock_guard<aggregation_mutex_t> guard(mut);
-          /* if (!slices_exhausted && current_slices > 0) { */   
-
-          // in case the continuation was triggered via the executor future
-          // we should not leave the slices_full_promise dangling 
-          // hence we just set here
-          /* if (!slices_exhausted) */
-          /*   slices_full_promise.set_value(); */
-          /* hpx::cerr << "in" << std::endl; */
           slices_exhausted = true;
           launched_slices = current_slices;
           size_t id = 0;
@@ -693,6 +692,14 @@ public:
       if (local_slice_id >= max_slices &&
           mode != Aggregated_Executor_Modes::ENDLESS) {
         slices_exhausted = true; // prevents any more threads from entering before the continuation is launched
+          /* launched_slices = current_slices; */
+          /* size_t id = 0; */
+          /* for (auto &slice_promise : executor_slices) { */
+          /*   slice_promise.set_value( */
+          /*       Executor_Slice{*this, id, launched_slices}); */
+          /*   id++; */
+          /* } */
+          /* executor_slices.clear(); */
         if (mode == Aggregated_Executor_Modes::STRICT ) {
           slices_full_promise.set_value(); // Trigger slices launch condition continuation 
         }
