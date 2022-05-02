@@ -662,7 +662,7 @@ public:
       // futures to ready if the launch conditions are met
       if (local_slice_id == 1) {
         // Renew promise that all slices will be ready as the primary launch criteria...
-        hpx::lcos::future<void> fut;
+        hpx::lcos::shared_future<void> fut;
         if (mode == Aggregated_Executor_Modes::EAGER || mode == Aggregated_Executor_Modes::ENDLESS) {
           // Fallback launch condidtion: Launch as soon as the underlying stream is ready
           /* auto slices_full_fut = slices_full_promise.get_future(); */
@@ -671,7 +671,7 @@ public:
           /* fut = hpx::when_any(exec_fut, slices_full_fut); */
           fut = std::move(exec_fut);
         } else {
-          auto slices_full_fut = slices_full_promise.get_future();
+          auto slices_full_fut = slices_full_promise.get_shared_future();
           // Just use the slices launch condition
           fut = std::move(slices_full_fut);
         }
