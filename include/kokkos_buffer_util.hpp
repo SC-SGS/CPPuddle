@@ -6,8 +6,74 @@
 #ifndef KOKKOS_BUFFER_UTIL_HPP
 #define KOKKOS_BUFFER_UTIL_HPP
 #include <Kokkos_Core.hpp>
+#include <memory>
 
 namespace recycler {
+
+template<typename element_type, typename alloc_type>
+struct view_deleter {
+  alloc_type &allocator;
+  size_t total_elements;
+  view_deleter(alloc_type &alloc, size_t total_elements) : allocator(alloc),
+    total_elements(total_elements) {}
+  void operator()(element_type* p) {
+    allocator.deallocate(p, total_elements);
+  }
+};
+
+template <typename kokkos_type, typename alloc_type, typename element_type>
+class aggregated_recycled_view : public kokkos_type {
+private:
+  alloc_type &allocator;
+  size_t total_elements{0};
+  std::shared_ptr<element_type> data_ref_counter;
+
+public:
+  template <class... Args>
+  explicit aggregated_recycled_view(alloc_type &alloc, Args... args)
+      : kokkos_type(
+            alloc.allocate(kokkos_type::required_allocation_size(args...) /
+                               sizeof(element_type)),
+            args...),
+        total_elements(kokkos_type::required_allocation_size(args...) /
+                       sizeof(element_type)), allocator(alloc),
+        data_ref_counter(this->data(), view_deleter<element_type, alloc_type>(alloc, total_elements))
+  {}
+
+  aggregated_recycled_view(
+      const aggregated_recycled_view<kokkos_type, alloc_type, element_type> &other)
+      : kokkos_type(other), allocator(other.allocator) {
+    data_ref_counter = other.data_ref_counter;
+    total_elements = other.total_elements;
+  }
+
+  aggregated_recycled_view<kokkos_type, alloc_type, element_type> &
+  operator=(const aggregated_recycled_view<kokkos_type, alloc_type, element_type> &other) {
+    data_ref_counter = other.data_ref_counter;
+    allocator = other.allocator;
+    kokkos_type::operator=(other);
+    total_elements = other.total_elements;
+    return *this;
+  }
+
+  aggregated_recycled_view(
+      aggregated_recycled_view<kokkos_type, alloc_type, element_type> &&other) noexcept
+      : kokkos_type(other), allocator(other.allocator) {
+    data_ref_counter = other.data_ref_counter;
+    total_elements = other.total_elements;
+  }
+
+  aggregated_recycled_view<kokkos_type, alloc_type, element_type> &operator=(
+      aggregated_recycled_view<kokkos_type, alloc_type, element_type> &&other) noexcept {
+    data_ref_counter = other.data_ref_counter;
+    allocator = other.allocator;
+    kokkos_type::operator=(other);
+    total_elements = other.total_elements;
+    return *this;
+  }
+
+  ~aggregated_recycled_view() {}
+};
 
 template <typename kokkos_type, typename alloc_type, typename element_type>
 class recycled_view : public kokkos_type {
@@ -65,32 +131,5 @@ template <class kokkos_type, class alloc_type, class element_type>
 alloc_type recycled_view<kokkos_type, alloc_type, element_type>::allocator;
 
 } // end namespace recycler
-
-/**
- * get an MDRangePolicy suitable for iterating the views
- *
- * @param executor          a kokkos ExecutionSpace, e.g.
- * hpx::kokkos::make_execution_space<Kokkos::Cuda>()
- * @param view_to_iterate   the view that needs to be iterated
- */
-template <typename Executor, typename ViewType>
-auto get_iteration_policy(const Executor &executor,
-                          const ViewType &view_to_iterate) {
-  constexpr auto rank = ViewType::ViewTraits::rank;
-  const Kokkos::Array<int64_t, rank> zeros{};
-  Kokkos::Array<int64_t, rank> extents;
-  for (int i = 0; i < rank; ++i) {
-    extents[i] = view_to_iterate.extent(i);
-  }
-
-  // TODO(pollinta) what exactly does HintLightWeight do? cf.
-  // https://github.com/kokkos/kokkos/issues/1723
-  return Kokkos::Experimental::require(
-      Kokkos::MDRangePolicy<Executor, Kokkos::Rank<rank>>(executor, zeros,
-                                                          extents),
-      Kokkos::Experimental::WorkItemProperty::HintLightWeight);
-  // return Kokkos::MDRangePolicy<Executor, Kokkos::Rank<rank>>(executor, zeros,
-  // extents);
-}
 
 #endif
