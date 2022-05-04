@@ -93,6 +93,7 @@ template <typename Executor, typename F, typename... Ts>
 void exec_post_wrapper(Executor & exec, F &&f, Ts &&...ts) {
   exec.post(std::forward<F>(f), std::forward<Ts>(ts)...);
 }
+
 template <typename Executor, typename F, typename... Ts>
 hpx::lcos::future<void> exec_async_wrapper(Executor & exec, F &&f, Ts &&...ts) {
   return exec.async_execute(std::forward<F>(f), std::forward<Ts>(ts)...);
@@ -147,6 +148,16 @@ public:
     assert(slice_counter == number_slices);
     // assert(!all_slices_ready.valid());
   }
+  /// Returns true if all required slices have visited this point
+  bool sync_aggregation_slices(hpx::lcos::future<void> &stream_future) {
+    assert(!async_mode);
+    assert(potential_async_promises.empty());
+    const size_t local_counter = slice_counter++;
+    if (local_counter == number_slices - 1) {
+      return true;
+    }
+    else return false;
+  }
   template <typename F, typename... Ts>
   void post_when(hpx::lcos::future<void> &stream_future, F &&f, Ts &&...ts) {
 #if !(defined(NDEBUG)) && defined(DEBUG_AGGREGATION_CALLS)
@@ -159,15 +170,6 @@ public:
     const size_t local_counter = slice_counter++;
 
     if (local_counter == 0) {
-      /* std::tuple<Executor &, F, Ts...> args = make_tuple_supporting_references( */
-      /*     underlying_executor, std::forward<F>(f), std::forward<Ts>(ts)...); */
-      /* stream_future = */
-      /*     hpx::lcos::when_all(stream_future, all_slices_ready) */
-      /*         .then([args = std::move(args)](auto &&old_fut) mutable { */
-      /*           std::apply(exec_post_wrapper<Executor, F, Ts...>, */
-      /*                      std::move(args)); */
-      /*           return; */
-      /*         }); */
 #if !(defined(NDEBUG)) && defined(DEBUG_AGGREGATION_CALLS)
       auto tmp_tuple =
           make_tuple_supporting_references(f, std::forward<Ts>(ts)...);
@@ -241,30 +243,12 @@ public:
     assert(!potential_async_promises.empty());
     const size_t local_counter = slice_counter++;
     if (local_counter == 0) {
-      /* std::tuple<Executor &, F, Ts...> args = make_tuple_supporting_references( */
-      /*     underlying_executor, std::forward<F>(f), std::forward<Ts>(ts)...); */
-      /* std::vector<hpx::lcos::local::promise<void>> &potential_async_promises = */
-      /*     this->potential_async_promises; */
-      /* stream_future = */
-      /*     hpx::lcos::when_all(stream_future, all_slices_ready) */
-      /*         .then([args = std::move(args), */
-      /*                &potential_async_promises](auto &&old_fut) mutable { */
-      /*           hpx::lcos::future<void> fut = std::apply( */
-      /*               exec_async_wrapper<Executor, F, Ts...>, std::move(args)); */
-      /*           fut.then([&potential_async_promises](auto &&fut) { */
-      /*             for (auto &promise : potential_async_promises) { */
-      /*               promise.set_value(); */
-      /*             } */
-      /*           }); */
-      /*           return; */
-      /*         }); */
 #if !(defined(NDEBUG)) && defined(DEBUG_AGGREGATION_CALLS)
       auto tmp_tuple =
           make_tuple_supporting_references(f, std::forward<Ts>(ts)...);
       function_tuple = tmp_tuple;
       debug_type_information = typeid(decltype(tmp_tuple)).name();
 #endif
-
     } else {
       //
       // This scope checks if both the type and the values of the current call
@@ -326,6 +310,28 @@ public:
     }
     // Check exit criteria: Launch function call continuation by setting the
     // slices promise
+    return ret_fut;
+  }
+  template <typename F, typename... Ts>
+  hpx::lcos::shared_future<void> wrap_async(hpx::lcos::future<void> &stream_future,
+                                     F &&f, Ts &&...ts) {
+    assert(async_mode);
+    assert(!potential_async_promises.empty());
+    const size_t local_counter = slice_counter++;
+    assert(local_counter < number_slices);
+    assert(slice_counter < number_slices + 1);
+    assert(potential_async_promises.size() == number_slices);
+    hpx::lcos::shared_future<void> ret_fut =
+        potential_async_promises[local_counter].get_shared_future();
+    if (local_counter == number_slices - 1) {
+      auto fut = f(std::forward<Ts>(ts)...);
+      fut.then([this](auto &&fut) {
+        // TODO just use one promise
+        for (auto &promise : potential_async_promises) {
+          promise.set_value();
+        }
+      });
+    }
     return ret_fut;
   }
   // We need to be able to copy or no-except move for std::vector..
@@ -422,6 +428,12 @@ public:
     Allocator_Slice<T, Host_Allocator, Executor> make_allocator() {
       return Allocator_Slice<T, Host_Allocator, Executor>(*this);
     }
+    bool sync_aggregation_slices() {
+      assert(parent.slices_exhausted == true);
+      auto ret = parent.sync_aggregation_slices(launch_counter);
+      launch_counter++;
+      return ret;
+    }
     template <typename F, typename... Ts> void post(F &&f, Ts &&...ts) {
       // we should only execute function calls once all slices
       // have been given away (-> Executor Slices start)
@@ -435,6 +447,16 @@ public:
       // have been given away (-> Executor Slices start)
       assert(parent.slices_exhausted == true);
       hpx::lcos::future<void> ret_fut = parent.async(
+          launch_counter, std::forward<F>(f), std::forward<Ts>(ts)...);
+      launch_counter++;
+      return ret_fut;
+    }
+    template <typename F, typename... Ts>
+    hpx::lcos::shared_future<void> wrap_async(F &&f, Ts &&...ts) {
+      // we should only execute function calls once all slices
+      // have been given away (-> Executor Slices start)
+      assert(parent.slices_exhausted == true);
+      hpx::lcos::shared_future<void> ret_fut = parent.wrap_async(
           launch_counter, std::forward<F>(f), std::forward<Ts>(ts)...);
       launch_counter++;
       return ret_fut;
@@ -457,8 +479,10 @@ public:
       buffer_counter--;
       parent.mark_unused<T, Host_Allocator>(p, size, buffer_counter);
     }
-    // TODO Support the reference counting used previousely in CPPuddle?
-    // might be required for Kokkos
+
+    Executor& get_underlying_executor(void) {
+      return parent.executor;
+    }
   };
 
   //===============================================================================
@@ -573,6 +597,25 @@ public:
   std::atomic<size_t> overall_launch_counter = 0;
 
   /// Only meant to be accessed by the slice executors
+  bool sync_aggregation_slices(const size_t slice_launch_counter) {
+      std::lock_guard<aggregation_mutex_t> guard(mut);
+    assert(slices_exhausted == true);
+    // Add function call object in case it hasn't happened for this launch yet
+    if (overall_launch_counter <= slice_launch_counter) {
+      /* std::lock_guard<aggregation_mutex_t> guard(mut); */
+      if (overall_launch_counter <= slice_launch_counter) {
+        function_calls.emplace_back(current_slices, false, executor);
+        overall_launch_counter = function_calls.size();
+        return function_calls[slice_launch_counter].sync_aggregation_slices(
+            last_stream_launch_done);
+      }
+    }
+
+    return function_calls[slice_launch_counter].sync_aggregation_slices(
+        last_stream_launch_done);
+  }
+
+  /// Only meant to be accessed by the slice executors
   template <typename F, typename... Ts>
   void post(const size_t slice_launch_counter, F &&f, Ts &&...ts) {
       std::lock_guard<aggregation_mutex_t> guard(mut);
@@ -612,6 +655,26 @@ public:
     }
 
     return function_calls[slice_launch_counter].async_when(
+        last_stream_launch_done, std::forward<F>(f), std::forward<Ts>(ts)...);
+  }
+  /// Only meant to be accessed by the slice executors
+  template <typename F, typename... Ts>
+  hpx::lcos::shared_future<void> wrap_async(const size_t slice_launch_counter, F &&f,
+                                Ts &&...ts) {
+      std::lock_guard<aggregation_mutex_t> guard(mut);
+    assert(slices_exhausted == true);
+    // Add function call object in case it hasn't happened for this launch yet
+    if (overall_launch_counter <= slice_launch_counter) {
+      /* std::lock_guard<aggregation_mutex_t> guard(mut); */
+      if (overall_launch_counter <= slice_launch_counter) {
+        function_calls.emplace_back(current_slices, true, executor);
+        overall_launch_counter = function_calls.size();
+        return function_calls[slice_launch_counter].wrap_async(
+            last_stream_launch_done, std::forward<F>(f), std::forward<Ts>(ts)...);
+      }
+    }
+
+    return function_calls[slice_launch_counter].wrap_async(
         last_stream_launch_done, std::forward<F>(f), std::forward<Ts>(ts)...);
   }
 
@@ -667,7 +730,6 @@ public:
           // Fallback launch condidtion: Launch as soon as the underlying stream is ready
           /* auto slices_full_fut = slices_full_promise.get_future(); */
           auto exec_fut = executor.get_future(); 
-          // Combine both (sufficient) launch conditions
           /* fut = hpx::when_any(exec_fut, slices_full_fut); */
           fut = std::move(exec_fut);
         } else {
@@ -791,13 +853,13 @@ template <typename T, typename U, typename Host_Allocator, typename Executor>
 constexpr bool
 operator==(Allocator_Slice<T, Host_Allocator, Executor> const &,
            Allocator_Slice<U, Host_Allocator, Executor> const &) noexcept {
-  return true;
+  return false;
 }
 template <typename T, typename U, typename Host_Allocator, typename Executor>
 constexpr bool
 operator!=(Allocator_Slice<T, Host_Allocator, Executor> const &,
            Allocator_Slice<U, Host_Allocator, Executor> const &) noexcept {
-  return false;
+  return true;
 }
 
 //===============================================================================
