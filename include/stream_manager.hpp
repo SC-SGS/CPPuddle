@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <deque>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -20,14 +21,13 @@
 
 template <class Interface> class round_robin_pool {
 private:
-  std::vector<Interface> pool{};
+  std::deque<Interface> pool{};
   std::vector<size_t> ref_counters{};
   size_t current_interface{0};
 
 public:
   template <typename... Ts>
   explicit round_robin_pool(size_t number_of_streams, Ts &&... executor_args) {
-    pool.reserve(number_of_streams);
     ref_counters.reserve(number_of_streams);
     for (int i = 0; i < number_of_streams; i++) {
       pool.emplace_back(std::forward<Ts>(executor_args)...);
@@ -58,13 +58,14 @@ public:
 
 template <class Interface> class priority_pool {
 private:
-  std::vector<Interface> pool{};
+  std::deque<Interface> pool{};
   std::vector<size_t> ref_counters{}; // Ref counters
   std::vector<size_t> priorities{};   // Ref counters
 public:
   template <typename... Ts>
   explicit priority_pool(size_t number_of_streams, Ts &&... executor_args) {
-    pool.reserve(number_of_streams);
+    ref_counters.reserve(number_of_streams);
+    priorities.reserve(number_of_streams);
     for (auto i = 0; i < number_of_streams; i++) {
       pool.emplace_back(std::forward<Ts>(executor_args)...);
       ref_counters.emplace_back(0);
@@ -101,7 +102,7 @@ public:
 template <class Interface, class Pool> class multi_gpu_round_robin_pool {
 private:
   using gpu_entry = std::tuple<Pool, size_t>; // interface, ref counter
-  std::vector<gpu_entry> pool{};
+  std::deque<gpu_entry> pool{};
   size_t current_interface{0};
   size_t streams_per_gpu{0};
 
@@ -157,7 +158,7 @@ template <class Interface, class Pool> class priority_pool_multi_gpu {
 private:
   std::vector<size_t> priorities{};
   std::vector<size_t> ref_counters{};
-  std::vector<Pool> gpu_interfaces{};
+  std::deque<Pool> gpu_interfaces{};
   size_t streams_per_gpu{0};
 
 public:
@@ -165,6 +166,8 @@ public:
   priority_pool_multi_gpu(size_t number_of_streams, int number_of_gpus,
                           Ts &&... executor_args)
       : streams_per_gpu(number_of_streams) {
+    ref_counters.reserve(number_of_gpus);
+    priorities.reserve(number_of_gpus);
     for (auto gpu_id = 0; gpu_id < number_of_gpus; gpu_id++) {
       priorities.emplace_back(gpu_id);
       ref_counters.emplace_back(0);
@@ -214,41 +217,37 @@ public:
       // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
       access_instance.reset(new stream_pool());
     }
+    assert(access_instance); 
     stream_pool_implementation<Interface, Pool>::init(
         number_of_streams, std::forward<Ts>(executor_args)...);
   }
   template <class Interface, class Pool> static void cleanup() {
-    std::lock_guard<std::mutex> guard(mut);
+    assert(access_instance); // should already be initialized
     stream_pool_implementation<Interface, Pool>::cleanup();
   }
   template <class Interface, class Pool>
   static std::tuple<Interface &, size_t> get_interface() {
-    std::lock_guard<std::mutex> guard(mut);
     assert(access_instance); // should already be initialized
     return stream_pool_implementation<Interface, Pool>::get_interface();
   }
   template <class Interface, class Pool>
   static void release_interface(size_t index) noexcept {
-    std::lock_guard<std::mutex> guard(mut);
     assert(access_instance); // should already be initialized
     stream_pool_implementation<Interface, Pool>::release_interface(index);
   }
   template <class Interface, class Pool>
   static bool interface_available(size_t load_limit) noexcept {
-    std::lock_guard<std::mutex> guard(mut);
     assert(access_instance); // should already be initialized
     return stream_pool_implementation<Interface, Pool>::interface_available(
         load_limit);
   }
   template <class Interface, class Pool>
   static size_t get_current_load() noexcept {
-    std::lock_guard<std::mutex> guard(mut);
     assert(access_instance); // should already be initialized
     return stream_pool_implementation<Interface, Pool>::get_current_load();
   }
   template <class Interface, class Pool>
   static size_t get_next_device_id() noexcept {
-    std::lock_guard<std::mutex> guard(mut);
     assert(access_instance); // should already be initialized
     return stream_pool_implementation<Interface, Pool>::get_next_device_id();
   }
@@ -274,25 +273,32 @@ private:
       }
     }
     static void cleanup() {
-      pool_instance->streampool.reset(nullptr);
-      pool_instance.reset(nullptr);
+      std::lock_guard<std::mutex> guard(pool_mut);
+      if (pool_instance) {
+        pool_instance->streampool.reset(nullptr);
+        pool_instance.reset(nullptr);
+      }
     }
 
     static std::tuple<Interface &, size_t> get_interface() noexcept {
+      std::lock_guard<std::mutex> guard(pool_mut);
       assert(pool_instance); // should already be initialized
       return pool_instance->streampool->get_interface();
     }
     static void release_interface(size_t index) noexcept {
+      std::lock_guard<std::mutex> guard(pool_mut);
       assert(pool_instance); // should already be initialized
       pool_instance->streampool->release_interface(index);
     }
     static bool interface_available(size_t load_limit) noexcept {
+      std::lock_guard<std::mutex> guard(pool_mut);
       if (!pool_instance) {
         return false;
       }
       return pool_instance->streampool->interface_available(load_limit);
     }
     static size_t get_current_load() noexcept {
+      std::lock_guard<std::mutex> guard(pool_mut);
       if (!pool_instance) {
         return 0;
       }
@@ -300,6 +306,7 @@ private:
       return pool_instance->streampool->get_current_load();
     }
     static size_t get_next_device_id() noexcept {
+      std::lock_guard<std::mutex> guard(pool_mut);
       if (!pool_instance) {
         return 0;
       }
@@ -309,6 +316,7 @@ private:
   private:
     static std::unique_ptr<stream_pool_implementation> pool_instance;
     stream_pool_implementation() = default;
+    inline static std::mutex pool_mut{};
 
     std::unique_ptr<Pool> streampool{nullptr};
 

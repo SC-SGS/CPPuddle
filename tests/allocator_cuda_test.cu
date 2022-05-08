@@ -3,27 +3,17 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
-#define USE_HPX_MAIN
 #include <chrono>
 #include <cstdio>
 #include <random>
 #include <typeinfo>
 
-#include <hpx/async_cuda/cuda_executor.hpp>
-#ifdef USE_HPX_MAIN
-#include <hpx/hpx_init.hpp>
-#else
-#include <hpx/hpx_main.hpp>
-#endif
-#include <hpx/include/async.hpp>
-#include <hpx/include/lcos.hpp>
 
 #include <cuda_runtime.h>
 
 #include "../include/buffer_manager.hpp"
 #include "../include/cuda_buffer_util.hpp"
 
-using executor = hpx::cuda::experimental::cuda_executor;
 
 constexpr size_t N = 200000;
 // constexpr size_t chunksize = 20000 ;
@@ -50,13 +40,26 @@ __global__ void mv(const size_t startindex, const size_t chunksize,
   }
 }
 
+#define USE_HPX_MAIN
+//#include <hpx/config/compiler_specific.hpp>
+#if !defined(HPX_COMPUTE_DEVICE_CODE)
+//#include <hpx/async_cuda/cuda_executor.hpp>
+#ifdef USE_HPX_MAIN
+//#include <hpx/hpx_init.hpp>
+#else
+//#include <hpx/hpx_main.hpp>
+#endif
+//#include <hpx/include/async.hpp>
+//#include <hpx/include/lcos.hpp>
+//using executor = hpx::cuda::experimental::cuda_executor;
+
 // #pragma nv_exec_check_disable
 #ifdef USE_HPX_MAIN
 int hpx_main(int argc, char *argv[]) {
 #else
 int main(int argc, char *argv[]) {
 #endif
-  executor cuda_interface(0, false); // one stream per HPX thread
+/*  executor cuda_interface(0, false); // one stream per HPX thread
   // dim3 const grid_spec(1, 1, 1);
   // dim3 const threads_per_block(1, 1, 1);
   // void *args[] = {};
@@ -150,16 +153,17 @@ int main(int argc, char *argv[]) {
             << std::chrono::duration_cast<std::chrono::milliseconds>(end -
                                                                      begin)
                    .count()
-            << "ms" << std::endl;
+            << "ms" << std::endl;*/
 
-  recycler::force_cleanup(); // depending on the driver we cannot rely on the cleanup during the static exit time
+ // recycler::force_cleanup(); // depending on the driver we cannot rely on the cleanup during the static exit time
                              // as the cuda runtime may already be unloaded
-  return hpx::finalize();
+ // return hpx::finalize();
 }
 
 #ifdef USE_HPX_MAIN
 int main(int argc, char *argv[]) {
-  std::vector<std::string> cfg = {"hpx.commandline.allow_unknown=1"};
-  return hpx::init(argc, argv, cfg);
+ // std::vector<std::string> cfg = {"hpx.commandline.allow_unknown=1"};
+  //return hpx::init(argc, argv, cfg);
 }
+#endif
 #endif

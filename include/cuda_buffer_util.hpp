@@ -150,5 +150,52 @@ private:
   bool set_id{false};
 };
 
+template <typename T, typename Host_Allocator, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
+struct cuda_aggregated_device_buffer {
+  size_t gpu_id{0};
+  T *device_side_buffer;
+  size_t number_of_elements;
+  explicit cuda_aggregated_device_buffer(size_t number_of_elements)
+      : number_of_elements(number_of_elements) {
+    device_side_buffer =
+        recycle_allocator_cuda_device<T>{}.allocate(number_of_elements);
+  }
+  explicit cuda_aggregated_device_buffer(size_t number_of_elements, size_t gpu_id, Host_Allocator &alloc)
+      : gpu_id(gpu_id), number_of_elements(number_of_elements), set_id(true), alloc(alloc) {
+#if defined(CPPUDDLE_HAVE_MULTIGPU) 
+    cudaSetDevice(gpu_id);
+#else
+    // TODO It would be better to have separate method for this but it would change the interface
+    // This will have to do for some testing. If it's worth it, add separate method without cudaSetDevice
+    // Allows for testing without any changes to other projects 
+    assert(gpu_id == 0); 
+#endif
+    device_side_buffer =
+        alloc.allocate(number_of_elements);
+  }
+  ~cuda_aggregated_device_buffer() {
+#if defined(CPPUDDLE_HAVE_MULTIGPU) 
+    if (set_id)
+      cudaSetDevice(gpu_id);
+#else
+    // TODO It would be better to have separate method for this but it would change the interface
+    // This will have to do for some testing. If it's worth it, add separate method without cudaSetDevice
+    // Allows for testing without any changes to other projects 
+    assert(gpu_id == 0); 
+#endif
+    alloc.deallocate(device_side_buffer,
+                                                  number_of_elements);
+  }
+  // not yet implemented
+  cuda_aggregated_device_buffer(cuda_aggregated_device_buffer const &other) = delete;
+  cuda_aggregated_device_buffer operator=(cuda_aggregated_device_buffer const &other) = delete;
+  cuda_aggregated_device_buffer(cuda_aggregated_device_buffer const &&other) = delete;
+  cuda_aggregated_device_buffer operator=(cuda_aggregated_device_buffer const &&other) = delete;
+
+private:
+  bool set_id{false};
+  Host_Allocator &alloc;
+};
+
 } // end namespace recycler
 #endif

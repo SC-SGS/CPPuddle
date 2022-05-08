@@ -122,7 +122,8 @@ int main(int argc, char *argv[]) {
 
   std::cout << "Starting memcpy polling tests... " << std::endl;
   {
-    hpx::cuda::experimental::enable_user_polling polling_scope;
+    // hpx::cuda::experimental::enable_user_polling polling_scope;
+    hpx::cuda::experimental::detail::register_polling(hpx::resource::get_thread_pool(0));
     test_pool_memcpy<hpx::cuda::experimental::cuda_executor,
                      round_robin_pool<hpx::cuda::experimental::cuda_executor>>(
         2, 0, true);
@@ -153,6 +154,7 @@ int main(int argc, char *argv[]) {
             hpx::cuda::experimental::cuda_executor,
             round_robin_pool<hpx::cuda::experimental::cuda_executor>>>(2, 1,
                                                                        true);
+    hpx::cuda::experimental::detail::unregister_polling(hpx::resource::get_thread_pool(0));
   }
   recycler::force_cleanup();
   std::cout << "Finished memcpy tests! " << std::endl;
@@ -161,7 +163,8 @@ int main(int argc, char *argv[]) {
 
 #ifdef USE_HPX_MAIN
 int main(int argc, char *argv[]) {
-  std::vector<std::string> cfg = {"hpx.commandline.allow_unknown=1"};
-  return hpx::init(argc, argv, cfg);
+  hpx::init_params p;
+  p.cfg = {"hpx.commandline.allow_unknown=1"};
+  return hpx::init(argc, argv, p);
 }
 #endif

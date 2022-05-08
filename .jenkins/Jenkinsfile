@@ -73,7 +73,7 @@ pipeline {
                             dir('CPPuddle') {
                                 sh '''
                                     module load cuda
-                                    ./scripts/build_dependencies.sh ${build_type} ${compiler}
+                                    #./scripts/build_dependencies.sh ${build_type} ${compiler}
                                 '''
                             }
                         }
