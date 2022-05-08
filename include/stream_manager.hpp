@@ -274,8 +274,10 @@ private:
     }
     static void cleanup() {
       std::lock_guard<std::mutex> guard(pool_mut);
-      pool_instance->streampool.reset(nullptr);
-      pool_instance.reset(nullptr);
+      if (pool_instance) {
+        pool_instance->streampool.reset(nullptr);
+        pool_instance.reset(nullptr);
+      }
     }
 
     static std::tuple<Interface &, size_t> get_interface() noexcept {
