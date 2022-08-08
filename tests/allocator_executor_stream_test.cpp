@@ -34,7 +34,7 @@ public:
 
 private:
   std::string label;
-  hpx::util::high_resolution_timer timer;
+  hpx::chrono::high_resolution_timer timer;
 };
 
 constexpr size_t view_size_0 = 10;
@@ -62,8 +62,8 @@ void stream_executor_test() {
   recycled_device_vector<double> deviceVector(view_size);
 
   // TODO(pollinta) reference in __host__ __device__ lambda problem
-  auto g1 = hpx::parallel::for_loop(
-      hpx::parallel::execution::par(hpx::parallel::execution::task), 0,
+  auto g1 = hpx::experimental::for_loop(
+      hpx::execution::par(hpx::execution::task), 0,
       view_size,
       // [&hostVector] HPX_HOST_DEVICE (std::size_t i) { hostVector[i] =
       // std::sin(double(i)); });
