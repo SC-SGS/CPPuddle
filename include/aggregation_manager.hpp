@@ -18,7 +18,6 @@
 #include <typeinfo>
 #include <utility>
 
-#include <hpx/async_cuda/cuda_executor.hpp>
 #include <hpx/futures/future.hpp>
 #include <hpx/hpx_init.hpp>
 #include <hpx/include/async.hpp>
