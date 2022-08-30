@@ -343,14 +343,14 @@ private:
   public: // Putting deleted constructors in public gives more useful error
           // messages
     // Bunch of constructors we don't need
-    buffer_manager<T, Host_Allocator>(
+    /*buffer_manager<T, Host_Allocator>(
         buffer_manager<T, Host_Allocator> const &other) = delete;
     buffer_manager<T, Host_Allocator>
     operator=(buffer_manager<T, Host_Allocator> const &other) = delete;
     buffer_manager<T, Host_Allocator>(
         buffer_manager<T, Host_Allocator> &&other) = delete;
     buffer_manager<T, Host_Allocator>
-    operator=(buffer_manager<T, Host_Allocator> &&other) = delete;
+    operator=(buffer_manager<T, Host_Allocator> &&other) = delete;*/
   };
 
   /// Memory Manager subclass to handle buffers a specific type
@@ -560,23 +560,23 @@ private:
   public: // Putting deleted constructors in public gives more useful error
           // messages
     // Bunch of constructors we don't need
-    mutexless_buffer_manager<T, Host_Allocator>(
+    /*mutexless_buffer_manager<T, Host_Allocator>(
         mutexless_buffer_manager<T, Host_Allocator> const &other) = delete;
     mutexless_buffer_manager<T, Host_Allocator> operator=(
         mutexless_buffer_manager<T, Host_Allocator> const &other) = delete;
     mutexless_buffer_manager<T, Host_Allocator>(
         mutexless_buffer_manager<T, Host_Allocator> &&other) = delete;
     mutexless_buffer_manager<T, Host_Allocator>
-    operator=(mutexless_buffer_manager<T, Host_Allocator> &&other) = delete;
+    operator=(mutexless_buffer_manager<T, Host_Allocator> &&other) = delete;*/
   };
 
 public:
   // Putting deleted constructors in public gives more useful error messages
   // Bunch of constructors we don't need
-  buffer_recycler(buffer_recycler const &other) = delete;
+  /*buffer_recycler(buffer_recycler const &other) = delete;
   buffer_recycler operator=(buffer_recycler const &other) = delete;
   buffer_recycler(buffer_recycler &&other) = delete;
-  buffer_recycler operator=(buffer_recycler &&other) = delete;
+  buffer_recycler operator=(buffer_recycler &&other) = delete;*/
 };
 
 template <typename T, typename Host_Allocator>
