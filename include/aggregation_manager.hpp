@@ -1,7 +1,7 @@
 #ifndef WORK_AGGREGATION_MANAGER
 #define WORK_AGGREGATION_MANAGER
 
-//#define DEBUG_AGGREGATION_CALLS 1
+#define DEBUG_AGGREGATION_CALLS 1
 
 #include <stdio.h>
 
@@ -501,9 +501,7 @@ public:
   /// For synchronizing the access to the function calls list
   aggregation_mutex_t mut;
 
-  // TODO Evaluate if we should switch to boost::any and unsafe casts (=> should
-  // be faster)
-  /// Data entry for a buffer allocation: any for the point, size_t for
+  /// Data entry for a buffer allocation: void* pointer, size_t for
   /// buffer-size, atomic for the slice counter
   using buffer_entry_t =
       std::tuple<void*, const size_t, std::atomic<size_t>, bool>;
@@ -885,10 +883,6 @@ public:
     // Do nothing here - Contents will be destroyed when the buffer manager is
     // destroyed, not before
   }
-  // TODO Reference counting not supported yet
-  /*void increase_usage_counter(T *p, size_t n) {
-    buffer_recycler::increase_usage_counter<T, Host_Allocator>(p, n);
-  }*/
 };
 template <typename T, typename U, typename Host_Allocator, typename Executor>
 constexpr bool

@@ -282,7 +282,7 @@ void interruption_test(void) {
   // recycler::force_cleanup();
 }
 
-void failure_test(void) {
+void failure_test(bool type_error) {
   // Error test
   hpx::cout << "Error test with all wrong types and values in 2 slices"
             << std::endl;
@@ -327,7 +327,7 @@ void failure_test(void) {
     slices_done_futs.emplace_back(slice_fut3.value().then([](auto &&fut) {
       auto slice_exec = fut.get();
       hpx::cout << "Got executor 3" << std::endl;
-      slice_exec.post(print_stuff_error, 2);
+      slice_exec.post(print_stuff1, 2);
      // auto async_fut = slice_exec.async(print_stuff_error, 3);
       //async_fut.get();
     }));
@@ -338,10 +338,13 @@ void failure_test(void) {
 
     auto slice_fut4 = agg_exec.request_executor_slice();
     if (slice_fut4.has_value()) {
-    slices_done_futs.emplace_back(slice_fut4.value().then([](auto &&fut) {
+    slices_done_futs.emplace_back(slice_fut4.value().then([type_error](auto &&fut) {
       auto slice_exec = fut.get();
       hpx::cout << "Got executor 4" << std::endl;
-      slice_exec.post(print_stuff1, 2.0f);
+      if (type_error)
+        slice_exec.post(print_stuff1, 2.0f);
+      else
+        slice_exec.post(print_stuff_error, 2);
       /* slice_exec.post(print_stuff1, 2); */
      // auto async_fut = slice_exec.async(print_stuff1, 3.0f);
      // async_fut.get();
@@ -815,7 +818,8 @@ int hpx_main(int argc, char *argv[]) {
   // Test that checks failure detection in case of wrong usage (missmatching
   // calls/types/values)
   if (scenario == "failure_test" || scenario == "all") {
-    failure_test();
+    failure_test(true); // test type error checking
+    failure_test(false); // test value error checking
   }
   // Flush outout and wait a second for the (non hpx::cout) output to have it in the correct
   // order for the ctests

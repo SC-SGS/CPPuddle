@@ -502,16 +502,16 @@ if (CPPUDDLE_WITH_TESTS)
         set_tests_properties(aggregation_failure_test.run PROPERTIES
           FIXTURES_SETUP aggregation_failure_test_output
         )
-        # add_test(aggregation_failure_test.analyse_value_error cat aggregation_failure_test.out)
-        # set_tests_properties(aggregation_failure_test.analyse_value_error PROPERTIES
-        #   FIXTURES_REQUIRED aggregation_failure_test_output
-        #   PASS_REGULAR_EXPRESSION "Mismatched values error in aggregated post call of executor"
-        # )
-        # add_test(aggregation_failure_test.analyse_type_error cat aggregation_failure_test.out)
-        # set_tests_properties(aggregation_failure_test.analyse_type_error PROPERTIES
-        #   FIXTURES_REQUIRED aggregation_failure_test_output
-        #   PASS_REGULAR_EXPRESSION "Mismatched types error in aggregated post call of executor"
-        # )
+        add_test(aggregation_failure_test.analyse_value_error cat aggregation_failure_test.out)
+        set_tests_properties(aggregation_failure_test.analyse_value_error PROPERTIES
+          FIXTURES_REQUIRED aggregation_failure_test_output
+          PASS_REGULAR_EXPRESSION "Mismatched values error in aggregated post call of executor"
+        )
+        add_test(aggregation_failure_test.analyse_type_error cat aggregation_failure_test.out)
+        set_tests_properties(aggregation_failure_test.analyse_type_error PROPERTIES
+          FIXTURES_REQUIRED aggregation_failure_test_output
+          PASS_REGULAR_EXPRESSION "Mismatched types error in aggregated post call of executor"
+        )
 
 
         add_test(aggregation_add_pointer_test.run work_aggregation_test -t4 --outputfile=aggregation_add_pointer_test.out --scenario=pointer_add_test)
