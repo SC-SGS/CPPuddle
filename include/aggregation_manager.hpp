@@ -128,7 +128,7 @@ private:
 
 #if !(defined(NDEBUG)) && defined(DEBUG_AGGREGATION_CALLS)
 #pragma message                                                                \
-    "Running slow work aggegator debug build! Run with NDEBUG defined for fast build..."
+    "Running slow work aggregator debug build! Run with NDEBUG defined for fast build..."
   /// Stores the function call of the first slice as reference for error
   /// checking
   std::any function_tuple;
@@ -383,8 +383,8 @@ public:
     Aggregated_Executor<Executor> &parent;
     /// How many functions have been called - required to enforce sequential
     /// behaviour of kernel launches
-    size_t launch_counter{0};
-    size_t buffer_counter{0};
+    std::atomic<size_t> launch_counter{0};
+    std::atomic<size_t> buffer_counter{0};
     bool notify_parent_about_destruction{true};
 
   public:
@@ -412,16 +412,16 @@ public:
     Executor_Slice(const Executor_Slice &other) = delete;
     Executor_Slice &operator=(const Executor_Slice &other) = delete;
     Executor_Slice(Executor_Slice &&other)
-        : parent(other.parent), launch_counter(std::move(other.launch_counter)),
-          buffer_counter(std::move(other.buffer_counter)),
+        : parent(other.parent), launch_counter(other.launch_counter.load()),
+          buffer_counter(other.buffer_counter.load()),
           number_slices(std::move(other.number_slices)),
           id(std::move(other.id)) {
       other.notify_parent_about_destruction = false;
     }
     Executor_Slice &operator=(Executor_Slice &&other) {
       parent = other.parent;
-      launch_counter = std::move(other.launch_counter);
-      buffer_counter = std::move(other.buffer_counter);
+      launch_counter = other.launch_counter.load();
+      buffer_counter = other.buffer_counter.load();
       number_slices = std::move(other.number_slices);
       id = std::move(other.id);
       other.notify_parent_about_destruction = false;
@@ -468,11 +468,8 @@ public:
     /// allocated by different slice)
     template <typename T, typename Host_Allocator> T *get(const size_t size) {
       assert(parent.slices_exhausted == true);
-      // TODO Pass to get...
-      size_t current_buff = buffer_counter;
       T *aggregated_buffer =
-          parent.get<T, Host_Allocator>(size, current_buff);
-      buffer_counter++;
+          parent.get<T, Host_Allocator>(size, buffer_counter);
       return aggregated_buffer;
     }
     /// Mark aggregated buffer as unused (should only happen due to stack
@@ -515,7 +512,7 @@ public:
 
   /// Get new buffer OR get buffer already allocated by different slice
   template <typename T, typename Host_Allocator>
-  T *get(const size_t size, const size_t slice_alloc_counter) {
+  T *get(const size_t size, std::atomic<size_t> &slice_alloc_counter) {
     assert(slices_exhausted == true);
     // Add aggreated buffer entry in case it hasn't happened yet for this call
     // First: Check if it already has happened
@@ -546,28 +543,25 @@ public:
         }
 #endif
         buffer_allocations_map.insert_or_assign(ptr_key, buffer_counter);
-
         assert (buffer_counter == slice_alloc_counter);
+        slice_alloc_counter++;
         buffer_counter = buffer_allocations.size();
 
         // Return buffer
         return aggregated_buffer;
       }
     }
-    assert(std::get<3>(buffer_allocations[slice_alloc_counter])); // valid
-    assert(std::get<2>(buffer_allocations[slice_alloc_counter]) >= 1);
+    const size_t curr_slice_alloc_counter = slice_alloc_counter++;
+    assert(std::get<3>(buffer_allocations[curr_slice_alloc_counter])); // valid
+    assert(std::get<2>(buffer_allocations[curr_slice_alloc_counter]) >= 1);
 
     // Buffer entry should already exist:
     T *aggregated_buffer = static_cast<T *>(
-        std::get<0>(buffer_allocations[slice_alloc_counter]));
+        std::get<0>(buffer_allocations[curr_slice_alloc_counter]));
     // Error handling: Size is wrong?
-    assert(size == std::get<1>(buffer_allocations[slice_alloc_counter]));
-    /*if (size != std::get<1>(buffer_allocations[slice_alloc_counter])) {
-      throw std::runtime_error("Requested buffer size does not match the size "
-                               "in the aggregated buffer record!");
-    }*/
+    assert(size == std::get<1>(buffer_allocations[curr_slice_alloc_counter]));
     // Notify that one more slice has visited this buffer allocation
-    std::get<2>(buffer_allocations[slice_alloc_counter])++;
+    std::get<2>(buffer_allocations[curr_slice_alloc_counter])++;
     return aggregated_buffer;
   }
 
