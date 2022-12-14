@@ -1,6 +1,8 @@
 #ifndef WORK_AGGREGATION_MANAGER
 #define WORK_AGGREGATION_MANAGER
 
+//#define DEBUG_AGGREGATION_CALLS 1
+
 #include <stdio.h>
 
 #include <any>
@@ -17,6 +19,7 @@
 #include <type_traits>
 #include <typeinfo>
 #include <utility>
+#include <unordered_map>
 
 #include <hpx/futures/future.hpp>
 #include <hpx/hpx_init.hpp>
@@ -187,11 +190,11 @@ public:
       try {
         auto orig_call_tuple =
             std::any_cast<decltype(comparison_tuple)>(function_tuple);
-        /* if (comparison_tuple != orig_call_tuple) { */
-        /*   throw std::runtime_error( */
-        /*       "Values of post function arguments (or function " */
-        /*       "itself) do not match "); */
-        /* } */
+        if (comparison_tuple != orig_call_tuple) {
+          throw std::runtime_error(
+              "Values of post function arguments (or function "
+              "itself) do not match ");
+        }
       } catch (const std::bad_any_cast &e) {
         hpx::cout
             << "\nMismatched types error in aggregated post call of executor "
@@ -259,11 +262,11 @@ public:
       try {
         auto orig_call_tuple =
             std::any_cast<decltype(comparison_tuple)>(function_tuple);
-        /* if (comparison_tuple != orig_call_tuple) { */
-        /*   throw std::runtime_error( */
-        /*       "Values of async function arguments (or function " */
-        /*       "itself) do not match "); */
-        /* } */
+        if (comparison_tuple != orig_call_tuple) {
+          throw std::runtime_error(
+              "Values of async function arguments (or function "
+              "itself) do not match ");
+        }
       } catch (const std::bad_any_cast &e) {
         hpx::cout
             << "\nMismatched types error in aggregated async call of executor "
@@ -465,8 +468,10 @@ public:
     /// allocated by different slice)
     template <typename T, typename Host_Allocator> T *get(const size_t size) {
       assert(parent.slices_exhausted == true);
+      // TODO Pass to get...
+      size_t current_buff = buffer_counter;
       T *aggregated_buffer =
-          parent.get<T, Host_Allocator>(size, buffer_counter);
+          parent.get<T, Host_Allocator>(size, current_buff);
       buffer_counter++;
       return aggregated_buffer;
     }
@@ -475,8 +480,8 @@ public:
     template <typename T, typename Host_Allocator>
     void mark_unused(T *p, const size_t size) {
       assert(parent.slices_exhausted == true);
-      buffer_counter--;
-      parent.mark_unused<T, Host_Allocator>(p, size, buffer_counter);
+      buffer_counter--; // for sanity checking: should reach 0 by time of destruction
+      parent.mark_unused<T, Host_Allocator>(p, size);
     }
 
     Executor& get_underlying_executor(void) {
@@ -501,9 +506,11 @@ public:
   /// Data entry for a buffer allocation: any for the point, size_t for
   /// buffer-size, atomic for the slice counter
   using buffer_entry_t =
-      std::tuple<std::any, const size_t, std::atomic<size_t>, bool>;
+      std::tuple<void*, const size_t, std::atomic<size_t>, bool>;
   /// Keeps track of the aggregated buffer allocations done in all the slices
   std::deque<buffer_entry_t> buffer_allocations;
+  /// Map pointer to deque index for fast access in the deallocations
+  std::unordered_map<void*,size_t> buffer_allocations_map;
   /// For synchronizing the access to the buffer_allocations
   aggregation_mutex_t buffer_mut;
   std::atomic<size_t> buffer_counter = 0;
@@ -527,7 +534,22 @@ public:
             recycler::detail::buffer_recycler::get<T, Host_Allocator>(size,
                                                                       manage_content_lifetime);
         // Create buffer entry for this buffer
-        buffer_allocations.emplace_back(aggregated_buffer, size, 1, true);
+        buffer_allocations.emplace_back(static_cast<void *>(aggregated_buffer),
+                                        size, 1, true);
+
+        void *ptr_key = static_cast<void*>(aggregated_buffer);
+#ifndef NDEBUG
+        // if previousely used the buffer should not be in usage anymore
+        const auto exists = buffer_allocations_map.count(ptr_key);
+        if (exists > 0) {
+          const auto previous_usage_id = buffer_allocations_map[ptr_key];
+          const auto &valid = std::get<3>(buffer_allocations[previous_usage_id]);
+          assert(!valid);
+        }
+#endif
+        buffer_allocations_map.insert_or_assign(ptr_key, buffer_counter);
+
+        assert (buffer_counter == slice_alloc_counter);
         buffer_counter = buffer_allocations.size();
 
         // Return buffer
@@ -538,7 +560,7 @@ public:
     assert(std::get<2>(buffer_allocations[slice_alloc_counter]) >= 1);
 
     // Buffer entry should already exist:
-    T *aggregated_buffer = std::any_cast<T *>(
+    T *aggregated_buffer = static_cast<T *>(
         std::get<0>(buffer_allocations[slice_alloc_counter]));
     // Error handling: Size is wrong?
     assert(size == std::get<1>(buffer_allocations[slice_alloc_counter]));
@@ -553,17 +575,21 @@ public:
 
   /// Notify buffer list that one slice is done with the buffer
   template <typename T, typename Host_Allocator>
-  void mark_unused(T *p, const size_t size, const size_t slice_alloc_counter) {
+  void mark_unused(T *p, const size_t size) {
     assert(slices_exhausted == true);
+
+    void *ptr_key = static_cast<void*>(p);
+    size_t slice_alloc_counter = buffer_allocations_map[p];
+
     assert(slice_alloc_counter < buffer_allocations.size());
     /*auto &[buffer_pointer_any, buffer_size, buffer_allocation_counter, valid] =
         buffer_allocations[slice_alloc_counter];*/
-    auto buffer_pointer_any = std::get<0>(buffer_allocations[slice_alloc_counter]);
-    auto buffer_size = std::get<1>(buffer_allocations[slice_alloc_counter]);
+    auto buffer_pointer_void = std::get<0>(buffer_allocations[slice_alloc_counter]);
+    const auto buffer_size = std::get<1>(buffer_allocations[slice_alloc_counter]);
     auto &buffer_allocation_counter = std::get<2>(buffer_allocations[slice_alloc_counter]);
     auto &valid = std::get<3>(buffer_allocations[slice_alloc_counter]);
     assert(valid);
-    T *buffer_pointer = std::any_cast<T *>(buffer_pointer_any);
+    T *buffer_pointer = static_cast<T *>(buffer_pointer_void);
 
     assert(buffer_size == size);
     assert(p == buffer_pointer);
@@ -585,8 +611,6 @@ public:
       }
     }
   }
-  // TODO Support the reference counting used previousely in CPPuddle?
-  // might be required for Kokkos
 
   //===============================================================================
   // Public Interface
@@ -688,6 +712,7 @@ public:
       const size_t local_slice_id = ++current_slices;
       if (local_slice_id == 1) {
         // Cleanup leftovers from last run if any
+        // TODO still required? Should be clean here already
         function_calls.clear();
         overall_launch_counter = 0;
         std::lock_guard<aggregation_mutex_t> guard(buffer_mut);
@@ -700,6 +725,7 @@ public:
         }
 #endif 
         buffer_allocations.clear();
+        buffer_allocations_map.clear();
         buffer_counter = 0;
 
         if (mode == Aggregated_Executor_Modes::STRICT ) {
@@ -780,6 +806,22 @@ public:
     const size_t local_slice_id = --current_slices;
     // Last slice goes out scope?
     if (local_slice_id == 0) {
+
+        // Cleanup leftovers from last run if any
+        function_calls.clear();
+        overall_launch_counter = 0;
+        std::lock_guard<aggregation_mutex_t> guard(buffer_mut);
+#ifndef NDEBUG
+        for (const auto &buffer_entry : buffer_allocations) {
+           const auto &[buffer_pointer_any, buffer_size,
+          buffer_allocation_counter, 
+                       valid] = buffer_entry;
+          assert(!valid);
+        }
+#endif 
+        buffer_allocations.clear();
+        buffer_allocations_map.clear();
+        buffer_counter = 0;
 
         // Draw new underlying executor TODO Test if it's better to redraw at
         // the first slice request stream_pool::release_interface<Executor,
