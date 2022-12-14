@@ -5,6 +5,7 @@
 #undef NDEBUG
 
 
+#include <hpx/async_cuda/cuda_executor.hpp>
 #include "../include/aggregation_manager.hpp"
 #include "../include/cuda_buffer_util.hpp"
 
@@ -341,6 +342,7 @@ void failure_test(void) {
       auto slice_exec = fut.get();
       hpx::cout << "Got executor 4" << std::endl;
       slice_exec.post(print_stuff1, 2.0f);
+      /* slice_exec.post(print_stuff1, 2); */
      // auto async_fut = slice_exec.async(print_stuff1, 3.0f);
      // async_fut.get();
     }));
