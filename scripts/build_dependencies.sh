@@ -38,7 +38,7 @@ case $(hostname) in
     daint)
         source_config_daint ${SCRIPTS_DIR} "$1" "$2"
         ;;
-    workbook)
+    ????book)
         source_config_xp14 ${SCRIPTS_DIR} "$1" "$2"
         ;;
     toranj*)
