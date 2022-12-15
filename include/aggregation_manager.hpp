@@ -385,6 +385,7 @@ public:
     /// behaviour of kernel launches
     size_t launch_counter{0};
     size_t buffer_counter{0};
+    size_t dealloc_counter{0};
     bool notify_parent_about_destruction{true};
 
   public:
@@ -403,7 +404,13 @@ public:
       // Don't notify parent if we moved away from this executor_slice
       if (notify_parent_about_destruction) {
         // Executor should be done by the time of destruction
-        assert(buffer_counter == 0);
+        // -> check here before notifying parent
+
+        // parent still in execution mode?
+        assert(parent.slices_exhausted == true);
+        // all buffers done?
+        assert(buffer_counter - dealloc_counter == 0);
+        // all kernel launches done?
         assert(launch_counter == parent.function_calls.size());
         // Notifiy parent that this aggregation slice is one
         parent.reduce_usage_counter();
@@ -413,6 +420,7 @@ public:
     Executor_Slice &operator=(const Executor_Slice &other) = delete;
     Executor_Slice(Executor_Slice &&other)
         : parent(other.parent), launch_counter(std::move(other.launch_counter)),
+          dealloc_counter(std::move(other.dealloc_counter)),
           buffer_counter(std::move(other.buffer_counter)),
           number_slices(std::move(other.number_slices)),
           id(std::move(other.id)) {
@@ -421,6 +429,7 @@ public:
     Executor_Slice &operator=(Executor_Slice &&other) {
       parent = other.parent;
       launch_counter = std::move(other.launch_counter);
+      dealloc_counter = std::move(other.launch_counter);
       buffer_counter = std::move(other.buffer_counter);
       number_slices = std::move(other.number_slices);
       id = std::move(other.id);
@@ -473,6 +482,7 @@ public:
       T *aggregated_buffer =
           parent.get<T, Host_Allocator>(size, current_buff);
       buffer_counter++;
+      assert(buffer_counter > 0);
       return aggregated_buffer;
     }
     /// Mark aggregated buffer as unused (should only happen due to stack
@@ -480,8 +490,12 @@ public:
     template <typename T, typename Host_Allocator>
     void mark_unused(T *p, const size_t size) {
       assert(parent.slices_exhausted == true);
-      buffer_counter--; // for sanity checking: should reach 0 by time of destruction
+      assert(buffer_counter > 0);
+      assert(dealloc_counter < buffer_counter);
       parent.mark_unused<T, Host_Allocator>(p, size);
+      dealloc_counter++; // for sanity checking: should reach buffer_counter by
+                         // time of destruction
+      assert(dealloc_counter <= buffer_counter);
     }
 
     Executor& get_underlying_executor(void) {
@@ -535,17 +549,20 @@ public:
         buffer_allocations.emplace_back(static_cast<void *>(aggregated_buffer),
                                         size, 1, true);
 
-        void *ptr_key = static_cast<void*>(aggregated_buffer);
 #ifndef NDEBUG
         // if previousely used the buffer should not be in usage anymore
-        const auto exists = buffer_allocations_map.count(ptr_key);
+        const auto exists = buffer_allocations_map.count(
+            static_cast<void *>(aggregated_buffer));
         if (exists > 0) {
-          const auto previous_usage_id = buffer_allocations_map[ptr_key];
-          const auto &valid = std::get<3>(buffer_allocations[previous_usage_id]);
+          const auto previous_usage_id =
+              buffer_allocations_map[static_cast<void *>(aggregated_buffer)];
+          const auto &valid =
+              std::get<3>(buffer_allocations[previous_usage_id]);
           assert(!valid);
         }
 #endif
-        buffer_allocations_map.insert_or_assign(ptr_key, buffer_counter);
+        buffer_allocations_map.insert_or_assign(static_cast<void *>(aggregated_buffer),
+            buffer_counter);
 
         assert (buffer_counter == slice_alloc_counter);
         buffer_counter = buffer_allocations.size();
@@ -562,10 +579,6 @@ public:
         std::get<0>(buffer_allocations[slice_alloc_counter]));
     // Error handling: Size is wrong?
     assert(size == std::get<1>(buffer_allocations[slice_alloc_counter]));
-    /*if (size != std::get<1>(buffer_allocations[slice_alloc_counter])) {
-      throw std::runtime_error("Requested buffer size does not match the size "
-                               "in the aggregated buffer record!");
-    }*/
     // Notify that one more slice has visited this buffer allocation
     std::get<2>(buffer_allocations[slice_alloc_counter])++;
     return aggregated_buffer;
@@ -837,6 +850,8 @@ public:
     if (mode != Aggregated_Executor_Modes::STRICT ) {
         slices_full_promise.set_value(); // Trigger slices launch condition continuation 
     }
+    assert(buffer_allocations.empty());
+    assert(buffer_allocations_map.empty());
   }
 
   Aggregated_Executor(const size_t number_slices,
