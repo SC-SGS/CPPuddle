@@ -93,12 +93,12 @@ template <class... T> void print_tuple(const std::tuple<T...> &_tup) {
 //===============================================================================
 template <typename Executor, typename F, typename... Ts>
 void exec_post_wrapper(Executor & exec, F &&f, Ts &&...ts) {
-  exec.post(std::forward<F>(f), std::forward<Ts>(ts)...);
+  hpx::apply(exec, std::forward<F>(f), std::forward<Ts>(ts)...);
 }
 
 template <typename Executor, typename F, typename... Ts>
 hpx::lcos::future<void> exec_async_wrapper(Executor & exec, F &&f, Ts &&...ts) {
-  return exec.async_execute(std::forward<F>(f), std::forward<Ts>(ts)...);
+  return hpx::async(exec, std::forward<F>(f), std::forward<Ts>(ts)...);
 }
 
 /// Manages the launch conditions for aggregated function calls
@@ -526,6 +526,7 @@ public:
       // ... and recheck
       if (buffer_counter <= slice_alloc_counter) {
         constexpr bool manage_content_lifetime = false;
+        buffers_in_use = true;
         // Get shiny and new buffer that will be shared between all slices
         // Buffer might be recycled from previous allocations by the
         // buffer_recycler...
@@ -553,7 +554,6 @@ public:
 
         assert (buffer_counter == slice_alloc_counter);
         buffer_counter = buffer_allocations.size();
-        buffers_in_use = true;
 
         // Return buffer
         return aggregated_buffer;
