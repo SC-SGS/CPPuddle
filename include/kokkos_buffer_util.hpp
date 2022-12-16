@@ -12,7 +12,7 @@ namespace recycler {
 
 template<typename element_type, typename alloc_type>
 struct view_deleter {
-  alloc_type &allocator;
+  alloc_type allocator;
   size_t total_elements;
   view_deleter(alloc_type &alloc, size_t total_elements) : allocator(alloc),
     total_elements(total_elements) {}
@@ -24,7 +24,7 @@ struct view_deleter {
 template <typename kokkos_type, typename alloc_type, typename element_type>
 class aggregated_recycled_view : public kokkos_type {
 private:
-  alloc_type &allocator;
+  alloc_type allocator;
   size_t total_elements{0};
   std::shared_ptr<element_type> data_ref_counter;
 

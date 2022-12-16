@@ -365,6 +365,11 @@ private:
   // Misc private avariables:
   //
   std::atomic<bool> slices_exhausted;
+
+  std::atomic<bool> executor_slices_alive;
+  std::atomic<bool> buffers_in_use;
+  std::atomic<size_t> dealloc_counter;
+
   const Aggregated_Executor_Modes mode;
   const size_t max_slices;
   std::atomic<size_t> current_slices;
@@ -378,14 +383,14 @@ public:
 
   /// Slice class - meant as a scope interface to the aggregated executor
   class Executor_Slice {
+  public:
+    Aggregated_Executor<Executor> &parent;
   private:
     /// Executor is a slice of this aggregated_executor
-    Aggregated_Executor<Executor> &parent;
     /// How many functions have been called - required to enforce sequential
     /// behaviour of kernel launches
     size_t launch_counter{0};
     size_t buffer_counter{0};
-    size_t dealloc_counter{0};
     bool notify_parent_about_destruction{true};
 
   public:
@@ -400,7 +405,6 @@ public:
           number_slices(number_slices), id(slice_id) {
   }
     ~Executor_Slice(void) {
-
       // Don't notify parent if we moved away from this executor_slice
       if (notify_parent_about_destruction) {
         // Executor should be done by the time of destruction
@@ -408,8 +412,6 @@ public:
 
         // parent still in execution mode?
         assert(parent.slices_exhausted == true);
-        // all buffers done?
-        assert(buffer_counter - dealloc_counter == 0);
         // all kernel launches done?
         assert(launch_counter == parent.function_calls.size());
         // Notifiy parent that this aggregation slice is one
@@ -420,7 +422,6 @@ public:
     Executor_Slice &operator=(const Executor_Slice &other) = delete;
     Executor_Slice(Executor_Slice &&other)
         : parent(other.parent), launch_counter(std::move(other.launch_counter)),
-          dealloc_counter(std::move(other.dealloc_counter)),
           buffer_counter(std::move(other.buffer_counter)),
           number_slices(std::move(other.number_slices)),
           id(std::move(other.id)) {
@@ -429,7 +430,6 @@ public:
     Executor_Slice &operator=(Executor_Slice &&other) {
       parent = other.parent;
       launch_counter = std::move(other.launch_counter);
-      dealloc_counter = std::move(other.launch_counter);
       buffer_counter = std::move(other.buffer_counter);
       number_slices = std::move(other.number_slices);
       id = std::move(other.id);
@@ -477,25 +477,11 @@ public:
     /// allocated by different slice)
     template <typename T, typename Host_Allocator> T *get(const size_t size) {
       assert(parent.slices_exhausted == true);
-      // TODO Pass to get...
-      size_t current_buff = buffer_counter;
       T *aggregated_buffer =
-          parent.get<T, Host_Allocator>(size, current_buff);
+          parent.get<T, Host_Allocator>(size, buffer_counter);
       buffer_counter++;
       assert(buffer_counter > 0);
       return aggregated_buffer;
-    }
-    /// Mark aggregated buffer as unused (should only happen due to stack
-    /// unwinding) Do not call manually
-    template <typename T, typename Host_Allocator>
-    void mark_unused(T *p, const size_t size) {
-      assert(parent.slices_exhausted == true);
-      assert(buffer_counter > 0);
-      assert(dealloc_counter < buffer_counter);
-      parent.mark_unused<T, Host_Allocator>(p, size);
-      dealloc_counter++; // for sanity checking: should reach buffer_counter by
-                         // time of destruction
-      assert(dealloc_counter <= buffer_counter);
     }
 
     Executor& get_underlying_executor(void) {
@@ -531,6 +517,7 @@ public:
   template <typename T, typename Host_Allocator>
   T *get(const size_t size, const size_t slice_alloc_counter) {
     assert(slices_exhausted == true);
+    assert(executor_slices_alive == true);
     // Add aggreated buffer entry in case it hasn't happened yet for this call
     // First: Check if it already has happened
     if (buffer_counter <= slice_alloc_counter) {
@@ -566,11 +553,13 @@ public:
 
         assert (buffer_counter == slice_alloc_counter);
         buffer_counter = buffer_allocations.size();
+        buffers_in_use = true;
 
         // Return buffer
         return aggregated_buffer;
       }
     }
+    assert(buffers_in_use == true);
     assert(std::get<3>(buffer_allocations[slice_alloc_counter])); // valid
     assert(std::get<2>(buffer_allocations[slice_alloc_counter]) >= 1);
 
@@ -614,11 +603,20 @@ public:
       // Only mark unused if another buffer has not done so already (and marked
       // it as invalid)
       if (valid) {
+        assert(buffers_in_use == true);
         recycler::detail::buffer_recycler::mark_unused<T, Host_Allocator>(
             buffer_pointer, buffer_size);
         // mark buffer as invalid to prevent any other slice from marking the
         // buffer as unused
         valid = false;
+
+        const size_t current_deallocs = ++dealloc_counter;
+        if (current_deallocs == buffer_counter) {
+          std::lock_guard<aggregation_mutex_t> guard(mut);
+          buffers_in_use = false;
+          if (!executor_slices_alive && !buffers_in_use)
+            slices_exhausted = false;
+        }
       }
     }
   }
@@ -632,7 +630,7 @@ public:
 
   /// Only meant to be accessed by the slice executors
   bool sync_aggregation_slices(const size_t slice_launch_counter) {
-      std::lock_guard<aggregation_mutex_t> guard(mut);
+    std::lock_guard<aggregation_mutex_t> guard(mut);
     assert(slices_exhausted == true);
     // Add function call object in case it hasn't happened for this launch yet
     if (overall_launch_counter <= slice_launch_counter) {
@@ -652,7 +650,7 @@ public:
   /// Only meant to be accessed by the slice executors
   template <typename F, typename... Ts>
   void post(const size_t slice_launch_counter, F &&f, Ts &&...ts) {
-      std::lock_guard<aggregation_mutex_t> guard(mut);
+    std::lock_guard<aggregation_mutex_t> guard(mut);
     assert(slices_exhausted == true);
     // Add function call object in case it hasn't happened for this launch yet
     if (overall_launch_counter <= slice_launch_counter) {
@@ -675,7 +673,7 @@ public:
   template <typename F, typename... Ts>
   hpx::lcos::future<void> async(const size_t slice_launch_counter, F &&f,
                                 Ts &&...ts) {
-      std::lock_guard<aggregation_mutex_t> guard(mut);
+    std::lock_guard<aggregation_mutex_t> guard(mut);
     assert(slices_exhausted == true);
     // Add function call object in case it hasn't happened for this launch yet
     if (overall_launch_counter <= slice_launch_counter) {
@@ -695,7 +693,7 @@ public:
   template <typename F, typename... Ts>
   hpx::lcos::shared_future<void> wrap_async(const size_t slice_launch_counter, F &&f,
                                 Ts &&...ts) {
-      std::lock_guard<aggregation_mutex_t> guard(mut);
+    std::lock_guard<aggregation_mutex_t> guard(mut);
     assert(slices_exhausted == true);
     // Add function call object in case it hasn't happened for this launch yet
     if (overall_launch_counter <= slice_launch_counter) {
@@ -738,6 +736,12 @@ public:
         buffer_allocations.clear();
         buffer_allocations_map.clear();
         buffer_counter = 0;
+
+        assert(executor_slices_alive == false);
+        assert(buffers_in_use == false);
+        executor_slices_alive = true;
+        buffers_in_use = false;
+        dealloc_counter = 0;
 
         if (mode == Aggregated_Executor_Modes::STRICT ) {
           slices_full_promise = hpx::lcos::local::promise<void>{};
@@ -812,52 +816,62 @@ public:
   size_t launched_slices;
   void reduce_usage_counter(void) {
     /* std::lock_guard<aggregation_mutex_t> guard(mut); */
+    assert(slices_exhausted == true);
+    assert(executor_slices_alive == true);
     assert(launched_slices >= 1);
     assert(current_slices >= 0 && current_slices <= launched_slices);
     const size_t local_slice_id = --current_slices;
     // Last slice goes out scope?
     if (local_slice_id == 0) {
 
-        // Cleanup leftovers from last run if any
-        function_calls.clear();
-        overall_launch_counter = 0;
-        std::lock_guard<aggregation_mutex_t> guard(buffer_mut);
-#ifndef NDEBUG
-        for (const auto &buffer_entry : buffer_allocations) {
-           const auto &[buffer_pointer_any, buffer_size,
-          buffer_allocation_counter, 
-                       valid] = buffer_entry;
-          assert(!valid);
-        }
-#endif 
-        buffer_allocations.clear();
-        buffer_allocations_map.clear();
-        buffer_counter = 0;
+      // Draw new underlying executor TODO Test if it's better to redraw at
+      // the first slice request stream_pool::release_interface<Executor,
+      // round_robin_pool<Executor>>( std::get<1>(executor_tuple));
+      // executor_tuple = stream_pool::get_interface<Executor,
+      // round_robin_pool<Executor>>(); executor =
+      // std::get<0>(executor_tuple); 
+      // Mark executor fit for reusage
 
-        // Draw new underlying executor TODO Test if it's better to redraw at
-        // the first slice request stream_pool::release_interface<Executor,
-        // round_robin_pool<Executor>>( std::get<1>(executor_tuple));
-        // executor_tuple = stream_pool::get_interface<Executor,
-        // round_robin_pool<Executor>>(); executor =
-        // std::get<0>(executor_tuple); 
-        // Mark executor fit for reusage
+      std::lock_guard<aggregation_mutex_t> guard(mut);
+      executor_slices_alive = false; 
+      if (!executor_slices_alive && !buffers_in_use) {
         slices_exhausted = false;
+      }
     }
   }
   ~Aggregated_Executor(void) {
 
     assert(current_slices == 0);
+    assert(executor_slices_alive == false);
+    assert(buffers_in_use == false);
+
     if (mode != Aggregated_Executor_Modes::STRICT ) {
         slices_full_promise.set_value(); // Trigger slices launch condition continuation 
     }
+
+    // Cleanup leftovers from last run if any
+    function_calls.clear();
+    overall_launch_counter = 0;
+#ifndef NDEBUG
+    for (const auto &buffer_entry : buffer_allocations) {
+       const auto &[buffer_pointer_any, buffer_size,
+      buffer_allocation_counter, 
+                   valid] = buffer_entry;
+      assert(!valid);
+    }
+#endif 
+    buffer_allocations.clear();
+    buffer_allocations_map.clear();
+    buffer_counter = 0;
+
     assert(buffer_allocations.empty());
     assert(buffer_allocations_map.empty());
   }
 
   Aggregated_Executor(const size_t number_slices,
                       Aggregated_Executor_Modes mode)
-      : max_slices(number_slices), current_slices(0), slices_exhausted(false),
-        mode(mode),
+      : max_slices(number_slices), current_slices(0), slices_exhausted(false),dealloc_counter(0),
+        mode(mode), executor_slices_alive(false), buffers_in_use(false),
         executor_tuple(
             stream_pool::get_interface<Executor, round_robin_pool<Executor>>()),
         executor(std::get<0>(executor_tuple)),
@@ -874,12 +888,13 @@ template <typename T, typename Host_Allocator, typename Executor>
 class Allocator_Slice {
 private:
   typename Aggregated_Executor<Executor>::Executor_Slice &executor_reference;
+  Aggregated_Executor<Executor> &executor_parent;
 
 public:
   using value_type = T;
   Allocator_Slice(
       typename Aggregated_Executor<Executor>::Executor_Slice &executor)
-      : executor_reference(executor) {}
+      : executor_reference(executor), executor_parent(executor.parent) {}
   template <typename U>
   explicit Allocator_Slice(
       Allocator_Slice<U, Host_Allocator, Executor> const &) noexcept {}
@@ -888,7 +903,8 @@ public:
     return data;
   }
   void deallocate(T *p, std::size_t n) {
-    executor_reference.template mark_unused<T, Host_Allocator>(p, n);
+    /* executor_reference.template mark_unused<T, Host_Allocator>(p, n); */
+    executor_parent.template mark_unused<T, Host_Allocator>(p, n);
   }
   template <typename... Args>
   inline void construct(T *p, Args... args) noexcept {
@@ -966,6 +982,7 @@ public:
       instance.aggregation_executor_pool.emplace_back(
           instance.slices_per_executor, instance.mode);
       instance.current_interface = instance.aggregation_executor_pool.size() - 1;
+      assert(instance.aggregation_executor_pool.size() < 102400);
       ret = instance.aggregation_executor_pool[instance.current_interface].request_executor_slice();
       assert(ret.has_value()); // fresh executor -- should always have slices
                                // available
