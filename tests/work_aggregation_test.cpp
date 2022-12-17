@@ -5,6 +5,9 @@
 #undef NDEBUG
 
 
+#include <hpx/async_base/apply.hpp>
+#include <hpx/async_base/async.hpp>
+#include <hpx/execution_base/execution.hpp>
 #include <hpx/async_cuda/cuda_executor.hpp>
 #include "../include/aggregation_manager.hpp"
 #include "../include/cuda_buffer_util.hpp"
@@ -64,11 +67,45 @@ struct Dummy_Executor {
   }
   /// async -- executores immediately and returns ready future
   template <typename F, typename... Ts>
-  hpx::lcos::future<void> async_execute(F &&f, Ts &&...ts) {
+  hpx::lcos::future<void> async(F &&f, Ts &&...ts) {
     f(std::forward<Ts>(ts)...);
     return hpx::make_ready_future();
   }
+  
+  // OneWay Execution
+  template <typename F, typename... Ts>
+  friend decltype(auto) tag_invoke(hpx::parallel::execution::post_t,
+      Dummy_Executor& exec, F&& f, Ts&&... ts)
+  {
+      return exec.post(std::forward<F>(f), std::forward<Ts>(ts)...);
+  }
+
+  // TwoWay Execution
+  template <typename F, typename... Ts>
+  friend decltype(auto) tag_invoke(
+      hpx::parallel::execution::async_execute_t, Dummy_Executor& exec,
+      F&& f, Ts&&... ts)
+  {
+      return exec.async(
+          std::forward<F>(f), std::forward<Ts>(ts)...);
+  }
 };
+
+namespace hpx { namespace parallel { namespace execution {
+    template <>
+    struct is_one_way_executor<Dummy_Executor>
+      : std::true_type
+    {
+        // we support fire and forget without returning a waitable/future
+    };
+
+    template <>
+    struct is_two_way_executor<Dummy_Executor>
+      : std::true_type
+    {
+        // we support returning a waitable/future
+    };
+}}}
 
 //===============================================================================
 //===============================================================================
