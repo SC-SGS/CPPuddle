@@ -462,6 +462,25 @@ public:
       launch_counter++;
       return ret_fut;
     }
+
+    // OneWay Execution
+    template <typename F, typename... Ts>
+    friend decltype(auto) tag_invoke(hpx::parallel::execution::post_t,
+        Executor_Slice& exec, F&& f, Ts&&... ts)
+    {
+        return exec.post(std::forward<F>(f), std::forward<Ts>(ts)...);
+    }
+
+    // TwoWay Execution
+    template <typename F, typename... Ts>
+    friend decltype(auto) tag_invoke(
+        hpx::parallel::execution::async_execute_t, Executor_Slice& exec,
+        F&& f, Ts&&... ts)
+    {
+        return exec.async(
+            std::forward<F>(f), std::forward<Ts>(ts)...);
+    }
+
     template <typename F, typename... Ts>
     hpx::lcos::shared_future<void> wrap_async(F &&f, Ts &&...ts) {
       // we should only execute function calls once all slices
@@ -928,6 +947,29 @@ operator!=(Allocator_Slice<T, Host_Allocator, Executor> const &,
   return true;
 }
 
+namespace hpx { namespace parallel { namespace execution {
+   // TODO Unfortunately does not work that way! Create trait that works for Executor Slices with 
+   // compatible unlying executor types
+    /* template<typename E> */
+    /* struct is_one_way_executor<typename Aggregated_Executor<E>::Executor_Slice> */
+    /*   : std::true_type */
+    /* {}; */
+    /* template<typename E> */
+    /* struct is_two_way_executor<typename Aggregated_Executor<E>::Executor_Slice> */
+    /*   : std::true_type */
+    /* {}; */
+
+    // Workaround for the meantime: Manually create traits for compatible types:
+    template<>
+    struct is_one_way_executor<typename Aggregated_Executor<hpx::cuda::experimental::cuda_executor>::Executor_Slice>
+      : std::true_type
+    {};
+    template<>
+    struct is_two_way_executor<typename Aggregated_Executor<hpx::cuda::experimental::cuda_executor>::Executor_Slice>
+      : std::true_type
+    {};
+}}}
+
 //===============================================================================
 //===============================================================================
 // Pool Strategy:
@@ -982,7 +1024,7 @@ public:
       instance.aggregation_executor_pool.emplace_back(
           instance.slices_per_executor, instance.mode);
       instance.current_interface = instance.aggregation_executor_pool.size() - 1;
-      assert(instance.aggregation_executor_pool.size() < 102400);
+      assert(instance.aggregation_executor_pool.size() < 20480);
       ret = instance.aggregation_executor_pool[instance.current_interface].request_executor_slice();
       assert(ret.has_value()); // fresh executor -- should always have slices
                                // available
