@@ -30,6 +30,12 @@
 //#include <hpx/synchronization/mutex.hpp> // obsolete
 #include <hpx/mutex.hpp>
 
+#if defined(HPX_HAVE_CUDA) || defined(HPX_HAVE_HIP)
+// required for defining type traits using cuda executor as underlying
+// aggregation executors
+#include <hpx/async_cuda/cuda_executor.hpp>
+#endif
+
 #include <boost/core/demangle.hpp>
 #include <boost/format.hpp>
 
@@ -959,6 +965,7 @@ namespace hpx { namespace parallel { namespace execution {
     /*   : std::true_type */
     /* {}; */
 
+#if defined(HPX_HAVE_CUDA) || defined(HPX_HAVE_HIP)
     // Workaround for the meantime: Manually create traits for compatible types:
     template<>
     struct is_one_way_executor<typename Aggregated_Executor<hpx::cuda::experimental::cuda_executor>::Executor_Slice>
@@ -968,6 +975,7 @@ namespace hpx { namespace parallel { namespace execution {
     struct is_two_way_executor<typename Aggregated_Executor<hpx::cuda::experimental::cuda_executor>::Executor_Slice>
       : std::true_type
     {};
+#endif
 }}}
 
 //===============================================================================
