@@ -68,6 +68,8 @@ constexpr bool operator!=(sycl_device_default_allocator<T> const &,
   return false;
 }
 
+} // end namespace detail
+
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_sycl_host =
     detail::aggressive_recycle_allocator<T, detail::sycl_host_default_allocator<T>>;
@@ -75,6 +77,5 @@ template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_sycl_device =
     detail::recycle_allocator<T, detail::sycl_device_default_allocator<T>>;
 
-} // end namespace detail
 } // end namespace recycler
 #endif
