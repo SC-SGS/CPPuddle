@@ -16,11 +16,11 @@ namespace recycler {
 
 namespace detail {
 
-template <class T> struct sycl_pinned_default_allocator {
+template <class T> struct sycl_host_default_allocator {
   using value_type = T;
-  sycl_pinned_default_allocator() noexcept = default;
+  sycl_host_default_allocator() noexcept = default;
   template <class U>
-  explicit sycl_pinned_default_allocator(sycl_pinned_default_allocator<U> const &) noexcept {}
+  explicit sycl_host_default_allocator(sycl_host_default_allocator<U> const &) noexcept {}
   T *allocate(std::size_t n) {
     static cl::sycl::queue default_queue(cl::sycl::default_selector{});
     T *data = cl::sycl::malloc_host<T>(n, default_queue);
@@ -32,13 +32,13 @@ template <class T> struct sycl_pinned_default_allocator {
   }
 };
 template <class T, class U>
-constexpr bool operator==(sycl_pinned_default_allocator<T> const &,
-                          sycl_pinned_default_allocator<U> const &) noexcept {
+constexpr bool operator==(sycl_host_default_allocator<T> const &,
+                          sycl_host_default_allocator<U> const &) noexcept {
   return true;
 }
 template <class T, class U>
-constexpr bool operator!=(sycl_pinned_default_allocator<T> const &,
-                          sycl_pinned_default_allocator<U> const &) noexcept {
+constexpr bool operator!=(sycl_host_default_allocator<T> const &,
+                          sycl_host_default_allocator<U> const &) noexcept {
   return false;
 }
 
@@ -67,6 +67,13 @@ constexpr bool operator!=(sycl_device_default_allocator<T> const &,
                           sycl_device_default_allocator<U> const &) noexcept {
   return false;
 }
+
+template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
+using recycle_allocator_sycl_host =
+    detail::aggressive_recycle_allocator<T, detail::sycl_host_default_allocator<T>>;
+template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
+using recycle_allocator_sycl_device =
+    detail::recycle_allocator<T, detail::sycl_device_default_allocator<T>>;
 
 } // end namespace detail
 } // end namespace recycler
