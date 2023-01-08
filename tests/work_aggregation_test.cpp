@@ -5,6 +5,10 @@
 #undef NDEBUG
 
 
+#include <hpx/async_base/apply.hpp>
+#include <hpx/async_base/async.hpp>
+#include <hpx/execution_base/execution.hpp>
+#include <hpx/async_cuda/cuda_executor.hpp>
 #include "../include/aggregation_manager.hpp"
 #include "../include/cuda_buffer_util.hpp"
 
@@ -63,11 +67,45 @@ struct Dummy_Executor {
   }
   /// async -- executores immediately and returns ready future
   template <typename F, typename... Ts>
-  hpx::lcos::future<void> async_execute(F &&f, Ts &&...ts) {
+  hpx::lcos::future<void> async(F &&f, Ts &&...ts) {
     f(std::forward<Ts>(ts)...);
     return hpx::make_ready_future();
   }
+  
+  // OneWay Execution
+  template <typename F, typename... Ts>
+  friend decltype(auto) tag_invoke(hpx::parallel::execution::post_t,
+      Dummy_Executor& exec, F&& f, Ts&&... ts)
+  {
+      return exec.post(std::forward<F>(f), std::forward<Ts>(ts)...);
+  }
+
+  // TwoWay Execution
+  template <typename F, typename... Ts>
+  friend decltype(auto) tag_invoke(
+      hpx::parallel::execution::async_execute_t, Dummy_Executor& exec,
+      F&& f, Ts&&... ts)
+  {
+      return exec.async(
+          std::forward<F>(f), std::forward<Ts>(ts)...);
+  }
 };
+
+namespace hpx { namespace parallel { namespace execution {
+    template <>
+    struct is_one_way_executor<Dummy_Executor>
+      : std::true_type
+    {
+        // we support fire and forget without returning a waitable/future
+    };
+
+    template <>
+    struct is_two_way_executor<Dummy_Executor>
+      : std::true_type
+    {
+        // we support returning a waitable/future
+    };
+}}}
 
 //===============================================================================
 //===============================================================================
@@ -281,7 +319,7 @@ void interruption_test(void) {
   // recycler::force_cleanup();
 }
 
-void failure_test(void) {
+void failure_test(bool type_error) {
   // Error test
   hpx::cout << "Error test with all wrong types and values in 2 slices"
             << std::endl;
@@ -326,7 +364,7 @@ void failure_test(void) {
     slices_done_futs.emplace_back(slice_fut3.value().then([](auto &&fut) {
       auto slice_exec = fut.get();
       hpx::cout << "Got executor 3" << std::endl;
-      slice_exec.post(print_stuff_error, 2);
+      slice_exec.post(print_stuff1, 2);
      // auto async_fut = slice_exec.async(print_stuff_error, 3);
       //async_fut.get();
     }));
@@ -337,10 +375,14 @@ void failure_test(void) {
 
     auto slice_fut4 = agg_exec.request_executor_slice();
     if (slice_fut4.has_value()) {
-    slices_done_futs.emplace_back(slice_fut4.value().then([](auto &&fut) {
+    slices_done_futs.emplace_back(slice_fut4.value().then([type_error](auto &&fut) {
       auto slice_exec = fut.get();
       hpx::cout << "Got executor 4" << std::endl;
-      slice_exec.post(print_stuff1, 2.0f);
+      if (type_error)
+        slice_exec.post(print_stuff1, 2.0f);
+      else
+        slice_exec.post(print_stuff_error, 2);
+      /* slice_exec.post(print_stuff1, 2); */
      // auto async_fut = slice_exec.async(print_stuff1, 3.0f);
      // async_fut.get();
     }));
@@ -813,7 +855,8 @@ int hpx_main(int argc, char *argv[]) {
   // Test that checks failure detection in case of wrong usage (missmatching
   // calls/types/values)
   if (scenario == "failure_test" || scenario == "all") {
-    failure_test();
+    failure_test(true); // test type error checking
+    failure_test(false); // test value error checking
   }
   // Flush outout and wait a second for the (non hpx::cout) output to have it in the correct
   // order for the ctests

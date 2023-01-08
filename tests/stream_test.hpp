@@ -5,6 +5,10 @@
 
 #ifndef STREAM_TEST_HPP // NOLINT
 #define STREAM_TEST_HPP // NOLINT
+#include <hpx/async_base/apply.hpp>
+#include <hpx/async_base/async.hpp>
+#include <hpx/execution_base/execution.hpp>
+#include <hpx/async_cuda/cuda_executor.hpp>
 #include "../include/buffer_manager.hpp"
 #include "../include/cuda_buffer_util.hpp"
 
@@ -19,10 +23,10 @@ void test_pool_memcpy(const size_t stream_parameter, Ts &&... ts) {
     auto test1 = stream_pool::get_interface<Interface, Pool>();
     Interface test1_interface = std::get<0>(test1);
     size_t interface_id = std::get<1>(test1);
-    test1_interface.post(cudaMemcpyAsync, devicebuffer.device_side_buffer,
+    hpx::apply(test1_interface, cudaMemcpyAsync, devicebuffer.device_side_buffer,
                          hostbuffer.data(), 512 * sizeof(double),
                          cudaMemcpyHostToDevice);
-    auto fut1 = test1_interface.async_execute(
+    auto fut1 = hpx::async(test1_interface,
         cudaMemcpyAsync, hostbuffer.data(), devicebuffer.device_side_buffer,
         512 * sizeof(double), cudaMemcpyDeviceToHost);
     fut1.get();
@@ -33,10 +37,10 @@ void test_pool_memcpy(const size_t stream_parameter, Ts &&... ts) {
   {
     stream_interface<Interface, Pool> test1_interface;
     // hpx::cuda::cuda_executor test1_interface(0, false);
-    test1_interface.post(cudaMemcpyAsync, devicebuffer.device_side_buffer,
+    hpx::apply(test1_interface.interface, cudaMemcpyAsync, devicebuffer.device_side_buffer,
                          hostbuffer.data(), 512 * sizeof(double),
                          cudaMemcpyHostToDevice);
-    auto fut1 = test1_interface.async_execute(
+    auto fut1 = hpx::async(test1_interface.interface,
         cudaMemcpyAsync, hostbuffer.data(), devicebuffer.device_side_buffer,
         512 * sizeof(double), cudaMemcpyDeviceToHost);
     fut1.get();

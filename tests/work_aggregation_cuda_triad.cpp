@@ -6,7 +6,7 @@
 #include <hpx/futures/future.hpp>
 //#undef NDEBUG
 
-
+#include <hpx/async_cuda/cuda_executor.hpp>
 #include "../include/aggregation_manager.hpp"
 #include "../include/cuda_buffer_util.hpp"
 

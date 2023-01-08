@@ -159,13 +159,6 @@ if (CPPUDDLE_WITH_TESTS)
           PRIVATE Boost::boost Boost::program_options HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
         target_compile_definitions(allocator_kokkos_test PRIVATE HPX_WITH_CUDA CPPUDDLE_HAVE_CUDA)
 
-        add_executable(
-          allocator_executor_stream_test
-          ${CMAKE_CURRENT_SOURCE_DIR}/tests/allocator_executor_stream_test.cpp)
-        target_link_libraries(allocator_executor_stream_test
-          PRIVATE HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
-        target_compile_definitions(allocator_executor_stream_test PRIVATE HPX_WITH_CUDA CPPUDDLE_HAVE_CUDA)
-
         add_hpx_executable(
           allocator_kokkos_executor_for_loop_test
           DEPENDENCIES
@@ -502,16 +495,16 @@ if (CPPUDDLE_WITH_TESTS)
         set_tests_properties(aggregation_failure_test.run PROPERTIES
           FIXTURES_SETUP aggregation_failure_test_output
         )
-        # add_test(aggregation_failure_test.analyse_value_error cat aggregation_failure_test.out)
-        # set_tests_properties(aggregation_failure_test.analyse_value_error PROPERTIES
-        #   FIXTURES_REQUIRED aggregation_failure_test_output
-        #   PASS_REGULAR_EXPRESSION "Mismatched values error in aggregated post call of executor"
-        # )
-        # add_test(aggregation_failure_test.analyse_type_error cat aggregation_failure_test.out)
-        # set_tests_properties(aggregation_failure_test.analyse_type_error PROPERTIES
-        #   FIXTURES_REQUIRED aggregation_failure_test_output
-        #   PASS_REGULAR_EXPRESSION "Mismatched types error in aggregated post call of executor"
-        # )
+        add_test(aggregation_failure_test.analyse_value_error cat aggregation_failure_test.out)
+        set_tests_properties(aggregation_failure_test.analyse_value_error PROPERTIES
+          FIXTURES_REQUIRED aggregation_failure_test_output
+          PASS_REGULAR_EXPRESSION "Mismatched values error in aggregated post call of executor"
+        )
+        add_test(aggregation_failure_test.analyse_type_error cat aggregation_failure_test.out)
+        set_tests_properties(aggregation_failure_test.analyse_type_error PROPERTIES
+          FIXTURES_REQUIRED aggregation_failure_test_output
+          PASS_REGULAR_EXPRESSION "Mismatched types error in aggregated post call of executor"
+        )
 
 
         add_test(aggregation_add_pointer_test.run work_aggregation_test -t4 --outputfile=aggregation_add_pointer_test.out --scenario=pointer_add_test)
