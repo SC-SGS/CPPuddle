@@ -21,7 +21,7 @@
 
 
 namespace recycler {
-constexpr size_t number_instances = 64;
+constexpr size_t number_instances = 1;
 namespace detail {
 
 namespace util {
@@ -122,53 +122,53 @@ private:
   }
 
 public:
-  ~buffer_recycler() = default; // public destructor for unique_ptr instance
+  /* ~buffer_recycler() = default; // public destructor for unique_ptr instance */
+  ~buffer_recycler() {
+    clean_all();
+  }
 
   // Subclasses
 private:
   /// Memory Manager subclass to handle buffers a specific type
   template <typename T, typename Host_Allocator> class buffer_manager {
   private:
-    // Tuple content: Pointer to buffer, buffer_size, reference_counter, Flag
+    // Tuple content: Pointer to buffer, buffer_size, location ID, Flag
     // The flag at the end controls whether to buffer content is to be reused as
     // well
     using buffer_entry_type = std::tuple<T *, size_t, size_t, bool>;
 
   public:
     /// Cleanup and delete this singleton
-    static void clean() { manager_instance.reset(); }
+    static void clean() {
+      instance().reset(new buffer_manager[number_instances]);
+    }
     /// Cleanup all buffers not currently in use
     static void clean_unused_buffers_only() {
-      if (!manager_instance) {
-        return;
-      }
-      for (auto &buffer_tuple : manager_instance->unused_buffer_list) {
-        Host_Allocator alloc;
-        if (std::get<3>(buffer_tuple)) {
-          util::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+      for (auto i = 0; i < number_instances; i++) {
+        for (auto &buffer_tuple : instance()[i].unused_buffer_list) {
+          Host_Allocator alloc;
+          if (std::get<3>(buffer_tuple)) {
+            util::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+          }
+          alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
         }
-        alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+        instance()[i].unused_buffer_list.clear();
       }
-      manager_instance->unused_buffer_list.clear();
     }
 
     /// Tries to recycle or create a buffer of type T and size number_elements.
-    static T *get(size_t number_of_elements, bool manage_content_lifetime) {
-      if (!manager_instance) {
-        manager_instance.reset(new buffer_manager());
-        buffer_recycler::add_total_cleanup_callback(clean);
-        buffer_recycler::add_partial_cleanup_callback(
-            clean_unused_buffers_only);
-      }
+    static T *get(size_t number_of_elements, bool manage_content_lifetime, size_t id = 0) {
+      init_callbacks_once();
+
 #ifdef CPPUDDLE_HAVE_COUNTERS
-      manager_instance->number_allocation++;
+      instance()[id].number_allocation++;
 #endif
       // Check for unused buffers we can recycle:
-      for (auto iter = manager_instance->unused_buffer_list.begin();
-           iter != manager_instance->unused_buffer_list.end(); iter++) {
+      for (auto iter = instance()[id].unused_buffer_list.begin();
+           iter != instance()[id].unused_buffer_list.end(); iter++) {
         auto tuple = *iter;
         if (std::get<1>(tuple) == number_of_elements) {
-          manager_instance->unused_buffer_list.erase(iter);
+          instance()[id].unused_buffer_list.erase(iter);
           /* std::get<2>(tuple)++; // increase usage counter to 1 */
 
           // handle the switch from aggressive to non aggressive reusage (or
@@ -181,9 +181,9 @@ private:
             util::destroy_n(std::get<0>(tuple), std::get<1>(tuple));
             std::get<3>(tuple) = false;
           }
-          manager_instance->buffer_map.insert({std::get<0>(tuple), tuple});
+          instance()[id].buffer_map.insert({std::get<0>(tuple), tuple});
 #ifdef CPPUDDLE_HAVE_COUNTERS
-          manager_instance->number_recycling++;
+          instance()[id].number_recycling++;
 #endif
           return std::get<0>(tuple);
         }
@@ -193,11 +193,11 @@ private:
       try {
         Host_Allocator alloc;
         T *buffer = alloc.allocate(number_of_elements);
-        manager_instance->buffer_map.insert(
+        instance()[id].buffer_map.insert(
             {buffer, std::make_tuple(buffer, number_of_elements, 1,
                                      manage_content_lifetime)});
 #ifdef CPPUDDLE_HAVE_COUNTERS
-        manager_instance->number_creation++;
+        instance()[id].number_creation++;
 #endif
         if (manage_content_lifetime) {
           util::uninitialized_value_construct_n(buffer, number_of_elements);
@@ -211,12 +211,12 @@ private:
         // We've done all we can in here
         Host_Allocator alloc;
         T *buffer = alloc.allocate(number_of_elements);
-        manager_instance->buffer_map.insert(
+        instance()[id].buffer_map.insert(
             {buffer, std::make_tuple(buffer, number_of_elements, 1,
                                      manage_content_lifetime)});
 #ifdef CPPUDDLE_HAVE_COUNTERS
-        manager_instance->number_creation++;
-        manager_instance->number_bad_alloc++;
+        instance()[id].number_creation++;
+        instance()[id].number_bad_alloc++;
 #endif
         if (manage_content_lifetime) {
           util::uninitialized_value_construct_n(buffer, number_of_elements);
@@ -225,42 +225,20 @@ private:
       }
     }
 
-    static void mark_unused(T *memory_location, size_t number_of_elements) {
-      // This will never be called without an instance since all access for this
-      // method comes from the buffer recycler We can forego the instance
-      // existence check here
-      assert(manager_instance);
+    static void mark_unused(T *memory_location, size_t number_of_elements, size_t id = 0) {
 #ifdef CPPUDDLE_HAVE_COUNTERS
-      manager_instance->number_dealloacation++;
+      instance()[id].number_dealloacation++;
 #endif
-      auto it = manager_instance->buffer_map.find(memory_location);
-      assert(it != manager_instance->buffer_map.end());
+      auto it = instance()[id].buffer_map.find(memory_location);
+      assert(it != instance()[id].buffer_map.end());
       auto &tuple = it->second;
       // sanity checks:
       assert(std::get<1>(tuple) == number_of_elements);
       // move to the unused_buffer list
-      manager_instance->unused_buffer_list.push_front(tuple);
-      manager_instance->buffer_map.erase(memory_location);
+      instance()[id].unused_buffer_list.push_front(tuple);
+      instance()[id].buffer_map.erase(memory_location);
 
-      /* assert(std::get<2>(tuple) >= 1); */
-      /* std::get<2>(tuple)--;          // decrease usage counter */
-      /* if (std::get<2>(tuple) == 0) { // not used anymore? */
-      /*   // move to the unused_buffer list */
-      /*   manager_instance->unused_buffer_list.push_front(tuple); */
-      /*   manager_instance->buffer_map.erase(memory_location); */
-      /* } */
     }
-
-    /* static void increase_usage_counter(T *memory_location, */
-    /*                                    size_t number_of_elements) noexcept { */
-    /*   auto it = manager_instance->buffer_map.find(memory_location); */
-    /*   assert(it != manager_instance->buffer_map.end()); */
-    /*   auto &tuple = it->second; */
-    /*   // sanity checks: */
-    /*   assert(std::get<1>(tuple) == number_of_elements); */
-    /*   assert(std::get<2>(tuple) >= 1); */
-    /*   std::get<2>(tuple)++; // increase usage counter */
-    /* } */
 
   private:
     /// List with all buffers still in usage
@@ -273,15 +251,37 @@ private:
     size_t number_recycling{0}, number_creation{0}, number_bad_alloc{0};
 #endif
     /// Singleton instance
-    static std::unique_ptr<buffer_manager<T, Host_Allocator>> manager_instance;
-    // Array of instances
-    static std::unique_ptr<buffer_manager<T, Host_Allocator>> manager_instances;
+    /* static std::unique_ptr<buffer_manager<T, Host_Allocator>> manager_instance; */
     /// default, private constructor - not automatically constructed due to the
     /// deleted constructors
     buffer_manager() = default;
+    buffer_manager<T, Host_Allocator>&
+    operator=(buffer_manager<T, Host_Allocator> const &other) = default;
+    buffer_manager<T, Host_Allocator>&
+    operator=(buffer_manager<T, Host_Allocator> &&other) = delete;
+    static std::unique_ptr<buffer_manager[]>& instance(void) {
+      /* static std::array<buffer_manager, number_instances> instances{{}}; */
+      static std::unique_ptr<buffer_manager[]> instances{
+          new buffer_manager[number_instances]};
+      return instances;
+    }
+    static void init_callbacks_once(void) {
+      static std::once_flag flag;
+      std::call_once(flag, []() {
+        buffer_recycler::add_total_cleanup_callback(clean);
+        buffer_recycler::add_partial_cleanup_callback(
+            clean_unused_buffers_only);
+          });
+    }
+
 
   public:
     ~buffer_manager() {
+      if (number_allocation == 0 && number_recycling == 0 &&
+          number_bad_alloc == 0 && number_creation == 0 &&
+          unused_buffer_list.empty() && buffer_map.empty()) {
+        return;
+      }
       for (auto &buffer_tuple : unused_buffer_list) {
         Host_Allocator alloc;
         if (std::get<3>(buffer_tuple)) {
@@ -340,12 +340,8 @@ private:
     // Bunch of constructors we don't need
     buffer_manager<T, Host_Allocator>(
         buffer_manager<T, Host_Allocator> const &other) = delete;
-    buffer_manager<T, Host_Allocator>
-    operator=(buffer_manager<T, Host_Allocator> const &other) = delete;
     buffer_manager<T, Host_Allocator>(
         buffer_manager<T, Host_Allocator> &&other) = delete;
-    buffer_manager<T, Host_Allocator>
-    operator=(buffer_manager<T, Host_Allocator> &&other) = delete;
   };
 
 public:
@@ -357,9 +353,9 @@ public:
   buffer_recycler operator=(buffer_recycler &&other) = delete;
 };
 
-template <typename T, typename Host_Allocator>
-std::unique_ptr<buffer_recycler::buffer_manager<T, Host_Allocator>>
-    buffer_recycler::buffer_manager<T, Host_Allocator>::manager_instance{};
+/* template <typename T, typename Host_Allocator> */
+/* std::unique_ptr<buffer_recycler::buffer_manager<T, Host_Allocator>> */
+/*     buffer_recycler::buffer_manager<T, Host_Allocator>::manager_instance{}; */
 
 template <typename T, typename Host_Allocator> struct recycle_allocator {
   using value_type = T;
@@ -379,9 +375,6 @@ template <typename T, typename Host_Allocator> struct recycle_allocator {
     ::new (static_cast<void *>(p)) T(std::forward<Args>(args)...);
   }
   void destroy(T *p) { p->~T(); }
-  /* void increase_usage_counter(T *p, size_t n) { */
-  /*   buffer_recycler::increase_usage_counter<T, Host_Allocator>(p, n); */
-  /* } */
 };
 template <typename T, typename U, typename Host_Allocator>
 constexpr bool

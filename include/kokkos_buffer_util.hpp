@@ -101,13 +101,11 @@ public:
     total_elements = other.total_elements;
     data_ref_counter = other.data_ref_counter;
 
-    /* allocator.increase_usage_counter(this->data(), this->total_elements); */
   }
 
   recycled_view<kokkos_type, alloc_type, element_type> &
   operator=(const recycled_view<kokkos_type, alloc_type, element_type> &other) {
     data_ref_counter = other.data_ref_counter;
-    /* allocator.deallocate(this->data(), total_elements); */
     kokkos_type::operator=(other);
     total_elements = other.total_elements;
     allocator.increase_usage_counter(other.data(), other.total_elements);
@@ -119,20 +117,17 @@ public:
       : kokkos_type(other) {
     data_ref_counter = other.data_ref_counter;
     total_elements = other.total_elements;
-    /* allocator.increase_usage_counter(other.data(), other.total_elements); */
   }
 
   recycled_view<kokkos_type, alloc_type, element_type> &operator=(
       recycled_view<kokkos_type, alloc_type, element_type> &&other) noexcept {
     data_ref_counter = other.data_ref_counter;
-    /* allocator.deallocate(this->data(), total_elements); */
     kokkos_type::operator=(other);
     total_elements = other.total_elements;
-    /* allocator.increase_usage_counter(other.data(), other.total_elements); */
     return *this;
   }
 
-  ~recycled_view() { /*allocator.deallocate(this->data(), total_elements); */ }
+  ~recycled_view() {  }
 };
 
 template <class kokkos_type, class alloc_type, class element_type>
