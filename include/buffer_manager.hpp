@@ -343,13 +343,13 @@ private:
   public: // Putting deleted constructors in public gives more useful error
           // messages
     // Bunch of constructors we don't need
-    buffer_manager<T, Host_Allocator>(
+    buffer_manager(
         buffer_manager<T, Host_Allocator> const &other) = delete;
-    buffer_manager<T, Host_Allocator>
+    buffer_manager
     operator=(buffer_manager<T, Host_Allocator> const &other) = delete;
-    buffer_manager<T, Host_Allocator>(
+    buffer_manager(
         buffer_manager<T, Host_Allocator> &&other) = delete;
-    buffer_manager<T, Host_Allocator>
+    buffer_manager
     operator=(buffer_manager<T, Host_Allocator> &&other) = delete;
   };
 
@@ -560,13 +560,13 @@ private:
   public: // Putting deleted constructors in public gives more useful error
           // messages
     // Bunch of constructors we don't need
-    mutexless_buffer_manager<T, Host_Allocator>(
+    mutexless_buffer_manager(
         mutexless_buffer_manager<T, Host_Allocator> const &other) = delete;
-    mutexless_buffer_manager<T, Host_Allocator> operator=(
+    mutexless_buffer_manager operator=(
         mutexless_buffer_manager<T, Host_Allocator> const &other) = delete;
-    mutexless_buffer_manager<T, Host_Allocator>(
+    mutexless_buffer_manager(
         mutexless_buffer_manager<T, Host_Allocator> &&other) = delete;
-    mutexless_buffer_manager<T, Host_Allocator>
+    mutexless_buffer_manager
     operator=(mutexless_buffer_manager<T, Host_Allocator> &&other) = delete;
   };
 
