@@ -19,7 +19,35 @@
 #include <boost/core/demangle.hpp>
 #endif
 
+// TODO Add location 
+// Support three modes:
+// - Location unaware allocator
+// --> Ignores tuple entry regarding location
+// --> Use buffer_manager id == 0 by default?
+// - Location aware allocator (stateful, contains the index)
+// --> Still use buffer manager ID 0
+// --> Respects tuple entry regarding location
+// - Location separated allocator (stateful, contains the index)
+// --> One buffer manager per location
+// --> allocate (read-lock)
+// --> deallocate (write-lock)
+// --> allocate (write lock --> move entry to used list?)
+// - Location separated allocator (not stateful, but relies on a hashmap)? -- probably not required
 
+// TODO Remove hashmap
+// Now that the reference counting is gone
+// there's no need to keep the hash map is there?
+// --> Get rid of the hash map
+// --> Rework when to lock accordingly
+
+// Give location when allocating (get buffer tied to location)
+// Store location in tuple
+// Have one buffer manager per location
+// Location optional when deallocating
+// -> Either search all buffer managers
+// -> Or use a hashmap
+// Locking optional: do not delete entries, just increment/decrement an atomic usage counter Hint (only have a read lock, use write lock only if we need to create a new buffer
+// increment when wanting to use it (check if ret=1, if ret>1 continue search and reset to 1
 namespace recycler {
 constexpr size_t number_instances = 1;
 namespace detail {
@@ -135,7 +163,7 @@ private:
     // Tuple content: Pointer to buffer, buffer_size, location ID, Flag
     // The flag at the end controls whether to buffer content is to be reused as
     // well
-    using buffer_entry_type = std::tuple<T *, size_t, size_t, bool>;
+    using buffer_entry_type = std::tuple<T *, size_t, std::atomic<size_t>, bool>;
 
   public:
     /// Cleanup and delete this singleton
@@ -164,39 +192,48 @@ private:
       instance()[id].number_allocation++;
 #endif
       // Check for unused buffers we can recycle:
+      // TODO Add Read lock
       for (auto iter = instance()[id].unused_buffer_list.begin();
            iter != instance()[id].unused_buffer_list.end(); iter++) {
-        auto tuple = *iter;
-        if (std::get<1>(tuple) == number_of_elements) {
-          instance()[id].unused_buffer_list.erase(iter);
-          /* std::get<2>(tuple)++; // increase usage counter to 1 */
+        auto &tuple = *iter;
+        if (std::get<1>(tuple) == number_of_elements && std::get<2>(tuple) == 0) {
+          const size_t life_counter = std::get<2>(tuple)++; // increase usage counter to 1
+          if (life_counter == 1) { // Check if we're the first one to increase
 
-          // handle the switch from aggressive to non aggressive reusage (or
-          // vice-versa)
-          if (manage_content_lifetime && !std::get<3>(tuple)) {
-            util::uninitialized_value_construct_n(std::get<0>(tuple),
-                                                  number_of_elements);
-            std::get<3>(tuple) = true;
-          } else if (!manage_content_lifetime && std::get<3>(tuple)) {
-            util::destroy_n(std::get<0>(tuple), std::get<1>(tuple));
-            std::get<3>(tuple) = false;
-          }
-          instance()[id].buffer_map.insert({std::get<0>(tuple), tuple});
+            // handle the switch from aggressive to non aggressive reusage (or
+            // vice-versa)
+            if (manage_content_lifetime && !std::get<3>(tuple)) {
+              util::uninitialized_value_construct_n(std::get<0>(tuple),
+                                                    number_of_elements);
+              std::get<3>(tuple) = true;
+            } else if (!manage_content_lifetime && std::get<3>(tuple)) {
+              util::destroy_n(std::get<0>(tuple), std::get<1>(tuple));
+              std::get<3>(tuple) = false;
+            }
+            // TODO buffer map?
+            /* instance()[id].buffer_map.insert({std::get<0>(tuple), tuple}); */
 #ifdef CPPUDDLE_HAVE_COUNTERS
-          instance()[id].number_recycling++;
+            instance()[id].number_recycling++;
 #endif
-          return std::get<0>(tuple);
+            return std::get<0>(tuple);
+          } else { // other thread beat us: reset to 1 and continue search
+            std::get<2>(tuple) = 1;
+          }
         }
       }
 
       // No unused buffer found -> Create new one and return it
       try {
         Host_Allocator alloc;
+        // TODO Allocate outside of write lock
         T *buffer = alloc.allocate(number_of_elements);
-        instance()[id].buffer_map.insert(
-            {buffer, std::make_tuple(buffer, number_of_elements, 1,
-                                     manage_content_lifetime)});
-#ifdef CPPUDDLE_HAVE_COUNTERS
+        // TODO push into during write lock
+        /* auto buffer_tuple = std::make_tuple(buffer, number_of_elements, 1, */
+        /*                              manage_content_lifetime); */
+        instance()[id].unused_buffer_list.emplace_back(buffer, number_of_elements, 1,
+                                     manage_content_lifetime);
+        /* instance()[id].buffer_map.insert({buffer, buffer_tuple}); */
+#ifdef CPPUDDLE_HAVE_COUNTERS 
         instance()[id].number_creation++;
 #endif
         if (manage_content_lifetime) {
@@ -211,9 +248,11 @@ private:
         // We've done all we can in here
         Host_Allocator alloc;
         T *buffer = alloc.allocate(number_of_elements);
-        instance()[id].buffer_map.insert(
-            {buffer, std::make_tuple(buffer, number_of_elements, 1,
-                                     manage_content_lifetime)});
+        /* auto buffer_tuple = std::make_tuple(buffer, number_of_elements, 1, */
+        /*                              manage_content_lifetime); */
+        instance()[id].unused_buffer_list.emplace_back(buffer, number_of_elements, 1,
+                                     manage_content_lifetime);
+        /* instance()[id].buffer_map.insert({buffer, buffer_tuple}); */
 #ifdef CPPUDDLE_HAVE_COUNTERS
         instance()[id].number_creation++;
         instance()[id].number_bad_alloc++;
@@ -232,12 +271,13 @@ private:
       auto it = instance()[id].buffer_map.find(memory_location);
       assert(it != instance()[id].buffer_map.end());
       auto &tuple = it->second;
-      // sanity checks:
       assert(std::get<1>(tuple) == number_of_elements);
-      // move to the unused_buffer list
-      instance()[id].unused_buffer_list.push_front(tuple);
-      instance()[id].buffer_map.erase(memory_location);
+      assert(std::get<2>(tuple) == 1);
 
+      // move to the unused_buffer list
+      /* instance()[id].unused_buffer_list.push_front(tuple); */
+      /* instance()[id].buffer_map.erase(memory_location); */
+      std::get<2>(tuple) = 0; // mark as fit for reusage
     }
 
   private:
@@ -290,7 +330,8 @@ private:
         alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
       }
       for (auto &map_tuple : buffer_map) {
-        auto buffer_tuple = map_tuple.second;
+        //
+        auto &buffer_tuple = map_tuple.second;
         Host_Allocator alloc;
         if (std::get<3>(buffer_tuple)) {
           util::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
