@@ -12,6 +12,8 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <optional>
+#include <stdexcept>
 #include <type_traits>
 #include <unordered_map>
 
@@ -21,7 +23,7 @@
 
 
 namespace recycler {
-constexpr size_t number_instances = 1;
+constexpr size_t number_instances = 4;
 namespace detail {
 
 namespace util {
@@ -157,18 +159,24 @@ private:
     }
 
     /// Tries to recycle or create a buffer of type T and size number_elements.
-    static T *get(size_t number_of_elements, bool manage_content_lifetime, size_t id = 0) {
+    static T *get(size_t number_of_elements, bool manage_content_lifetime,
+        std::optional<size_t> location_hint = std::nullopt) {
       init_callbacks_once();
 
+      size_t location_id = 1;
+      if (location_hint)
+        location_id = location_hint.value();
+
+
 #ifdef CPPUDDLE_HAVE_COUNTERS
-      instance()[id].number_allocation++;
+      instance()[location_id].number_allocation++;
 #endif
       // Check for unused buffers we can recycle:
-      for (auto iter = instance()[id].unused_buffer_list.begin();
-           iter != instance()[id].unused_buffer_list.end(); iter++) {
+      for (auto iter = instance()[location_id].unused_buffer_list.begin();
+           iter != instance()[location_id].unused_buffer_list.end(); iter++) {
         auto tuple = *iter;
         if (std::get<1>(tuple) == number_of_elements) {
-          instance()[id].unused_buffer_list.erase(iter);
+          instance()[location_id].unused_buffer_list.erase(iter);
           /* std::get<2>(tuple)++; // increase usage counter to 1 */
 
           // handle the switch from aggressive to non aggressive reusage (or
@@ -181,9 +189,9 @@ private:
             util::destroy_n(std::get<0>(tuple), std::get<1>(tuple));
             std::get<3>(tuple) = false;
           }
-          instance()[id].buffer_map.insert({std::get<0>(tuple), tuple});
+          instance()[location_id].buffer_map.insert({std::get<0>(tuple), tuple});
 #ifdef CPPUDDLE_HAVE_COUNTERS
-          instance()[id].number_recycling++;
+          instance()[location_id].number_recycling++;
 #endif
           return std::get<0>(tuple);
         }
@@ -193,11 +201,11 @@ private:
       try {
         Host_Allocator alloc;
         T *buffer = alloc.allocate(number_of_elements);
-        instance()[id].buffer_map.insert(
+        instance()[location_id].buffer_map.insert(
             {buffer, std::make_tuple(buffer, number_of_elements, 1,
                                      manage_content_lifetime)});
 #ifdef CPPUDDLE_HAVE_COUNTERS
-        instance()[id].number_creation++;
+        instance()[location_id].number_creation++;
 #endif
         if (manage_content_lifetime) {
           util::uninitialized_value_construct_n(buffer, number_of_elements);
@@ -211,12 +219,12 @@ private:
         // We've done all we can in here
         Host_Allocator alloc;
         T *buffer = alloc.allocate(number_of_elements);
-        instance()[id].buffer_map.insert(
+        instance()[location_id].buffer_map.insert(
             {buffer, std::make_tuple(buffer, number_of_elements, 1,
                                      manage_content_lifetime)});
 #ifdef CPPUDDLE_HAVE_COUNTERS
-        instance()[id].number_creation++;
-        instance()[id].number_bad_alloc++;
+        instance()[location_id].number_creation++;
+        instance()[location_id].number_bad_alloc++;
 #endif
         if (manage_content_lifetime) {
           util::uninitialized_value_construct_n(buffer, number_of_elements);
@@ -225,19 +233,36 @@ private:
       }
     }
 
-    static void mark_unused(T *memory_location, size_t number_of_elements, size_t id = 0) {
-#ifdef CPPUDDLE_HAVE_COUNTERS
-      instance()[id].number_dealloacation++;
-#endif
-      auto it = instance()[id].buffer_map.find(memory_location);
-      assert(it != instance()[id].buffer_map.end());
-      auto &tuple = it->second;
-      // sanity checks:
-      assert(std::get<1>(tuple) == number_of_elements);
-      // move to the unused_buffer list
-      instance()[id].unused_buffer_list.push_front(tuple);
-      instance()[id].buffer_map.erase(memory_location);
+    static void mark_unused(T *memory_location, size_t number_of_elements,
+        std::optional<size_t> location_hint = std::nullopt) {
+      size_t locations_start = 0;
+      size_t locations_end = number_instances;
+      if (location_hint) {
+        locations_start = location_hint.value();
+        locations_end = location_hint.value() + 1;
+      }
 
+      bool found = false;
+      for(size_t location_d = locations_start; location_d < locations_end; location_d++) {
+        if (instance()[location_d].buffer_map.find(memory_location) !=
+            instance()[location_d].buffer_map.end()) {
+          found = true;
+#ifdef CPPUDDLE_HAVE_COUNTERS
+          instance()[location_d].number_dealloacation++;
+#endif
+          auto it = instance()[location_d].buffer_map.find(memory_location);
+          assert(it != instance()[location_d].buffer_map.end());
+          auto &tuple = it->second;
+          // sanity checks:
+          assert(std::get<1>(tuple) == number_of_elements);
+          // move to the unused_buffer list
+          instance()[location_d].unused_buffer_list.push_front(tuple);
+          instance()[location_d].buffer_map.erase(memory_location);
+        }
+      }
+      if (!found) {
+        throw std::runtime_error("Tried to delete non-existing buffer");
+      }
     }
 
   private:
