@@ -31,6 +31,7 @@ pipeline {
                     sh '''
                         git submodule update --init --recursive
                         ./scripts/clean_dependencies.sh
+                        rm -rf build
                     '''
                 }
             }
@@ -72,6 +73,7 @@ pipeline {
                         steps {
                             dir('CPPuddle') {
                                 sh '''
+                                    . /usr/local.nfs/Modules/latest/init/sh
                                     module load cuda
                                     #./scripts/build_dependencies.sh ${build_type} ${compiler}
                                 '''
@@ -82,6 +84,7 @@ pipeline {
                         steps {
                             dir('CPPuddle') {
                                 sh '''
+                                    . /usr/local.nfs/Modules/latest/init/sh
                                     module load cuda 
                                     ./scripts/configure_build_directory.sh ${build_type} ${compiler}
                                     cd build/${compiler}-${build_type}
@@ -94,6 +97,7 @@ pipeline {
                         steps {
                             dir('CPPuddle') {
                                 sh '''
+                                    . /usr/local.nfs/Modules/latest/init/sh
                                     module load cuda
                                     cd build/${compiler}-${build_type}
                                     ctest -j4
