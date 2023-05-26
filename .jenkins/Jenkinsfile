@@ -31,6 +31,7 @@ pipeline {
                     sh '''
                         git submodule update --init --recursive
                         ./scripts/clean_dependencies.sh
+                        rm -rf build
                     '''
                 }
             }
@@ -85,7 +86,6 @@ pipeline {
                                 sh '''
                                     . /usr/local.nfs/Modules/latest/init/sh
                                     module load cuda 
-                                    rm -rf build
                                     ./scripts/configure_build_directory.sh ${build_type} ${compiler}
                                     cd build/${compiler}-${build_type}
                                     make -j4
