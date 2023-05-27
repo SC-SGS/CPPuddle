@@ -90,6 +90,12 @@ endif()
 
 ## Interface targets
 add_library(buffer_manager SHARED src/buffer_manager_definitions.cpp)
+if (CPPUDDLE_WITH_HPX)
+  target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_HPX")
+endif()
+if (CPPUDDLE_WITH_COUNTERS)
+  target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_COUNTERS")
+endif()
 target_include_directories(buffer_manager INTERFACE
  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
  $<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>
@@ -211,6 +217,9 @@ if (CPPUDDLE_WITH_TESTS)
 
   if (CPPUDDLE_WITH_COUNTERS)
     add_compile_definitions(CPPUDDLE_HAVE_COUNTERS)
+  endif()
+  if (CPPUDDLE_WITH_HPX)
+    add_compile_definitions(CPPUDDLE_WITH_HPX)
   endif()
 
   if (CPPUDDLE_WITH_MULTIGPU_SUPPORT)

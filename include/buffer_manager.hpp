@@ -55,24 +55,19 @@ public:
   /// Returns and allocated buffer of the requested size - this may be a reused
   /// buffer
   template <typename T, typename Host_Allocator>
-  static T *get(size_t number_elements, bool manage_content_lifetime = false) {
+  static T *get(size_t number_elements, bool manage_content_lifetime = false,
+      std::optional<size_t> location_hint = std::nullopt) {
     std::lock_guard<std::mutex> guard(instance().mut);
     return buffer_manager<T, Host_Allocator>::get(number_elements,
-                                                  manage_content_lifetime);
+                                                  manage_content_lifetime, location_hint);
   }
   /// Marks an buffer as unused and fit for reusage
   template <typename T, typename Host_Allocator>
-  static void mark_unused(T *p, size_t number_elements) {
+  static void mark_unused(T *p, size_t number_elements,
+      std::optional<size_t> location_hint = std::nullopt) {
     std::lock_guard<std::mutex> guard(instance().mut);
     return buffer_manager<T, Host_Allocator>::mark_unused(p, number_elements);
   }
-  /// Increase the reference coutner of a buffer
-  /* template <typename T, typename Host_Allocator> */
-  /* static void increase_usage_counter(T *p, size_t number_elements) noexcept { */
-  /*   std::lock_guard<std::mutex> guard(instance().mut); */
-  /*   return buffer_manager<T, Host_Allocator>::increase_usage_counter( */
-  /*       p, number_elements); */
-  /* } */
   /// Deallocate all buffers, no matter whether they are marked as used or not
   static void clean_all() {
     std::lock_guard<std::mutex> guard(instance().mut);
@@ -163,9 +158,11 @@ private:
         std::optional<size_t> location_hint = std::nullopt) {
       init_callbacks_once();
 
-      size_t location_id = 1;
-      if (location_hint)
+      size_t location_id = 0;
+      if (location_hint) {
         location_id = location_hint.value();
+        /* std::cout << " " << location_id; */
+      }
 
 
 #ifdef CPPUDDLE_HAVE_COUNTERS
@@ -378,10 +375,6 @@ public:
   buffer_recycler operator=(buffer_recycler &&other) = delete;
 };
 
-/* template <typename T, typename Host_Allocator> */
-/* std::unique_ptr<buffer_recycler::buffer_manager<T, Host_Allocator>> */
-/*     buffer_recycler::buffer_manager<T, Host_Allocator>::manager_instance{}; */
-
 template <typename T, typename Host_Allocator> struct recycle_allocator {
   using value_type = T;
   recycle_allocator() noexcept = default;
@@ -438,9 +431,6 @@ struct aggressive_recycle_allocator {
     // Do nothing here - Contents will be destroyed when the buffer manager is
     // destroyed, not before
   }
-  /* void increase_usage_counter(T *p, size_t n) { */
-  /*   buffer_recycler::increase_usage_counter<T, Host_Allocator>(p, n); */
-  /* } */
 };
 template <typename T, typename U, typename Host_Allocator>
 constexpr bool
