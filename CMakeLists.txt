@@ -57,7 +57,6 @@ if (CPPUDDLE_WITH_KOKKOS)
   endif()
 
   kokkos_check(DEVICES HPX)
-  kokkos_check(OPTIONS HPX_ASYNC_DISPATCH)
 endif()
 
 # Add Linter warnings

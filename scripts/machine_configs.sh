@@ -5,7 +5,9 @@ function source_config_pcsgs0x() {
   SCRIPTS_DIR="$1"
   export CMAKE_BUILD_TYPE="$2"
   if [[ "${3}" == "gcc" ]]; then
-    export CXX=${SCRIPTS_DIR}/../external_dependencies/kokkos/bin/nvcc_wrapper
+    # temporarily disable kokkos
+    #export CXX=${SCRIPTS_DIR}/../external_dependencies/kokkos/bin/nvcc_wrapper
+    export CXX="g++"
     export HPX_COMPILER="g++"
   elif [[ "${3}" == "clang" ]]; then
     export CXX=clang++
