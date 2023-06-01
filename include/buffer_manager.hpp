@@ -23,7 +23,7 @@
 
 
 namespace recycler {
-constexpr size_t number_instances = 4;
+constexpr size_t number_instances = 128;
 namespace detail {
 
 namespace util {
@@ -57,7 +57,6 @@ public:
   template <typename T, typename Host_Allocator>
   static T *get(size_t number_elements, bool manage_content_lifetime = false,
       std::optional<size_t> location_hint = std::nullopt) {
-    std::lock_guard<std::mutex> guard(instance().mut);
     return buffer_manager<T, Host_Allocator>::get(number_elements,
                                                   manage_content_lifetime, location_hint);
   }
@@ -65,12 +64,10 @@ public:
   template <typename T, typename Host_Allocator>
   static void mark_unused(T *p, size_t number_elements,
       std::optional<size_t> location_hint = std::nullopt) {
-    std::lock_guard<std::mutex> guard(instance().mut);
     return buffer_manager<T, Host_Allocator>::mark_unused(p, number_elements);
   }
   /// Deallocate all buffers, no matter whether they are marked as used or not
   static void clean_all() {
-    std::lock_guard<std::mutex> guard(instance().mut);
     for (const auto &clean_function :
          instance().total_cleanup_callbacks) {
       clean_function();
@@ -78,7 +75,6 @@ public:
   }
   /// Deallocated all currently unused buffer
   static void clean_unused_buffers() {
-    std::lock_guard<std::mutex> guard(instance().mut);
     for (const auto &clean_function :
          instance().partial_cleanup_callbacks) {
       clean_function();
@@ -99,10 +95,6 @@ private:
   /// Callbacks for partial buffer_manager cleanups - each callback deallocates
   /// all unused buffers of a manager
   std::list<std::function<void()>> partial_cleanup_callbacks;
-  /// One Mutex to control concurrent access - Since we do not actually ever
-  /// return the singleton instance anywhere, this should hopefully suffice We
-  /// want more fine-grained concurrent access eventually
-  std::mutex mut;
   /// default, private constructor - not automatically constructed due to the
   /// deleted constructors
   buffer_recycler() = default;
@@ -142,6 +134,7 @@ private:
     /// Cleanup all buffers not currently in use
     static void clean_unused_buffers_only() {
       for (auto i = 0; i < number_instances; i++) {
+        std::lock_guard<std::mutex> guard(instance()[i].mut);
         for (auto &buffer_tuple : instance()[i].unused_buffer_list) {
           Host_Allocator alloc;
           if (std::get<3>(buffer_tuple)) {
@@ -161,8 +154,8 @@ private:
       size_t location_id = 0;
       if (location_hint) {
         location_id = location_hint.value();
-        /* std::cout << " " << location_id; */
       }
+      std::lock_guard<std::mutex> guard(instance()[location_id].mut);
 
 
 #ifdef CPPUDDLE_HAVE_COUNTERS
@@ -174,7 +167,6 @@ private:
         auto tuple = *iter;
         if (std::get<1>(tuple) == number_of_elements) {
           instance()[location_id].unused_buffer_list.erase(iter);
-          /* std::get<2>(tuple)++; // increase usage counter to 1 */
 
           // handle the switch from aggressive to non aggressive reusage (or
           // vice-versa)
@@ -240,21 +232,22 @@ private:
       }
 
       bool found = false;
-      for(size_t location_d = locations_start; location_d < locations_end; location_d++) {
-        if (instance()[location_d].buffer_map.find(memory_location) !=
-            instance()[location_d].buffer_map.end()) {
+      for(size_t location_id = locations_start; location_id < locations_end; location_id++) {
+        std::lock_guard<std::mutex> guard(instance()[location_id].mut);
+        if (instance()[location_id].buffer_map.find(memory_location) !=
+            instance()[location_id].buffer_map.end()) {
           found = true;
 #ifdef CPPUDDLE_HAVE_COUNTERS
-          instance()[location_d].number_dealloacation++;
+          instance()[location_id].number_dealloacation++;
 #endif
-          auto it = instance()[location_d].buffer_map.find(memory_location);
-          assert(it != instance()[location_d].buffer_map.end());
+          auto it = instance()[location_id].buffer_map.find(memory_location);
+          assert(it != instance()[location_id].buffer_map.end());
           auto &tuple = it->second;
           // sanity checks:
           assert(std::get<1>(tuple) == number_of_elements);
           // move to the unused_buffer list
-          instance()[location_d].unused_buffer_list.push_front(tuple);
-          instance()[location_d].buffer_map.erase(memory_location);
+          instance()[location_id].unused_buffer_list.push_front(tuple);
+          instance()[location_id].buffer_map.erase(memory_location);
         }
       }
       if (!found) {
@@ -267,6 +260,8 @@ private:
     std::unordered_map<T *, buffer_entry_type> buffer_map{};
     /// List with all buffers currently not used
     std::list<buffer_entry_type> unused_buffer_list{};
+    /// Access control
+    std::mutex mut;
 #ifdef CPPUDDLE_HAVE_COUNTERS
     /// Performance counters
     size_t number_allocation{0}, number_dealloacation{0};
@@ -299,6 +294,10 @@ private:
 
   public:
     ~buffer_manager() {
+      // All operations should have finished before this is happening
+      // Should be fine when throwing as there's no real point in recovering at that stage
+      std::lock_guard<std::mutex> guard(mut); 
+
       if (number_allocation == 0 && number_recycling == 0 &&
           number_bad_alloc == 0 && number_creation == 0 &&
           unused_buffer_list.empty() && buffer_map.empty()) {

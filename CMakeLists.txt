@@ -353,7 +353,7 @@ if (CPPUDDLE_WITH_TESTS)
       add_test(allocator_concurrency_test.analyse_recycle_rate cat allocator_concurrency_test.out)
       set_tests_properties(allocator_concurrency_test.analyse_recycle_rate PROPERTIES
         FIXTURES_REQUIRED allocator_concurrency_output
-        PASS_REGULAR_EXPRESSION "==> Recycle rate: [ ]* 99.844%"
+        PASS_REGULAR_EXPRESSION "==> Recycle rate: [ ]* 99.6885%"
       )
       add_test(allocator_concurrency_test.analyse_marked_buffers_cleanup cat allocator_concurrency_test.out)
       set_tests_properties(allocator_concurrency_test.analyse_marked_buffers_cleanup PROPERTIES
