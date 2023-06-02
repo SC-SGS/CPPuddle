@@ -212,49 +212,35 @@ class stream_pool {
 public:
   template <class Interface, class Pool, typename... Ts>
   static void init(size_t number_of_streams, Ts &&... executor_args) {
-    std::lock_guard<std::mutex> guard(mut);
-    if (!access_instance) {
-      // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
-      access_instance.reset(new stream_pool());
-    }
-    assert(access_instance); 
     stream_pool_implementation<Interface, Pool>::init(
         number_of_streams, std::forward<Ts>(executor_args)...);
   }
   template <class Interface, class Pool> static void cleanup() {
-    assert(access_instance); // should already be initialized
     stream_pool_implementation<Interface, Pool>::cleanup();
   }
   template <class Interface, class Pool>
   static std::tuple<Interface &, size_t> get_interface() {
-    assert(access_instance); // should already be initialized
     return stream_pool_implementation<Interface, Pool>::get_interface();
   }
   template <class Interface, class Pool>
   static void release_interface(size_t index) noexcept {
-    assert(access_instance); // should already be initialized
     stream_pool_implementation<Interface, Pool>::release_interface(index);
   }
   template <class Interface, class Pool>
   static bool interface_available(size_t load_limit) noexcept {
-    assert(access_instance); // should already be initialized
     return stream_pool_implementation<Interface, Pool>::interface_available(
         load_limit);
   }
   template <class Interface, class Pool>
   static size_t get_current_load() noexcept {
-    assert(access_instance); // should already be initialized
     return stream_pool_implementation<Interface, Pool>::get_current_load();
   }
   template <class Interface, class Pool>
   static size_t get_next_device_id() noexcept {
-    assert(access_instance); // should already be initialized
     return stream_pool_implementation<Interface, Pool>::get_next_device_id();
   }
 
 private:
-  static std::unique_ptr<stream_pool> access_instance;
-  static std::mutex mut;
   stream_pool() = default;
 
 private:
@@ -314,7 +300,7 @@ private:
     }
 
   private:
-    static std::unique_ptr<stream_pool_implementation> pool_instance;
+    inline static std::unique_ptr<stream_pool_implementation> pool_instance{};
     stream_pool_implementation() = default;
     inline static std::mutex pool_mut{};
 
@@ -341,9 +327,9 @@ public:
   stream_pool &operator=(stream_pool &&other) = delete;
 };
 
-template <class Interface, class Pool>
-std::unique_ptr<stream_pool::stream_pool_implementation<Interface, Pool>>
-    stream_pool::stream_pool_implementation<Interface, Pool>::pool_instance{};
+/* template <class Interface, class Pool> */
+/* std::unique_ptr<stream_pool::stream_pool_implementation<Interface, Pool>> */
+/*     stream_pool::stream_pool_implementation<Interface, Pool>::pool_instance{}; */
 
 template <class Interface, class Pool> class stream_interface {
 public:

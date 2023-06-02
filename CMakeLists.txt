@@ -88,7 +88,7 @@ endif()
 
 
 ## Interface targets
-add_library(buffer_manager SHARED src/buffer_manager_definitions.cpp)
+add_library(buffer_manager INTERFACE)
 if (CPPUDDLE_WITH_HPX)
   target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_HPX")
 endif()
@@ -100,9 +100,13 @@ target_include_directories(buffer_manager INTERFACE
  $<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>
  )
 
-add_library(stream_manager SHARED src/stream_manager_definitions.cpp)
-target_link_libraries(stream_manager
-    PRIVATE )
+add_library(stream_manager INTERFACE)
+if (CPPUDDLE_WITH_HPX)
+  target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_HAVE_HPX")
+endif()
+if (CPPUDDLE_WITH_COUNTERS)
+  target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_HAVE_COUNTERS")
+endif()
 target_include_directories(stream_manager INTERFACE 
 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> 
 $<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include> 
@@ -110,10 +114,8 @@ $<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>
 
 # install libs with the defitions:
 install(TARGETS buffer_manager EXPORT CPPuddle
-  LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib 
 )
 install(TARGETS stream_manager EXPORT CPPuddle
-  LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib  
 )
 # install all headers
 install(
