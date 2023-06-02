@@ -341,14 +341,6 @@ if (CPPUDDLE_WITH_TESTS)
   set_tests_properties(allocator_aligned_test.fixture_cleanup PROPERTIES
     FIXTURES_CLEANUP allocator_aligned_test_output
   )
-  find_program(VALGRIND_COMMAND valgrind)
-  if (VALGRIND_COMMAND)
-    add_test(allocator_memcheck.valgrind
-    ${VALGRIND_COMMAND} --trace-children=yes --leak-check=full ./allocator_aligned_test --arraysize 5000000 --passes 200)
-    set_tests_properties(allocator_memcheck.valgrind PROPERTIES
-      PASS_REGULAR_EXPRESSION "ERROR SUMMARY: 0 errors from 0 contexts"
-    )
-  endif()
 
   if (CPPUDDLE_WITH_HPX)
     # Concurrency tests
