@@ -13,7 +13,7 @@ set(CPPUDDLE_WITH_DEADLOCK_TEST_REPETITONS "100000" CACHE STRING "Number of repe
 option(CPPUDDLE_WITH_COUNTERS "Turns on allocations counters. Useful for extended testing" OFF)
 option(CPPUDDLE_WITH_CUDA "Enable CUDA tests/examples" OFF)
 option(CPPUDDLE_WITH_MULTIGPU_SUPPORT "Enables experimental MultiGPU support" OFF)
-option(CPPUDDLE_WITH_HPX "Enable HPX examples" OFF)
+option(CPPUDDLE_WITH_HPX "Enable HPX integration and examples" OFF)
 option(CPPUDDLE_WITH_KOKKOS "Enable KOKKOS tests/examples" OFF)
 option(CPPUDDLE_WITH_CLANG_TIDY "Enable clang tidy warnings" OFF)
 option(CPPUDDLE_WITH_CLANG_FORMAT "Enable clang format target" OFF)
@@ -137,7 +137,7 @@ if (CPPUDDLE_WITH_TESTS)
       ${Boost_LIBRARIES} HPX::hpx Boost::boost Boost::program_options buffer_manager)
   else()
     target_link_libraries(allocator_aligned_test
-      ${Boost_LIBRARIES} HPX::hpx Boost::boost Boost::program_options buffer_manager)
+      ${Boost_LIBRARIES} Boost::boost Boost::program_options buffer_manager)
   endif()
 
 
