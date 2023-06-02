@@ -29,6 +29,7 @@ private:
   std::shared_ptr<element_type> data_ref_counter;
 
 public:
+  using view_type = kokkos_type;
   template <class... Args>
   explicit aggregated_recycled_view(alloc_type &alloc, Args... args)
       : kokkos_type(
@@ -84,6 +85,7 @@ private:
   std::shared_ptr<element_type> data_ref_counter;
 
 public:
+  using view_type = kokkos_type;
   template <class... Args>
   explicit recycled_view(Args... args)
       : kokkos_type(
