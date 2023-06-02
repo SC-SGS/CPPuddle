@@ -7,22 +7,26 @@
 #ifndef CPPUDDLE_HPX_BUFFER_UTIL_HPP
 #define CPPUDDLE_HPX_BUFFER_UTIL_HPP
 
+#include <type_traits>
 #include "buffer_manager.hpp"
 #include <hpx/include/runtime.hpp>
 
 namespace recycler {
 namespace detail {
 
-template <typename T, typename Host_Allocator> struct numa_aware_recycle_allocator {
+template <typename T, typename Host_Allocator> 
+  struct numa_aware_recycle_allocator {
   using value_type = T;
-  numa_aware_recycle_allocator() noexcept = default;
-  size_t dealloc_hint{0};
-  template <typename U>
+  const std::optional<size_t> dealloc_hint;
+  numa_aware_recycle_allocator() noexcept
+      : dealloc_hint(hpx::get_worker_thread_num()) {}
+  explicit numa_aware_recycle_allocator(size_t hint) noexcept
+      : dealloc_hint(hint) {}
   explicit numa_aware_recycle_allocator(
-      numa_aware_recycle_allocator<U, Host_Allocator> const &) noexcept {}
+      numa_aware_recycle_allocator<T, Host_Allocator> const &) noexcept {}
   T *allocate(std::size_t n) {
-    dealloc_hint = hpx::get_worker_thread_num();
-    T *data = buffer_recycler::get<T, Host_Allocator>(n, false, dealloc_hint);
+    T *data = buffer_recycler::get<T, Host_Allocator>(
+        n, false, hpx::get_worker_thread_num());
     return data;
   }
   void deallocate(T *p, std::size_t n) {
@@ -38,28 +42,36 @@ template <typename T, typename U, typename Host_Allocator>
 constexpr bool
 operator==(numa_aware_recycle_allocator<T, Host_Allocator> const &,
            numa_aware_recycle_allocator<U, Host_Allocator> const &) noexcept {
-  return true;
+  if constexpr (std::is_same_v<T, U>)
+    return true;
+  else
+    return false;
 }
 template <typename T, typename U, typename Host_Allocator>
 constexpr bool
 operator!=(numa_aware_recycle_allocator<T, Host_Allocator> const &,
            numa_aware_recycle_allocator<U, Host_Allocator> const &) noexcept {
-  return false;
+  if constexpr (std::is_same_v<T, U>)
+    return false;
+  else
+    return true;
 }
 
 /// Recycles not only allocations but also the contents of a buffer
 template <typename T, typename Host_Allocator>
 struct numa_aware_aggressive_recycle_allocator {
   using value_type = T;
-  numa_aware_aggressive_recycle_allocator() noexcept = default;
-  size_t dealloc_hint{0};
-  template <typename U>
+  std::optional<size_t> dealloc_hint;
+  numa_aware_aggressive_recycle_allocator() noexcept
+      : dealloc_hint(hpx::get_worker_thread_num()) {}
+  explicit numa_aware_aggressive_recycle_allocator(size_t hint) noexcept
+      : dealloc_hint(hint) {}
   explicit numa_aware_aggressive_recycle_allocator(
-      numa_aware_aggressive_recycle_allocator<U, Host_Allocator> const &) noexcept {}
+      numa_aware_recycle_allocator<T, Host_Allocator> const &) noexcept {}
   T *allocate(std::size_t n) {
-    dealloc_hint = hpx::get_worker_thread_num();
     T *data = buffer_recycler::get<T, Host_Allocator>(
-        n, true, dealloc_hint); // also initializes the buffer if it isn't reused
+        n, true, hpx::get_worker_thread_num()); // also initializes the buffer
+                                                // if it isn't reused
     return data;
   }
   void deallocate(T *p, std::size_t n) {
@@ -78,13 +90,19 @@ template <typename T, typename U, typename Host_Allocator>
 constexpr bool
 operator==(numa_aware_aggressive_recycle_allocator<T, Host_Allocator> const &,
            numa_aware_aggressive_recycle_allocator<U, Host_Allocator> const &) noexcept {
-  return true;
+  if constexpr (std::is_same_v<T, U>)
+    return true;
+  else
+    return false;
 }
 template <typename T, typename U, typename Host_Allocator>
 constexpr bool
 operator!=(numa_aware_aggressive_recycle_allocator<T, Host_Allocator> const &,
            numa_aware_aggressive_recycle_allocator<U, Host_Allocator> const &) noexcept {
-  return false;
+  if constexpr (std::is_same_v<T, U>)
+    return false;
+  else
+    return true;
 }
 
 }
