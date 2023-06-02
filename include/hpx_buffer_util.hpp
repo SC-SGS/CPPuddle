@@ -7,7 +7,6 @@
 #ifndef CPPUDDLE_HPX_BUFFER_UTIL_HPP
 #define CPPUDDLE_HPX_BUFFER_UTIL_HPP
 
-#include <type_traits>
 #include "buffer_manager.hpp"
 #include <hpx/include/runtime.hpp>
 

@@ -20,7 +20,7 @@
 
 int hpx_main(int argc, char *argv[]) {
 
-  constexpr size_t max_number_futures = 64;
+  constexpr size_t max_number_futures = 1024;
   size_t number_futures = 64;
   size_t array_size = 500000;
   size_t passes = 200;
@@ -80,6 +80,57 @@ int hpx_main(int argc, char *argv[]) {
     size_t recycle_duration = 0;
     size_t default_duration = 0;
 
+    // test using std::allocator:
+    {
+      auto begin = std::chrono::high_resolution_clock::now();
+      std::vector<hpx::shared_future<void>> futs(max_number_futures);
+      for (size_t i = 0; i < max_number_futures; i++) {
+        futs[i] = hpx::make_ready_future<void>();
+      }
+      for (size_t pass = 0; pass < passes; pass++) {
+        for (size_t i = 0; i < number_futures; i++) {
+          futs[i] = futs[i].then([&](hpx::shared_future<void> &&predecessor) {
+            std::vector<double> test6(array_size, double{});
+          });
+        }
+      }
+      auto when = hpx::when_all(futs);
+      when.wait();
+      auto end = std::chrono::high_resolution_clock::now();
+      default_duration =
+          std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
+              .count();
+      std::cout << "\n==> Non-recycle allocation test took " << default_duration
+                << "ms" << std::endl;
+    }
+
+    // test using normal recycle allocator
+    {
+      auto begin = std::chrono::high_resolution_clock::now();
+      std::vector<hpx::shared_future<void>> futs(max_number_futures);
+      for (size_t i = 0; i < max_number_futures; i++) {
+        futs[i] = hpx::make_ready_future<void>();
+      }
+      for (size_t pass = 0; pass < passes; pass++) {
+        for (size_t i = 0; i < number_futures; i++) {
+          futs[i] = futs[i].then([&](hpx::shared_future<void> &&predecessor) {
+            std::vector<double, recycler::numa_aware_recycle_std<double>> test6(array_size,
+                                                                     double{});
+          });
+        }
+      }
+      auto when = hpx::when_all(futs);
+      when.wait();
+      auto end = std::chrono::high_resolution_clock::now();
+      recycle_duration =
+          std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
+              .count();
+      std::cout << "\n==> NUMA-aware recycle allocation test took " << recycle_duration
+                << "ms" << std::endl;
+    }
+    recycler::force_cleanup(); // Cleanup all buffers and the managers for better
+                               // comparison
+
     // ensure that at least 4 buffers have to created for unit testing
     {
       std::vector<double, recycler::numa_aware_aggressive_recycle_std<double>> buffer1(
@@ -119,31 +170,23 @@ int hpx_main(int argc, char *argv[]) {
     recycler::force_cleanup(); // Cleanup all buffers and the managers for better
                                // comparison
 
-    {
-      auto begin = std::chrono::high_resolution_clock::now();
-      std::vector<hpx::shared_future<void>> futs(max_number_futures);
-      for (size_t i = 0; i < max_number_futures; i++) {
-        futs[i] = hpx::make_ready_future<void>();
-      }
-      for (size_t pass = 0; pass < passes; pass++) {
-        for (size_t i = 0; i < number_futures; i++) {
-          futs[i] = futs[i].then([&](hpx::shared_future<void> &&predecessor) {
-            std::vector<double, recycler::numa_aware_recycle_std<double>> test6(array_size,
-                                                                     double{});
-          });
-        }
-      }
-      auto when = hpx::when_all(futs);
-      when.wait();
-      auto end = std::chrono::high_resolution_clock::now();
-      recycle_duration =
-          std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-              .count();
-      std::cout << "\n==> NUMA-aware recycle allocation test took " << recycle_duration
-                << "ms" << std::endl;
+
+
+    if (aggressive_duration < recycle_duration) {
+      std::cout << "Test information: NUMA-aware aggressive recycler was faster than normal "
+                   "recycler!"
+                << std::endl;
     }
-    recycler::force_cleanup(); // Cleanup all buffers and the managers for better
-                               // comparison
+    if (recycle_duration < default_duration) {
+      std::cout << "Test information: NUMA-aware recycler was faster than default allocator!"
+                << std::endl;
+    }
+  }
+
+  {
+    size_t aggressive_duration = 0;
+    size_t recycle_duration = 0;
+    size_t default_duration = 0;
 
     // Same test using std::allocator:
     {
@@ -169,21 +212,32 @@ int hpx_main(int argc, char *argv[]) {
                 << "ms" << std::endl;
     }
 
-    if (aggressive_duration < recycle_duration) {
-      std::cout << "Test information: NUMA-aware aggressive recycler was faster than normal "
-                   "recycler!"
-                << std::endl;
+    {
+      auto begin = std::chrono::high_resolution_clock::now();
+      std::vector<hpx::shared_future<void>> futs(max_number_futures);
+      for (size_t i = 0; i < max_number_futures; i++) {
+        futs[i] = hpx::make_ready_future<void>();
+      }
+      for (size_t pass = 0; pass < passes; pass++) {
+        for (size_t i = 0; i < number_futures; i++) {
+          futs[i] = futs[i].then([&](hpx::shared_future<void> &&predecessor) {
+            std::vector<double, recycler::recycle_std<double>> test6(array_size,
+                                                                     double{});
+          });
+        }
+      }
+      auto when = hpx::when_all(futs);
+      when.wait();
+      auto end = std::chrono::high_resolution_clock::now();
+      recycle_duration =
+          std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
+              .count();
+      std::cout << "\n==> Recycle allocation test took " << recycle_duration
+                << "ms" << std::endl;
     }
-    if (recycle_duration < default_duration) {
-      std::cout << "Test information: NUMA-aware recycler was faster than default allocator!"
-                << std::endl;
-    }
-  }
+    recycler::force_cleanup(); // Cleanup all buffers and the managers for better
+                               // comparison
 
-  {
-    size_t aggressive_duration = 0;
-    size_t recycle_duration = 0;
-    size_t default_duration = 0;
 
     // ensure that at least 4 buffers have to created for unit testing
     {
@@ -224,55 +278,6 @@ int hpx_main(int argc, char *argv[]) {
     recycler::force_cleanup(); // Cleanup all buffers and the managers for better
                                // comparison
 
-    {
-      auto begin = std::chrono::high_resolution_clock::now();
-      std::vector<hpx::shared_future<void>> futs(max_number_futures);
-      for (size_t i = 0; i < max_number_futures; i++) {
-        futs[i] = hpx::make_ready_future<void>();
-      }
-      for (size_t pass = 0; pass < passes; pass++) {
-        for (size_t i = 0; i < number_futures; i++) {
-          futs[i] = futs[i].then([&](hpx::shared_future<void> &&predecessor) {
-            std::vector<double, recycler::recycle_std<double>> test6(array_size,
-                                                                     double{});
-          });
-        }
-      }
-      auto when = hpx::when_all(futs);
-      when.wait();
-      auto end = std::chrono::high_resolution_clock::now();
-      recycle_duration =
-          std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-              .count();
-      std::cout << "\n==> Recycle allocation test took " << recycle_duration
-                << "ms" << std::endl;
-    }
-    recycler::force_cleanup(); // Cleanup all buffers and the managers for better
-                               // comparison
-
-    // Same test using std::allocator:
-    {
-      auto begin = std::chrono::high_resolution_clock::now();
-      std::vector<hpx::shared_future<void>> futs(max_number_futures);
-      for (size_t i = 0; i < max_number_futures; i++) {
-        futs[i] = hpx::make_ready_future<void>();
-      }
-      for (size_t pass = 0; pass < passes; pass++) {
-        for (size_t i = 0; i < number_futures; i++) {
-          futs[i] = futs[i].then([&](hpx::shared_future<void> &&predecessor) {
-            std::vector<double> test6(array_size, double{});
-          });
-        }
-      }
-      auto when = hpx::when_all(futs);
-      when.wait();
-      auto end = std::chrono::high_resolution_clock::now();
-      default_duration =
-          std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-              .count();
-      std::cout << "\n==> Non-recycle allocation test took " << default_duration
-                << "ms" << std::endl;
-    }
 
     if (aggressive_duration < recycle_duration) {
       std::cout << "Test information: Aggressive recycler was faster than normal "
