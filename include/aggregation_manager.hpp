@@ -529,7 +529,7 @@ public:
   /// Data entry for a buffer allocation: void* pointer, size_t for
   /// buffer-size, atomic for the slice counter
   using buffer_entry_t =
-      std::tuple<void*, const size_t, std::atomic<size_t>, bool>;
+      std::tuple<void*, const size_t, std::atomic<size_t>, bool, const size_t>;
   /// Keeps track of the aggregated buffer allocations done in all the slices
   std::deque<buffer_entry_t> buffer_allocations;
   /// Map pointer to deque index for fast access in the deallocations
@@ -552,15 +552,17 @@ public:
       if (buffer_counter <= slice_alloc_counter) {
         constexpr bool manage_content_lifetime = false;
         buffers_in_use = true;
+        // get prefered location: aka the current hpx threads location
+        const size_t location_id = hpx::get_worker_thread_num();
         // Get shiny and new buffer that will be shared between all slices
         // Buffer might be recycled from previous allocations by the
         // buffer_recycler...
         T *aggregated_buffer =
-            recycler::detail::buffer_recycler::get<T, Host_Allocator>(size,
-                                                                      manage_content_lifetime);
+            recycler::detail::buffer_recycler::get<T, Host_Allocator>(
+                size, manage_content_lifetime, location_id);
         // Create buffer entry for this buffer
         buffer_allocations.emplace_back(static_cast<void *>(aggregated_buffer),
-                                        size, 1, true);
+                                        size, 1, true, location_id);
 
 #ifndef NDEBUG
         // if previousely used the buffer should not be in usage anymore
@@ -613,6 +615,7 @@ public:
     const auto buffer_size = std::get<1>(buffer_allocations[slice_alloc_counter]);
     auto &buffer_allocation_counter = std::get<2>(buffer_allocations[slice_alloc_counter]);
     auto &valid = std::get<3>(buffer_allocations[slice_alloc_counter]);
+    const auto &location_id = std::get<4>(buffer_allocations[slice_alloc_counter]);
     assert(valid);
     T *buffer_pointer = static_cast<T *>(buffer_pointer_void);
 
@@ -630,7 +633,7 @@ public:
       if (valid) {
         assert(buffers_in_use == true);
         recycler::detail::buffer_recycler::mark_unused<T, Host_Allocator>(
-            buffer_pointer, buffer_size);
+            buffer_pointer, buffer_size, location_id);
         // mark buffer as invalid to prevent any other slice from marking the
         // buffer as unused
         valid = false;
@@ -752,9 +755,9 @@ public:
         std::lock_guard<aggregation_mutex_t> guard(buffer_mut);
 #ifndef NDEBUG
         for (const auto &buffer_entry : buffer_allocations) {
-           const auto &[buffer_pointer_any, buffer_size,
-          buffer_allocation_counter, 
-                       valid] = buffer_entry;
+          const auto &[buffer_pointer_any, buffer_size,
+                       buffer_allocation_counter, valid, location_id] =
+              buffer_entry;
           assert(!valid);
         }
 #endif 
@@ -879,12 +882,11 @@ public:
     overall_launch_counter = 0;
 #ifndef NDEBUG
     for (const auto &buffer_entry : buffer_allocations) {
-       const auto &[buffer_pointer_any, buffer_size,
-      buffer_allocation_counter, 
-                   valid] = buffer_entry;
+      const auto &[buffer_pointer_any, buffer_size, buffer_allocation_counter,
+                   valid, location_id] = buffer_entry;
       assert(!valid);
     }
-#endif 
+#endif
     buffer_allocations.clear();
     buffer_allocations_map.clear();
     buffer_counter = 0;
