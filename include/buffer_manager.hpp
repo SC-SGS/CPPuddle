@@ -298,11 +298,13 @@ private:
       // Should be fine when throwing as there's no real point in recovering at that stage
       std::lock_guard<std::mutex> guard(mut); 
 
+#ifdef CPPUDDLE_HAVE_COUNTERS
       if (number_allocation == 0 && number_recycling == 0 &&
           number_bad_alloc == 0 && number_creation == 0 &&
           unused_buffer_list.empty() && buffer_map.empty()) {
         return;
       }
+#endif
       for (auto &buffer_tuple : unused_buffer_list) {
         Host_Allocator alloc;
         if (std::get<3>(buffer_tuple)) {
