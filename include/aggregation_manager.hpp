@@ -609,8 +609,13 @@ public:
     size_t slice_alloc_counter = buffer_allocations_map[p];
 
     assert(slice_alloc_counter < buffer_allocations.size());
-    auto &[buffer_pointer_void, buffer_size, buffer_allocation_counter, valid, location_id] =
-        buffer_allocations[slice_alloc_counter];
+    /*auto &[buffer_pointer_any, buffer_size, buffer_allocation_counter, valid] =
+        buffer_allocations[slice_alloc_counter];*/
+    auto buffer_pointer_void = std::get<0>(buffer_allocations[slice_alloc_counter]);
+    const auto buffer_size = std::get<1>(buffer_allocations[slice_alloc_counter]);
+    auto &buffer_allocation_counter = std::get<2>(buffer_allocations[slice_alloc_counter]);
+    auto &valid = std::get<3>(buffer_allocations[slice_alloc_counter]);
+    const auto &location_id = std::get<4>(buffer_allocations[slice_alloc_counter]);
     assert(valid);
     T *buffer_pointer = static_cast<T *>(buffer_pointer_void);
 
