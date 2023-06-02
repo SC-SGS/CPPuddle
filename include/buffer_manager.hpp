@@ -26,29 +26,6 @@ namespace recycler {
 constexpr size_t number_instances = 128;
 namespace detail {
 
-namespace util {
-/// Helper methods for C++14 - this is obsolete for c++17 and only meant as a
-/// temporary crutch
-template <typename ForwardIt, typename Size>
-void uninitialized_value_construct_n(ForwardIt first, Size n) {
-  using Value = typename std::iterator_traits<ForwardIt>::value_type;
-  ForwardIt current = first;
-  for (; n > 0; (void)++current, --n) {
-    ::new (static_cast<void *>(std::addressof(*current))) Value();
-  }
-}
-/// Helper methods for C++14 - this is obsolete for c++17 and only meant as a
-/// temporary crutch
-template <typename ForwardIt, typename Size>
-void destroy_n(ForwardIt first, Size n) {
-  using Value = typename std::iterator_traits<ForwardIt>::value_type;
-  ForwardIt current = first;
-  for (; n > 0; (void)++current, --n) {
-    current->~Value();
-  }
-}
-} // namespace util
-
 class buffer_recycler {
   // Public interface
 public:
@@ -138,7 +115,7 @@ private:
         for (auto &buffer_tuple : instance()[i].unused_buffer_list) {
           Host_Allocator alloc;
           if (std::get<3>(buffer_tuple)) {
-            util::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+            std::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
           }
           alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
         }
@@ -171,11 +148,11 @@ private:
           // handle the switch from aggressive to non aggressive reusage (or
           // vice-versa)
           if (manage_content_lifetime && !std::get<3>(tuple)) {
-            util::uninitialized_value_construct_n(std::get<0>(tuple),
+            std::uninitialized_value_construct_n(std::get<0>(tuple),
                                                   number_of_elements);
             std::get<3>(tuple) = true;
           } else if (!manage_content_lifetime && std::get<3>(tuple)) {
-            util::destroy_n(std::get<0>(tuple), std::get<1>(tuple));
+            std::destroy_n(std::get<0>(tuple), std::get<1>(tuple));
             std::get<3>(tuple) = false;
           }
           instance()[location_id].buffer_map.insert({std::get<0>(tuple), tuple});
@@ -197,7 +174,7 @@ private:
         instance()[location_id].number_creation++;
 #endif
         if (manage_content_lifetime) {
-          util::uninitialized_value_construct_n(buffer, number_of_elements);
+          std::uninitialized_value_construct_n(buffer, number_of_elements);
         }
         return buffer;
       } catch (std::bad_alloc &e) {
@@ -216,7 +193,7 @@ private:
         instance()[location_id].number_bad_alloc++;
 #endif
         if (manage_content_lifetime) {
-          util::uninitialized_value_construct_n(buffer, number_of_elements);
+          std::uninitialized_value_construct_n(buffer, number_of_elements);
         }
         return buffer;
       }
@@ -329,7 +306,7 @@ private:
       for (auto &buffer_tuple : unused_buffer_list) {
         Host_Allocator alloc;
         if (std::get<3>(buffer_tuple)) {
-          util::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+          std::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
         }
         alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
       }
@@ -337,7 +314,7 @@ private:
         auto buffer_tuple = map_tuple.second;
         Host_Allocator alloc;
         if (std::get<3>(buffer_tuple)) {
-          util::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+          std::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
         }
         alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
       }
@@ -366,7 +343,7 @@ private:
                    "       "
                 << number_cleaned << std::endl
                 << "--> Number wrong deallocation hints:                       "
-                   "      "
+                   "       "
                 << number_wrong_hints << std::endl
                 << "--> Number of buffers that were marked as used upon "
                    "cleanup:      "
@@ -376,7 +353,6 @@ private:
                 << static_cast<float>(number_recycling) / number_allocation *
                        100.0f
                 << "%" << std::endl;
-      // assert(buffer_map.size() == 0); // Were there any buffers still used?
 #endif
       unused_buffer_list.clear();
       buffer_map.clear();
@@ -423,13 +399,19 @@ template <typename T, typename U, typename Host_Allocator>
 constexpr bool
 operator==(recycle_allocator<T, Host_Allocator> const &,
            recycle_allocator<U, Host_Allocator> const &) noexcept {
-  return true;
+  if constexpr (std::is_same_v<T, U>)
+    return true;
+  else 
+    return false;
 }
 template <typename T, typename U, typename Host_Allocator>
 constexpr bool
 operator!=(recycle_allocator<T, Host_Allocator> const &,
            recycle_allocator<U, Host_Allocator> const &) noexcept {
-  return false;
+  if constexpr (std::is_same_v<T, U>)
+    return false;
+  else 
+    return true;
 }
 
 /// Recycles not only allocations but also the contents of a buffer
@@ -461,13 +443,19 @@ template <typename T, typename U, typename Host_Allocator>
 constexpr bool
 operator==(aggressive_recycle_allocator<T, Host_Allocator> const &,
            aggressive_recycle_allocator<U, Host_Allocator> const &) noexcept {
-  return true;
+  if constexpr (std::is_same_v<T, U>)
+    return true;
+  else 
+    return false;
 }
 template <typename T, typename U, typename Host_Allocator>
 constexpr bool
 operator!=(aggressive_recycle_allocator<T, Host_Allocator> const &,
            aggressive_recycle_allocator<U, Host_Allocator> const &) noexcept {
-  return false;
+  if constexpr (std::is_same_v<T, U>)
+    return false;
+  else 
+    return true;
 }
 
 } // namespace detail
