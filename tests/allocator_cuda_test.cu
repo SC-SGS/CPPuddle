@@ -12,7 +12,7 @@
 #include <cuda_runtime.h>
 
 #include "../include/buffer_manager.hpp"
-#include "../include/cuda_buffer_util.hpp"
+/* #include "../include/cuda_buffer_util.hpp" */
 
 
 constexpr size_t N = 200000;

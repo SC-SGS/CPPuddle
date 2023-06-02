@@ -7,6 +7,9 @@
 #define SYCL_BUFFER_UTIL_HPP
 
 #include "buffer_manager.hpp"
+#ifdef CPPUDDLE_HAVE_HPX
+#include "hpx_buffer_util.hpp"
+#endif
 
 #include <CL/sycl.hpp>
 #include <stdexcept>
@@ -76,6 +79,14 @@ using recycle_allocator_sycl_host =
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_sycl_device =
     detail::recycle_allocator<T, detail::sycl_device_default_allocator<T>>;
+#ifdef CPPUDDLE_HAVE_HPX
+template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
+using numa_aware_recycle_allocator_sycl_host =
+    detail::numa_aware_aggressive_recycle_allocator<T, detail::sycl_host_default_allocator<T>>;
+template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
+using hpx_aware_recycle_allocator_sycl_device =
+    detail::numa_aware_recycle_allocator<T, detail::sycl_device_default_allocator<T>>;
+#endif
 
 } // end namespace recycler
 #endif
