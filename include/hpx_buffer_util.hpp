@@ -16,15 +16,17 @@ namespace detail {
 template <typename T, typename Host_Allocator> struct numa_aware_recycle_allocator {
   using value_type = T;
   numa_aware_recycle_allocator() noexcept = default;
+  size_t dealloc_hint{0};
   template <typename U>
   explicit numa_aware_recycle_allocator(
       numa_aware_recycle_allocator<U, Host_Allocator> const &) noexcept {}
   T *allocate(std::size_t n) {
-    T *data = buffer_recycler::get<T, Host_Allocator>(n, false, hpx::get_worker_thread_num());
+    dealloc_hint = hpx::get_worker_thread_num();
+    T *data = buffer_recycler::get<T, Host_Allocator>(n, false, dealloc_hint);
     return data;
   }
   void deallocate(T *p, std::size_t n) {
-    buffer_recycler::mark_unused<T, Host_Allocator>(p, n);
+    buffer_recycler::mark_unused<T, Host_Allocator>(p, n, dealloc_hint);
   }
   template <typename... Args>
   inline void construct(T *p, Args... args) noexcept {
@@ -50,16 +52,18 @@ template <typename T, typename Host_Allocator>
 struct numa_aware_aggressive_recycle_allocator {
   using value_type = T;
   numa_aware_aggressive_recycle_allocator() noexcept = default;
+  size_t dealloc_hint{0};
   template <typename U>
   explicit numa_aware_aggressive_recycle_allocator(
       numa_aware_aggressive_recycle_allocator<U, Host_Allocator> const &) noexcept {}
   T *allocate(std::size_t n) {
+    dealloc_hint = hpx::get_worker_thread_num();
     T *data = buffer_recycler::get<T, Host_Allocator>(
-        n, true, hpx::get_worker_thread_num()); // also initializes the buffer if it isn't reused
+        n, true, dealloc_hint); // also initializes the buffer if it isn't reused
     return data;
   }
   void deallocate(T *p, std::size_t n) {
-    buffer_recycler::mark_unused<T, Host_Allocator>(p, n);
+    buffer_recycler::mark_unused<T, Host_Allocator>(p, n, dealloc_hint);
   }
   template <typename... Args>
   inline void construct(T *p, Args... args) noexcept {

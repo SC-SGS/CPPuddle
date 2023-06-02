@@ -224,19 +224,12 @@ private:
 
     static void mark_unused(T *memory_location, size_t number_of_elements,
         std::optional<size_t> location_hint = std::nullopt) {
-      size_t locations_start = 0;
-      size_t locations_end = number_instances;
-      if (location_hint) {
-        locations_start = location_hint.value();
-        locations_end = location_hint.value() + 1;
-      }
 
-      bool found = false;
-      for(size_t location_id = locations_start; location_id < locations_end; location_id++) {
+      if (location_hint) {
+        size_t location_id = location_hint.value();
         std::lock_guard<std::mutex> guard(instance()[location_id].mut);
         if (instance()[location_id].buffer_map.find(memory_location) !=
             instance()[location_id].buffer_map.end()) {
-          found = true;
 #ifdef CPPUDDLE_HAVE_COUNTERS
           instance()[location_id].number_dealloacation++;
 #endif
@@ -248,11 +241,41 @@ private:
           // move to the unused_buffer list
           instance()[location_id].unused_buffer_list.push_front(tuple);
           instance()[location_id].buffer_map.erase(memory_location);
+          return; // Success
+        }
+        // hint was wrong - note that, and continue on with all other buffer
+        // managers
+#ifdef CPPUDDLE_HAVE_COUNTERS
+        instance()[location_id].number_wrong_hints++;
+#endif
+      }
+
+      for(size_t location_id = 0; location_id < number_instances; location_id++) {
+        if (location_hint) {
+           if (location_hint.value() == location_id) {
+             continue; // already tried this -> skip
+           }
+        }
+        std::lock_guard<std::mutex> guard(instance()[location_id].mut);
+        if (instance()[location_id].buffer_map.find(memory_location) !=
+            instance()[location_id].buffer_map.end()) {
+#ifdef CPPUDDLE_HAVE_COUNTERS
+          instance()[location_id].number_dealloacation++;
+#endif
+          auto it = instance()[location_id].buffer_map.find(memory_location);
+          assert(it != instance()[location_id].buffer_map.end());
+          auto &tuple = it->second;
+          // sanity checks:
+          assert(std::get<1>(tuple) == number_of_elements);
+          // move to the unused_buffer list
+          instance()[location_id].unused_buffer_list.push_front(tuple);
+          instance()[location_id].buffer_map.erase(memory_location);
+          return; // Success
         }
       }
-      if (!found) {
-        throw std::runtime_error("Tried to delete non-existing buffer");
-      }
+
+      // Failure -- something is very wrong
+      throw std::runtime_error("Tried to delete non-existing buffer");
     }
 
   private:
@@ -264,7 +287,7 @@ private:
     std::mutex mut;
 #ifdef CPPUDDLE_HAVE_COUNTERS
     /// Performance counters
-    size_t number_allocation{0}, number_dealloacation{0};
+    size_t number_allocation{0}, number_dealloacation{0}, number_wrong_hints{0};
     size_t number_recycling{0}, number_creation{0}, number_bad_alloc{0};
 #endif
     /// Singleton instance
@@ -342,6 +365,9 @@ private:
                 << "--> Number cleaned up buffers:                             "
                    "       "
                 << number_cleaned << std::endl
+                << "--> Number wrong deallocation hints:                       "
+                   "      "
+                << number_wrong_hints << std::endl
                 << "--> Number of buffers that were marked as used upon "
                    "cleanup:      "
                 << buffer_map.size() << std::endl
