@@ -132,8 +132,14 @@ if (CPPUDDLE_WITH_TESTS)
   ${Boost_LIBRARIES} Boost::boost Boost::program_options buffer_manager)
 
   add_executable(allocator_aligned_test tests/allocator_aligned_test.cpp)
-  target_link_libraries(allocator_aligned_test
-  ${Boost_LIBRARIES} Boost::boost Boost::program_options buffer_manager)
+  if (CPPUDDLE_WITH_HPX)
+    target_link_libraries(allocator_aligned_test
+      ${Boost_LIBRARIES} HPX::hpx Boost::boost Boost::program_options buffer_manager)
+  else()
+    target_link_libraries(allocator_aligned_test
+      ${Boost_LIBRARIES} HPX::hpx Boost::boost Boost::program_options buffer_manager)
+  endif()
+
 
   if (CPPUDDLE_WITH_HPX)
 
