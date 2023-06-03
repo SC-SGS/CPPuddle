@@ -22,6 +22,7 @@
 #endif
 
 
+
 namespace recycler {
 constexpr size_t number_instances = 128;
 namespace detail {
@@ -45,6 +46,7 @@ public:
   }
   /// Deallocate all buffers, no matter whether they are marked as used or not
   static void clean_all() {
+    std::lock_guard<std::mutex> guard(instance().callback_protection_mut);
     for (const auto &clean_function :
          instance().total_cleanup_callbacks) {
       clean_function();
@@ -52,6 +54,7 @@ public:
   }
   /// Deallocated all currently unused buffer
   static void clean_unused_buffers() {
+    std::lock_guard<std::mutex> guard(instance().callback_protection_mut);
     for (const auto &clean_function :
          instance().partial_cleanup_callbacks) {
       clean_function();
@@ -75,15 +78,17 @@ private:
   /// default, private constructor - not automatically constructed due to the
   /// deleted constructors
   buffer_recycler() = default;
+
+  std::mutex callback_protection_mut;
   /// Add a callback function that gets executed upon cleanup and destruction
   static void add_total_cleanup_callback(const std::function<void()> &func) {
-    /* std::lock_guard<std::mutex> guard(instance().mut); */
+    std::lock_guard<std::mutex> guard(instance().callback_protection_mut);
     instance().total_cleanup_callbacks.push_back(func);
   }
   /// Add a callback function that gets executed upon partial (unused memory)
   /// cleanup
   static void add_partial_cleanup_callback(const std::function<void()> &func) {
-    /* std::lock_guard<std::mutex> guard(instance().mut); */
+    std::lock_guard<std::mutex> guard(instance().callback_protection_mut);
     instance().partial_cleanup_callbacks.push_back(func);
   }
 
