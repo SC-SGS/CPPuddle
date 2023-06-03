@@ -88,10 +88,7 @@ private:
   }
 
 public:
-  /* ~buffer_recycler() = default; // public destructor for unique_ptr instance */
-  ~buffer_recycler() {
-    clean_all();
-  }
+  ~buffer_recycler() = default; // public destructor for unique_ptr instance
 
   // Subclasses
 private:
