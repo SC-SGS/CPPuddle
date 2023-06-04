@@ -414,6 +414,13 @@ private:
 #endif
       unused_buffer_list.clear();
       buffer_map.clear();
+#ifdef CPPUDDLE_HAVE_COUNTERS
+      number_allocation = 0;
+      number_recycling = 0;
+      number_bad_alloc = 0;
+      number_creation = 0;
+      number_wrong_hints = 0;
+#endif
     }
   public:
     ~buffer_manager() {
