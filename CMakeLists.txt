@@ -23,6 +23,15 @@ option(CPPUDDLE_WITH_KOKKOS "Enable KOKKOS tests/examples" OFF)
 option(CPPUDDLE_WITH_CLANG_TIDY "Enable clang tidy warnings" OFF)
 option(CPPUDDLE_WITH_CLANG_FORMAT "Enable clang format target" OFF)
 
+set(CPPUDDLE_WITH_HPX_MUTEX OFF CACHE BOOL
+  "Use HPX spinlock mutex instead of std::mutex")
+
+if(CPPUDDLE_WITH_HPX_MUTEX)
+  if(NOT CPPUDDLE_WITH_HPX)
+    message(FATAL_ERROR "CPPUDDLE_WITH_HPX_MUTEX requires a build with HPX (CPPUDDLE_WITH_HPX=ON")
+  endif()
+endif()
+
 if (CPPUDDLE_WITH_CUDA)
    enable_language(CUDA) 
 endif ()
@@ -116,6 +125,16 @@ target_include_directories(stream_manager INTERFACE
 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> 
 $<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include> 
 )
+
+if(CPPUDDLE_WITH_HPX_MUTEX)
+  target_compile_definitions(buffer_manager PUBLIC "CPPUDDLE_HAVE_HPX_MUTEX")
+  target_compile_definitions(stream_manager PUBLIC "CPPUDDLE_HAVE_HPX_MUTEX")
+  target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_HPX_MUTEX")
+  target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_HAVE_HPX_MUTEX")
+  message(INFO "Compiling with HPX spinlock")
+else()
+  message(INFO "Compiling with std::mutex!")
+endif()
 
 # install libs with the defitions:
 install(TARGETS buffer_manager EXPORT CPPuddle

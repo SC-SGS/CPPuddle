@@ -6,6 +6,7 @@
 #ifndef BUFFER_MANAGER_HPP
 #define BUFFER_MANAGER_HPP
 
+#include <atomic>
 #include <cassert>
 #include <functional>
 #include <iostream>
@@ -17,7 +18,7 @@
 #include <type_traits>
 #include <unordered_map>
 
-#ifdef CPPUDDLE_HAVE_HPX  
+#if defined(CPPUDDLE_HAVE_HPX) && defined(CPPUDDLE_HAVE_HPX_MUTEX)
 // For builds with The HPX mutex
 #include <hpx/mutex.hpp>
 #endif
@@ -30,7 +31,7 @@ namespace recycler {
 constexpr size_t number_instances = 128;
 namespace detail {
 
-#ifdef CPPUDDLE_HAVE_HPX  
+#if defined(CPPUDDLE_HAVE_HPX) && defined(CPPUDDLE_HAVE_HPX_MUTEX)
 using mutex_t = hpx::mutex;
 #else
 using mutex_t = std::mutex;
@@ -334,7 +335,7 @@ private:
     }
     static void init_callbacks_once(void) {
       assert(instance());
-#ifdef CPPUDDLE_HAVE_HPX  
+#if defined(CPPUDDLE_HAVE_HPX)  && defined(CPPUDDLE_HAVE_HPX_MUTEX)
       static hpx::once_flag flag; 
       hpx::call_once(flag, []() {
 #else
