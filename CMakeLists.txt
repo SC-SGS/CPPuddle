@@ -3,10 +3,15 @@
 # Distributed under the Boost Software License, Version 1.0. (See accompanying
 # file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.16)
 
 project(CPPuddle CXX C) # Some random project name
 set(CMAKE_CXX_STANDARD 17)
+
+set(CPPUDDLE_VERSION_MAJOR 0)
+set(CPPUDDLE_VERSION_MINOR 1)
+set(CPPUDDLE_VERSION_PATCH 99)
+set(CPPUDDLE_VERSION_STRING "${CPPUDDLE_VERSION_MAJOR}.${CPPUDDLE_VERSION_MINOR}.${CPPUDDLE_VERSION_PATCH}.")
 
 option(CPPUDDLE_WITH_TESTS "Build tests/examples" OFF)
 set(CPPUDDLE_WITH_DEADLOCK_TEST_REPETITONS "100000" CACHE STRING "Number of repetitions for the aggregation executor deadlock tests")
@@ -128,8 +133,13 @@ install(EXPORT CPPuddle NAMESPACE CPPuddle:: DESTINATION ${CMAKE_INSTALL_PREFIX}
 ## Add target for tests and tests definitions
 if (CPPUDDLE_WITH_TESTS)
   add_executable(allocator_test tests/allocator_test.cpp)
+  if (CPPUDDLE_WITH_HPX)
+  target_link_libraries(allocator_test
+    ${Boost_LIBRARIES} HPX::hpx Boost::boost Boost::program_options buffer_manager)
+  else()
   target_link_libraries(allocator_test
   ${Boost_LIBRARIES} Boost::boost Boost::program_options buffer_manager)
+  endif()
 
   add_executable(allocator_aligned_test tests/allocator_aligned_test.cpp)
   if (CPPUDDLE_WITH_HPX)
@@ -284,13 +294,23 @@ if (CPPUDDLE_WITH_TESTS)
   set_tests_properties(allocator_test.fixture_cleanup PROPERTIES
     FIXTURES_CLEANUP allocator_test_output
   )
-  find_program(VALGRIND_COMMAND valgrind)
-  if (VALGRIND_COMMAND)
-    add_test(allocator_memcheck.valgrind
-    ${VALGRIND_COMMAND} --trace-children=yes --leak-check=full ./allocator_test --arraysize 5000000 --passes 200)
-    set_tests_properties(allocator_memcheck.valgrind PROPERTIES
-      PASS_REGULAR_EXPRESSION "ERROR SUMMARY: 0 errors from 0 contexts"
-    )
+  # Valgrind test only works properly in non-HPX builds
+  # With HPX, we get errors straight from the HPX runtime.
+  # Non-HPX build is part of the github actions CI, the valgrind tests thus get done there
+  if (NOT (CPPUDDLE_WITH_HPX))
+    find_program(VALGRIND_COMMAND valgrind)
+    if (VALGRIND_COMMAND)
+      add_test(allocator_memcheck.valgrind
+      ${VALGRIND_COMMAND} --trace-children=yes --leak-check=full ./allocator_test --arraysize 5000000 --passes 200)
+      set_tests_properties(allocator_memcheck.valgrind PROPERTIES
+        PASS_REGULAR_EXPRESSION "ERROR SUMMARY: 0 errors from 0 contexts"
+      )
+      add_test(allocator_aligned_memcheck.valgrind
+      ${VALGRIND_COMMAND} --trace-children=yes --leak-check=full ./allocator_aligned_test --arraysize 5000000 --passes 200)
+      set_tests_properties(allocator_aligned_memcheck.valgrind PROPERTIES
+        PASS_REGULAR_EXPRESSION "ERROR SUMMARY: 0 errors from 0 contexts"
+      )
+    endif()
   endif()
   
   # Aligned alloc tests
@@ -344,7 +364,7 @@ if (CPPUDDLE_WITH_TESTS)
 
   if (CPPUDDLE_WITH_HPX)
     # Concurrency tests
-    add_test(allocator_concurrency_test.run allocator_hpx_test -t4 --passes 20 --outputfile allocator_concurrency_test.out)
+    add_test(allocator_concurrency_test.run allocator_hpx_test --hpx:threads=4  --passes 200 --futures=4 --outputfile allocator_concurrency_test.out)
     set_tests_properties(allocator_concurrency_test.run PROPERTIES
       FIXTURES_SETUP allocator_concurrency_output
       PROCESSORS 4
@@ -353,7 +373,7 @@ if (CPPUDDLE_WITH_TESTS)
       add_test(allocator_concurrency_test.analyse_recycle_rate cat allocator_concurrency_test.out)
       set_tests_properties(allocator_concurrency_test.analyse_recycle_rate PROPERTIES
         FIXTURES_REQUIRED allocator_concurrency_output
-        PASS_REGULAR_EXPRESSION "==> Recycle rate: [ ]* 99.6885%"
+        PASS_REGULAR_EXPRESSION "==> Recycle rate: [ ]* 99.5%"
       )
       add_test(allocator_concurrency_test.analyse_marked_buffers_cleanup cat allocator_concurrency_test.out)
       set_tests_properties(allocator_concurrency_test.analyse_marked_buffers_cleanup PROPERTIES
@@ -374,6 +394,11 @@ if (CPPUDDLE_WITH_TESTS)
       set_tests_properties(allocator_concurrency_test.analyse_bad_allocs PROPERTIES
         FIXTURES_REQUIRED allocator_concurrency_output
         PASS_REGULAR_EXPRESSION "--> Number of bad_allocs that triggered garbage collection: [ ]* 0"
+      )
+      add_test(allocator_concurrency_test.analyse_bad_hints cat allocator_concurrency_test.out)
+      set_tests_properties(allocator_concurrency_test.analyse_bad_allocs PROPERTIES
+        FIXTURES_REQUIRED allocator_concurrency_output
+        PASS_REGULAR_EXPRESSION "--> Number wrong deallocation hints: [ ]* 0"
       )
     endif()
     if (NOT CMAKE_BUILD_TYPE MATCHES "Debug") # Performance tests only make sense with optimizations on
@@ -464,20 +489,26 @@ if (CPPUDDLE_WITH_TESTS)
           FIXTURES_SETUP aggregation_basic_parallel_test_output
           PROCESSORS 4
         )
+        # new concurrent buffer managers change the game here.. as two aggregated runs are in parallel: 3 1
         add_test(aggregation_basic_parallel_test.analyse_int_buffers cat aggregation_basic_parallel_test.out)
         set_tests_properties(aggregation_basic_parallel_test.analyse_int_buffers PROPERTIES
           FIXTURES_REQUIRED aggregation_basic_parallel_test_output
-          PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 2"
+          PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 1"
         )
         add_test(aggregation_basic_parallel_test.analyse_float_buffers cat aggregation_basic_parallel_test.out)
         set_tests_properties(aggregation_basic_parallel_test.analyse_float_buffers PROPERTIES
           FIXTURES_REQUIRED aggregation_basic_parallel_test_output
-          PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 6"
+          PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 3"
         )
         add_test(aggregation_basic_parallel_test.analyse_cleanup cat aggregation_basic_parallel_test.out)
         set_tests_properties(aggregation_basic_parallel_test.analyse_cleanup PROPERTIES
           FIXTURES_REQUIRED aggregation_basic_parallel_test_output
           PASS_REGULAR_EXPRESSION "--> Number of buffers that were marked as used upon cleanup: [ ]* 0"
+        )
+        add_test(aggregation_basic_parallel_test.analyse_cleanup cat aggregation_basic_parallel_test.out)
+        set_tests_properties(aggregation_basic_parallel_test.analyse_cleanup PROPERTIES
+          FIXTURES_REQUIRED aggregation_basic_parallel_test_output
+          PASS_REGULAR_EXPRESSION "--> Number wrong deallocation hints: [ ]* 0"
         )
 
 
@@ -528,7 +559,7 @@ if (CPPUDDLE_WITH_TESTS)
         add_test(aggregation_add_pointer_test.analyse_number_buffers cat aggregation_add_pointer_test.out)
         set_tests_properties(aggregation_add_pointer_test.analyse_number_buffers PROPERTIES
           FIXTURES_REQUIRED aggregation_add_pointer_test_output
-          PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 6"
+          PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 3"
         )
 
         add_test(aggregation_add_references_test.run work_aggregation_test -t4 --outputfile=aggregation_add_references_test.out --scenario=references_add_test)
