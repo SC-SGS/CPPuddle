@@ -15,6 +15,17 @@
 #include <queue>
 #include <type_traits>
 
+#if defined(CPPUDDLE_HAVE_HPX) && defined(CPPUDDLE_HAVE_HPX_MUTEX)
+// For builds with The HPX mutex
+#include <hpx/mutex.hpp>
+#endif
+
+#if defined(CPPUDDLE_HAVE_HPX) && defined(CPPUDDLE_HAVE_HPX_MUTEX)
+using mutex_t = hpx::spinlock;
+#else
+using mutex_t = std::mutex;
+#endif
+
 //#include <cuda_runtime.h>
 // #include <hpx/compute/cuda/target.hpp>
 // #include <hpx/include/compute.hpp>
@@ -259,7 +270,7 @@ private:
       }
     }
     static void cleanup() {
-      std::lock_guard<std::mutex> guard(pool_mut);
+      std::lock_guard<mutex_t> guard(pool_mut);
       if (pool_instance) {
         pool_instance->streampool.reset(nullptr);
         pool_instance.reset(nullptr);
@@ -267,24 +278,24 @@ private:
     }
 
     static std::tuple<Interface &, size_t> get_interface() noexcept {
-      std::lock_guard<std::mutex> guard(pool_mut);
+      std::lock_guard<mutex_t> guard(pool_mut);
       assert(pool_instance); // should already be initialized
       return pool_instance->streampool->get_interface();
     }
     static void release_interface(size_t index) noexcept {
-      std::lock_guard<std::mutex> guard(pool_mut);
+      std::lock_guard<mutex_t> guard(pool_mut);
       assert(pool_instance); // should already be initialized
       pool_instance->streampool->release_interface(index);
     }
     static bool interface_available(size_t load_limit) noexcept {
-      std::lock_guard<std::mutex> guard(pool_mut);
+      std::lock_guard<mutex_t> guard(pool_mut);
       if (!pool_instance) {
         return false;
       }
       return pool_instance->streampool->interface_available(load_limit);
     }
     static size_t get_current_load() noexcept {
-      std::lock_guard<std::mutex> guard(pool_mut);
+      std::lock_guard<mutex_t> guard(pool_mut);
       if (!pool_instance) {
         return 0;
       }
@@ -292,7 +303,7 @@ private:
       return pool_instance->streampool->get_current_load();
     }
     static size_t get_next_device_id() noexcept {
-      std::lock_guard<std::mutex> guard(pool_mut);
+      std::lock_guard<mutex_t> guard(pool_mut);
       if (!pool_instance) {
         return 0;
       }
@@ -302,7 +313,7 @@ private:
   private:
     inline static std::unique_ptr<stream_pool_implementation> pool_instance{};
     stream_pool_implementation() = default;
-    inline static std::mutex pool_mut{};
+    inline static mutex_t pool_mut{};
 
     std::unique_ptr<Pool> streampool{nullptr};
 
