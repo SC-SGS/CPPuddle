@@ -131,18 +131,6 @@ int hpx_main(int argc, char *argv[]) {
     recycler::force_cleanup(); // Cleanup all buffers and the managers for better
                                // comparison
 
-    // ensure that at least 4 buffers have to created for unit testing
-    {
-      std::vector<double, recycler::numa_aware_aggressive_recycle_std<double>> buffer1(
-          array_size, double{});
-      std::vector<double, recycler::numa_aware_aggressive_recycle_std<double>> buffer2(
-          array_size, double{});
-      std::vector<double, recycler::numa_aware_aggressive_recycle_std<double>> buffer3(
-          array_size, double{});
-      std::vector<double, recycler::numa_aware_aggressive_recycle_std<double>> buffer4(
-          array_size, double{});
-    }
-
     // Aggressive recycle Test:
     {
       auto begin = std::chrono::high_resolution_clock::now();

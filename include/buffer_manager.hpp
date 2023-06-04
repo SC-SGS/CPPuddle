@@ -17,15 +17,38 @@
 #include <type_traits>
 #include <unordered_map>
 
+#ifdef CPPUDDLE_HAVE_HPX  
+// For builds with The HPX mutex
+#include <hpx/mutex.hpp>
+#endif
+
 #ifdef CPPUDDLE_HAVE_COUNTERS
 #include <boost/core/demangle.hpp>
 #endif
 
-
+// TODO Switch mutex_t globally?
+// -- Problem: Mutex only works when HPX is initialized (what about non HPX
+// builds?)
+// -- What about the times when HPX is not initialized anymore (locks in
+// destructor + static)
+// TODO add mutex type to template parameter list?
+// -- What about adding stuff to other parts of the code? mutex for callbacks?
+//
+// Decision:
+// Switch globally
+// Otherwise the template mutex parameter leaks into the interface of the
+// allocators which complicates both the code and the usage. It also generates
+// corner cases of intermixing mutexes...
 
 namespace recycler {
 constexpr size_t number_instances = 128;
 namespace detail {
+
+#ifdef CPPUDDLE_HAVE_HPX  
+using mutex_t = hpx::lcos::local::mutex;
+#else
+using mutex_t = std::mutex;
+#endif
 
 class buffer_recycler {
   // Public interface
@@ -46,7 +69,7 @@ public:
   }
   /// Deallocate all buffers, no matter whether they are marked as used or not
   static void clean_all() {
-    std::lock_guard<std::mutex> guard(instance().callback_protection_mut);
+    std::lock_guard<mutex_t> guard(instance().callback_protection_mut);
     for (const auto &clean_function :
          instance().total_cleanup_callbacks) {
       clean_function();
@@ -54,7 +77,7 @@ public:
   }
   /// Deallocated all currently unused buffer
   static void clean_unused_buffers() {
-    std::lock_guard<std::mutex> guard(instance().callback_protection_mut);
+    std::lock_guard<mutex_t> guard(instance().callback_protection_mut);
     for (const auto &clean_function :
          instance().partial_cleanup_callbacks) {
       clean_function();
@@ -79,16 +102,16 @@ private:
   /// deleted constructors
   buffer_recycler() = default;
 
-  std::mutex callback_protection_mut;
+  mutex_t callback_protection_mut;
   /// Add a callback function that gets executed upon cleanup and destruction
   static void add_total_cleanup_callback(const std::function<void()> &func) {
-    std::lock_guard<std::mutex> guard(instance().callback_protection_mut);
+    std::lock_guard<mutex_t> guard(instance().callback_protection_mut);
     instance().total_cleanup_callbacks.push_back(func);
   }
   /// Add a callback function that gets executed upon partial (unused memory)
   /// cleanup
   static void add_partial_cleanup_callback(const std::function<void()> &func) {
-    std::lock_guard<std::mutex> guard(instance().callback_protection_mut);
+    std::lock_guard<mutex_t> guard(instance().callback_protection_mut);
     instance().partial_cleanup_callbacks.push_back(func);
   }
 
@@ -113,7 +136,7 @@ private:
     /// Cleanup all buffers not currently in use
     static void clean_unused_buffers_only() {
       for (auto i = 0; i < number_instances; i++) {
-        std::lock_guard<std::mutex> guard(instance()[i].mut);
+        std::lock_guard<mutex_t> guard(instance()[i].mut);
         for (auto &buffer_tuple : instance()[i].unused_buffer_list) {
           Host_Allocator alloc;
           if (std::get<3>(buffer_tuple)) {
@@ -134,7 +157,7 @@ private:
       if (location_hint) {
         location_id = location_hint.value();
       }
-      std::lock_guard<std::mutex> guard(instance()[location_id].mut);
+      std::lock_guard<mutex_t> guard(instance()[location_id].mut);
 
 
 #ifdef CPPUDDLE_HAVE_COUNTERS
@@ -181,6 +204,7 @@ private:
         return buffer;
       } catch (std::bad_alloc &e) {
         // not enough memory left! Cleanup and attempt again:
+        std::cerr << "Not enough memory left. Cleaning up unused buffers now..." << std::endl;
         buffer_recycler::clean_unused_buffers();
 
         // If there still isn't enough memory left, the caller has to handle it
@@ -206,7 +230,7 @@ private:
 
       if (location_hint) {
         size_t location_id = location_hint.value();
-        std::lock_guard<std::mutex> guard(instance()[location_id].mut);
+        std::lock_guard<mutex_t> guard(instance()[location_id].mut);
         if (instance()[location_id].buffer_map.find(memory_location) !=
             instance()[location_id].buffer_map.end()) {
 #ifdef CPPUDDLE_HAVE_COUNTERS
@@ -235,7 +259,7 @@ private:
              continue; // already tried this -> skip
            }
         }
-        std::lock_guard<std::mutex> guard(instance()[location_id].mut);
+        std::lock_guard<mutex_t> guard(instance()[location_id].mut);
         if (instance()[location_id].buffer_map.find(memory_location) !=
             instance()[location_id].buffer_map.end()) {
 #ifdef CPPUDDLE_HAVE_COUNTERS
@@ -263,7 +287,7 @@ private:
     /// List with all buffers currently not used
     std::list<buffer_entry_type> unused_buffer_list{};
     /// Access control
-    std::mutex mut;
+    mutex_t mut;
 #ifdef CPPUDDLE_HAVE_COUNTERS
     /// Performance counters
     size_t number_allocation{0}, number_dealloacation{0}, number_wrong_hints{0};
@@ -298,7 +322,8 @@ private:
     ~buffer_manager() {
       // All operations should have finished before this is happening
       // Should be fine when throwing as there's no real point in recovering at that stage
-      std::lock_guard<std::mutex> guard(mut); 
+      // TODO mutex here is a bad idea as the HPX runtime is already shut down
+      /* std::lock_guard<mutex_t> guard(mut); */ 
 
 #ifdef CPPUDDLE_HAVE_COUNTERS
       if (number_allocation == 0 && number_recycling == 0 &&
