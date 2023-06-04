@@ -127,8 +127,6 @@ $<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>
 )
 
 if(CPPUDDLE_WITH_HPX_MUTEX)
-  target_compile_definitions(buffer_manager PUBLIC "CPPUDDLE_HAVE_HPX_MUTEX")
-  target_compile_definitions(stream_manager PUBLIC "CPPUDDLE_HAVE_HPX_MUTEX")
   target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_HPX_MUTEX")
   target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_HAVE_HPX_MUTEX")
   message(INFO "Compiling with HPX spinlock")

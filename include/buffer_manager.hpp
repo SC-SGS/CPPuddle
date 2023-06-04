@@ -32,7 +32,7 @@ constexpr size_t number_instances = 128;
 namespace detail {
 
 #if defined(CPPUDDLE_HAVE_HPX) && defined(CPPUDDLE_HAVE_HPX_MUTEX)
-using mutex_t = hpx::mutex;
+using mutex_t = hpx::spinlock;
 #else
 using mutex_t = std::mutex;
 #endif
