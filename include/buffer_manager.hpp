@@ -26,26 +26,12 @@
 #include <boost/core/demangle.hpp>
 #endif
 
-// TODO Switch mutex_t globally?
-// -- Problem: Mutex only works when HPX is initialized (what about non HPX
-// builds?)
-// -- What about the times when HPX is not initialized anymore (locks in
-// destructor + static)
-// TODO add mutex type to template parameter list?
-// -- What about adding stuff to other parts of the code? mutex for callbacks?
-//
-// Decision:
-// Switch globally
-// Otherwise the template mutex parameter leaks into the interface of the
-// allocators which complicates both the code and the usage. It also generates
-// corner cases of intermixing mutexes...
-
 namespace recycler {
 constexpr size_t number_instances = 128;
 namespace detail {
 
 #ifdef CPPUDDLE_HAVE_HPX  
-using mutex_t = hpx::lcos::local::mutex;
+using mutex_t = hpx::mutex;
 #else
 using mutex_t = std::mutex;
 #endif
@@ -83,6 +69,14 @@ public:
       clean_function();
     }
   }
+  /// Deallocate all buffers, no matter whether they are marked as used or not
+  static void finalize() {
+    std::lock_guard<mutex_t> guard(instance().callback_protection_mut);
+    for (const auto &finalize_function :
+         instance().finalize_callbacks) {
+      finalize_function();
+    }
+  }
 
   // Member variables and methods
 private:
@@ -92,8 +86,11 @@ private:
     static buffer_recycler singleton{};
     return singleton;
   }
-  /// Callbacks for buffer_manager cleanups - each callback completely destroys
+  /// Callbacks for buffer_manager finalize - each callback completely destroys
   /// one buffer_manager
+  std::list<std::function<void()>> finalize_callbacks;
+  /// Callbacks for buffer_manager cleanups - each callback destroys all buffers within 
+  /// one buffer_manager, both used and unsued
   std::list<std::function<void()>> total_cleanup_callbacks;
   /// Callbacks for partial buffer_manager cleanups - each callback deallocates
   /// all unused buffers of a manager
@@ -114,6 +111,12 @@ private:
     std::lock_guard<mutex_t> guard(instance().callback_protection_mut);
     instance().partial_cleanup_callbacks.push_back(func);
   }
+  /// Add a callback function that gets executed upon partial (unused memory)
+  /// cleanup
+  static void add_finalize_callback(const std::function<void()> &func) {
+    std::lock_guard<mutex_t> guard(instance().callback_protection_mut);
+    instance().finalize_callbacks.push_back(func);
+  }
 
 public:
   ~buffer_recycler() = default; // public destructor for unique_ptr instance
@@ -131,10 +134,24 @@ private:
   public:
     /// Cleanup and delete this singleton
     static void clean() {
-      instance().reset(new buffer_manager[number_instances]);
+      assert(instance() && !is_finalized);
+      for (auto i = 0; i < number_instances; i++) {
+        std::lock_guard<mutex_t> guard(instance()[i].mut);
+        instance()[i].clean_all_buffers();
+      }
+    }
+    static void finalize() {
+      assert(instance() && !is_finalized);
+      is_finalized = true;
+      for (auto i = 0; i < number_instances; i++) {
+        std::lock_guard<mutex_t> guard(instance()[i].mut);
+        instance()[i].clean_all_buffers();
+      }
+      instance().reset();
     }
     /// Cleanup all buffers not currently in use
     static void clean_unused_buffers_only() {
+      assert(instance() && !is_finalized);
       for (auto i = 0; i < number_instances; i++) {
         std::lock_guard<mutex_t> guard(instance()[i].mut);
         for (auto &buffer_tuple : instance()[i].unused_buffer_list) {
@@ -152,6 +169,10 @@ private:
     static T *get(size_t number_of_elements, bool manage_content_lifetime,
         std::optional<size_t> location_hint = std::nullopt) {
       init_callbacks_once();
+      if (is_finalized) {
+        throw std::runtime_error("Tried allocation after finalization");
+      }
+      assert(instance() && !is_finalized);
 
       size_t location_id = 0;
       if (location_hint) {
@@ -227,6 +248,9 @@ private:
 
     static void mark_unused(T *memory_location, size_t number_of_elements,
         std::optional<size_t> location_hint = std::nullopt) {
+      if (is_finalized)
+        return;
+      assert(instance() && !is_finalized);
 
       if (location_hint) {
         size_t location_id = location_hint.value();
@@ -309,22 +333,26 @@ private:
       return instances;
     }
     static void init_callbacks_once(void) {
-      static std::once_flag flag;
+      assert(instance());
+#ifdef CPPUDDLE_HAVE_HPX  
+      static hpx::once_flag flag; 
+      hpx::call_once(flag, []() {
+#else
+      static std::once_flag flag; 
       std::call_once(flag, []() {
+#endif
+        is_finalized = false;
         buffer_recycler::add_total_cleanup_callback(clean);
         buffer_recycler::add_partial_cleanup_callback(
             clean_unused_buffers_only);
+        buffer_recycler::add_finalize_callback(
+            finalize);
           });
     }
+    static inline std::atomic<bool> is_finalized;
 
 
-  public:
-    ~buffer_manager() {
-      // All operations should have finished before this is happening
-      // Should be fine when throwing as there's no real point in recovering at that stage
-      // TODO mutex here is a bad idea as the HPX runtime is already shut down
-      /* std::lock_guard<mutex_t> guard(mut); */ 
-
+    void clean_all_buffers(void) {
 #ifdef CPPUDDLE_HAVE_COUNTERS
       if (number_allocation == 0 && number_recycling == 0 &&
           number_bad_alloc == 0 && number_creation == 0 &&
@@ -385,6 +413,10 @@ private:
 #endif
       unused_buffer_list.clear();
       buffer_map.clear();
+    }
+  public:
+    ~buffer_manager() {
+      clean_all_buffers();
     }
 
   public: // Putting deleted constructors in public gives more useful error
@@ -500,6 +532,7 @@ using aggressive_recycle_std =
 inline void force_cleanup() { detail::buffer_recycler::clean_all(); }
 /// Deletes all buffers currently marked as unused
 inline void cleanup() { detail::buffer_recycler::clean_unused_buffers(); }
+inline void finalize() { detail::buffer_recycler::finalize(); }
 
 } // end namespace recycler
 
