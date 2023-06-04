@@ -42,7 +42,7 @@
 #include "../include/buffer_manager.hpp"
 #include "../include/stream_manager.hpp"
 
-using aggregation_mutex_t = hpx::lcos::local::mutex;
+using aggregation_mutex_t = hpx::mutex;
 
 //===============================================================================
 //===============================================================================
@@ -902,8 +902,8 @@ public:
         executor_tuple(
             stream_pool::get_interface<Executor, round_robin_pool<Executor>>()),
         executor(std::get<0>(executor_tuple)),
-        current_continuation(hpx::lcos::make_ready_future()),
-        last_stream_launch_done(hpx::lcos::make_ready_future()) {}
+        current_continuation(hpx::make_ready_future()),
+        last_stream_launch_done(hpx::make_ready_future()) {}
   // Not meant to be copied or moved
   Aggregated_Executor(const Aggregated_Executor &other) = delete;
   Aggregated_Executor &operator=(const Aggregated_Executor &other) = delete;
