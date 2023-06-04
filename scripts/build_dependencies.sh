@@ -44,6 +44,9 @@ case $(hostname) in
     toranj*)
         source_config_toranj ${SCRIPTS_DIR} "$1" "$2"
         ;;
+    buran*)
+        source_config_buran ${SCRIPTS_DIR} "$1" "$2"
+        ;;
     *)
         source_config_default ${SCRIPTS_DIR} "$1" "$2"
         ;;
