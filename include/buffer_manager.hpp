@@ -40,7 +40,7 @@ using mutex_t = std::mutex;
 class buffer_recycler {
   // Public interface
 public:
-#if defined(CPPPUDDLE_DEACTIVATE_BUFFER_RECYCLING)
+#if defined(CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING)
 #pragma message                                                                \
     "Warning: Running build without buffer recycling! Use only for performance testing!"
   template <typename T, typename Host_Allocator>

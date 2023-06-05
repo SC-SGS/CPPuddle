@@ -135,11 +135,11 @@ else()
   message(INFO " Compiling with std::mutex!")
 endif()
 
-if(CPPPUDDLE_DEACTIVATE_BUFFER_RECYCLING)
-  target_compile_definitions(buffer_manager INTERFACE "CPPPUDDLE_DEACTIVATE_BUFFER_RECYCLING")
+if(CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING)
+  target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING")
   message(WARNING " Slow Build: Buffer recycling is deactivated. This should only be used for performance tests!")
 else()
-  message(INFO " Using default buffer recycling behaviour.")
+  message(INFO " Using default buffer recycling behaviour!")
 endif()
 
 # install libs with the defitions:
