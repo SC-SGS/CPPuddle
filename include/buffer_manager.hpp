@@ -40,6 +40,21 @@ using mutex_t = std::mutex;
 class buffer_recycler {
   // Public interface
 public:
+#if defined(CPPPUDDLE_DEACTIVATE_BUFFER_RECYCLING)
+#pragma message                                                                \
+    "Warning: Running build without buffer recycling! Use only for performance testing!"
+  template <typename T, typename Host_Allocator>
+  static T *get(size_t number_elements, bool manage_content_lifetime = false,
+      std::optional<size_t> location_hint = std::nullopt) {
+    return Host_Allocator{}.allocate(number_elements);
+  }
+  /// Marks an buffer as unused and fit for reusage
+  template <typename T, typename Host_Allocator>
+  static void mark_unused(T *p, size_t number_elements,
+      std::optional<size_t> location_hint = std::nullopt) {
+    return Host_Allocator{}.deallocate(p, number_elements);
+  }
+#else
   /// Returns and allocated buffer of the requested size - this may be a reused
   /// buffer
   template <typename T, typename Host_Allocator>
@@ -54,6 +69,7 @@ public:
       std::optional<size_t> location_hint = std::nullopt) {
     return buffer_manager<T, Host_Allocator>::mark_unused(p, number_elements);
   }
+#endif
   /// Deallocate all buffers, no matter whether they are marked as used or not
   static void clean_all() {
     std::lock_guard<mutex_t> guard(instance().callback_protection_mut);

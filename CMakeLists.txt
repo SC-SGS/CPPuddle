@@ -22,13 +22,14 @@ option(CPPUDDLE_WITH_HPX "Enable HPX integration and examples" OFF)
 option(CPPUDDLE_WITH_KOKKOS "Enable KOKKOS tests/examples" OFF)
 option(CPPUDDLE_WITH_CLANG_TIDY "Enable clang tidy warnings" OFF)
 option(CPPUDDLE_WITH_CLANG_FORMAT "Enable clang format target" OFF)
+option(CPPPUDDLE_DEACTIVATE_BUFFER_RECYCLING "Deactivates the default recycling behaviour" OFF)
 
 set(CPPUDDLE_WITH_HPX_MUTEX OFF CACHE BOOL
   "Use HPX spinlock mutex instead of std::mutex")
 
 if(CPPUDDLE_WITH_HPX_MUTEX)
   if(NOT CPPUDDLE_WITH_HPX)
-    message(FATAL_ERROR "CPPUDDLE_WITH_HPX_MUTEX requires a build with HPX (CPPUDDLE_WITH_HPX=ON")
+    message(FATAL_ERROR " CPPUDDLE_WITH_HPX_MUTEX requires a build with HPX (CPPUDDLE_WITH_HPX=ON")
   endif()
 endif()
 
@@ -49,7 +50,7 @@ if (CPPUDDLE_WITH_KOKKOS)
 
   # Check that everything required is actyivated
   if (NOT CPPUDDLE_WITH_HPX)
-    message(FATAL_ERROR "KOKKOS support requires HPX flag to be turned on")
+    message(FATAL_ERROR " KOKKOS support requires HPX flag to be turned on")
   endif()
   #if (NOT CPPUDDLE_WITH_CUDA AND NOT CPPUDDLE_WITH_HIP)
   #  message(FATAL_ERROR "KOKKOS support requires CUDA flag to be turned on")
@@ -58,15 +59,15 @@ if (CPPUDDLE_WITH_KOKKOS)
   # Check that Kokkos and HPX options are consistent.
   if(Kokkos_ENABLE_CUDA)
     if(NOT HPX_WITH_CUDA)
-      message(FATAL_ERROR "Kokkos was built with CUDA support, HPX was not")
+      message(FATAL_ERROR " Kokkos was built with CUDA support, HPX was not")
     endif()
     kokkos_check(OPTIONS CUDA_LAMBDA)
     if(NOT HPX_WITH_CUDA)
-      message(FATAL_ERROR "Kokkos was built with CUDA support, HPX was not")
+      message(FATAL_ERROR " Kokkos was built with CUDA support, HPX was not")
     endif()
   else()
     if(HPX_WITH_CUDA)
-      message(FATAL_ERROR "HPX was built with CUDA support, Kokkos was not")
+      message(FATAL_ERROR " HPX was built with CUDA support, Kokkos was not")
     endif()
   endif()
 
@@ -129,9 +130,16 @@ $<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>
 if(CPPUDDLE_WITH_HPX_MUTEX)
   target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_HPX_MUTEX")
   target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_HAVE_HPX_MUTEX")
-  message(INFO "Compiling with HPX spinlock")
+  message(INFO " Compiling with HPX spinlock")
 else()
-  message(INFO "Compiling with std::mutex!")
+  message(INFO " Compiling with std::mutex!")
+endif()
+
+if(CPPPUDDLE_DEACTIVATE_BUFFER_RECYCLING)
+  target_compile_definitions(buffer_manager INTERFACE "CPPPUDDLE_DEACTIVATE_BUFFER_RECYCLING")
+  message(WARNING " Slow Build: Buffer recycling is deactivated. This should only be used for performance tests!")
+else()
+  message(INFO " Using default buffer recycling behaviour.")
 endif()
 
 # install libs with the defitions:
@@ -793,7 +801,7 @@ if (CPPUDDLE_WITH_TESTS)
         set_tests_properties(aggregation_stream_triad_cuda_eager_test1.run PROPERTIES
           FIXTURES_SETUP aggregation_stream_triad_cuda_eager_test_output1
           PROCESSORS 4
-          TIMEOUT 600
+          TIMEOUT 1200
         )
         add_test(aggregation_stream_triad_cuda_eager_test1.check_errors cat aggregation_stream_triad_cuda_eager_test1.out)
         set_tests_properties(aggregation_stream_triad_cuda_eager_test1.check_errors PROPERTIES
@@ -813,7 +821,7 @@ if (CPPUDDLE_WITH_TESTS)
         set_tests_properties(aggregation_stream_triad_cuda_eager_test2.run PROPERTIES
           FIXTURES_SETUP aggregation_stream_triad_cuda_eager_test_output2
           PROCESSORS 4
-          TIMEOUT 600
+          TIMEOUT 1200
         )
         add_test(aggregation_stream_triad_cuda_eager_test2.check_errors cat aggregation_stream_triad_cuda_eager_test2.out)
         set_tests_properties(aggregation_stream_triad_cuda_eager_test2.check_errors PROPERTIES
@@ -832,7 +840,7 @@ if (CPPUDDLE_WITH_TESTS)
         set_tests_properties(aggregation_stream_triad_cuda_eager_test3.run PROPERTIES
           FIXTURES_SETUP aggregation_stream_triad_cuda_eager_test_output3
           PROCESSORS 4
-          TIMEOUT 600
+          TIMEOUT 1200
         )
         add_test(aggregation_stream_triad_cuda_eager_test3.check_errors cat aggregation_stream_triad_cuda_eager_test3.out)
         set_tests_properties(aggregation_stream_triad_cuda_eager_test3.check_errors PROPERTIES
@@ -851,7 +859,7 @@ if (CPPUDDLE_WITH_TESTS)
         set_tests_properties(aggregation_stream_triad_cuda_endless_test1.run PROPERTIES
           FIXTURES_SETUP aggregation_stream_triad_cuda_endless_test_output1
           PROCESSORS 4
-          TIMEOUT 600
+          TIMEOUT 1200
         )
         add_test(aggregation_stream_triad_cuda_endless_test1.check_errors cat aggregation_stream_triad_cuda_endless_test1.out)
         set_tests_properties(aggregation_stream_triad_cuda_endless_test1.check_errors PROPERTIES
@@ -870,7 +878,7 @@ if (CPPUDDLE_WITH_TESTS)
         set_tests_properties(aggregation_stream_triad_cuda_strict_test1.run PROPERTIES
           FIXTURES_SETUP aggregation_stream_triad_cuda_strict_test_output1
           PROCESSORS 4
-          TIMEOUT 600
+          TIMEOUT 1200
         )
         add_test(aggregation_stream_triad_cuda_strict_test1.check_errors cat aggregation_stream_triad_cuda_strict_test1.out)
         set_tests_properties(aggregation_stream_triad_cuda_strict_test1.check_errors PROPERTIES
