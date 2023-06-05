@@ -138,7 +138,7 @@ private:
 
 #if !(defined(NDEBUG)) && defined(DEBUG_AGGREGATION_CALLS)
 #pragma message                                                                \
-    "Running slow work aggegator debug build! Run with NDEBUG defined for fast build..."
+    "Building slow work aggegator build with additional runtime checks! Build with NDEBUG defined for fast build..."
   /// Stores the function call of the first slice as reference for error
   /// checking
   std::any function_tuple;

@@ -42,7 +42,7 @@ class buffer_recycler {
 public:
 #if defined(CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING)
 #pragma message                                                                \
-    "Warning: Running build without buffer recycling! Use only for performance testing!"
+    "Warning: Building without buffer recycling! Use only for performance testing!"
   template <typename T, typename Host_Allocator>
   static T *get(size_t number_elements, bool manage_content_lifetime = false,
       std::optional<size_t> location_hint = std::nullopt) {
@@ -515,6 +515,7 @@ struct aggressive_recycle_allocator {
   void deallocate(T *p, std::size_t n) {
     buffer_recycler::mark_unused<T, Host_Allocator>(p, n);
   }
+#ifndef CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS
   template <typename... Args>
   inline void construct(T *p, Args... args) noexcept {
     // Do nothing here - we reuse the content of the last owner
@@ -523,6 +524,7 @@ struct aggressive_recycle_allocator {
     // Do nothing here - Contents will be destroyed when the buffer manager is
     // destroyed, not before
   }
+#endif
 };
 template <typename T, typename U, typename Host_Allocator>
 constexpr bool

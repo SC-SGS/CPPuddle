@@ -76,6 +76,7 @@ struct numa_aware_aggressive_recycle_allocator {
   void deallocate(T *p, std::size_t n) {
     buffer_recycler::mark_unused<T, Host_Allocator>(p, n, dealloc_hint);
   }
+#ifndef CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS
   template <typename... Args>
   inline void construct(T *p, Args... args) noexcept {
     // Do nothing here - we reuse the content of the last owner
@@ -84,6 +85,7 @@ struct numa_aware_aggressive_recycle_allocator {
     // Do nothing here - Contents will be destroyed when the buffer manager is
     // destroyed, not before
   }
+#endif
 };
 template <typename T, typename U, typename Host_Allocator>
 constexpr bool

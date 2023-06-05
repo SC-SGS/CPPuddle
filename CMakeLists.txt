@@ -23,6 +23,7 @@ option(CPPUDDLE_WITH_KOKKOS "Enable KOKKOS tests/examples" OFF)
 option(CPPUDDLE_WITH_CLANG_TIDY "Enable clang tidy warnings" OFF)
 option(CPPUDDLE_WITH_CLANG_FORMAT "Enable clang format target" OFF)
 option(CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING "Deactivates the default recycling behaviour" OFF)
+option(CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS "Deactivates the aggressive allocators" OFF)
 
 set(CPPUDDLE_WITH_HPX_MUTEX OFF CACHE BOOL
   "Use HPX spinlock mutex instead of std::mutex")
@@ -140,6 +141,11 @@ if(CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING)
   message(WARNING " Slow Build: Buffer recycling is deactivated. This should only be used for performance tests!")
 else()
   message(INFO " Using default buffer recycling behaviour!")
+endif()
+
+if(CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS)
+  target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS")
+  message(WARNING " Slow Build: Aggressive allocators disabled. This should only be used for performance tests!")
 endif()
 
 # install libs with the defitions:
