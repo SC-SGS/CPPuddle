@@ -42,7 +42,11 @@
 #include "../include/buffer_manager.hpp"
 #include "../include/stream_manager.hpp"
 
-using aggregation_mutex_t = hpx::mutex;
+#if defined(CPPUDDLE_HAVE_HPX_MUTEX)
+using aggregation_mutex_t = hpx::spinlock;
+#else
+using aggregation_mutex_t = std::mutex;
+#endif
 
 //===============================================================================
 //===============================================================================
