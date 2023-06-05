@@ -22,7 +22,7 @@ option(CPPUDDLE_WITH_HPX "Enable HPX integration and examples" OFF)
 option(CPPUDDLE_WITH_KOKKOS "Enable KOKKOS tests/examples" OFF)
 option(CPPUDDLE_WITH_CLANG_TIDY "Enable clang tidy warnings" OFF)
 option(CPPUDDLE_WITH_CLANG_FORMAT "Enable clang format target" OFF)
-option(CPPPUDDLE_DEACTIVATE_BUFFER_RECYCLING "Deactivates the default recycling behaviour" OFF)
+option(CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING "Deactivates the default recycling behaviour" OFF)
 
 set(CPPUDDLE_WITH_HPX_MUTEX OFF CACHE BOOL
   "Use HPX spinlock mutex instead of std::mutex")
