@@ -152,7 +152,7 @@ private:
   }
 
 public:
-  ~buffer_recycler() = default; // public destructor for unique_ptr instance
+  ~buffer_recycler() = default; 
 
   // Subclasses
 private:
@@ -350,14 +350,12 @@ private:
     size_t number_allocation{0}, number_dealloacation{0}, number_wrong_hints{0};
     size_t number_recycling{0}, number_creation{0}, number_bad_alloc{0};
 #endif
-    /// Singleton instance
-    /* static std::unique_ptr<buffer_manager<T, Host_Allocator>> manager_instance; */
     /// default, private constructor - not automatically constructed due to the
     /// deleted constructors
     buffer_manager() = default;
-    buffer_manager<T, Host_Allocator>&
+    buffer_manager&
     operator=(buffer_manager<T, Host_Allocator> const &other) = default;
-    buffer_manager<T, Host_Allocator>&
+    buffer_manager&
     operator=(buffer_manager<T, Host_Allocator> &&other) = delete;
     static std::unique_ptr<buffer_manager[]>& instance(void) {
       /* static std::array<buffer_manager, number_instances> instances{{}}; */
@@ -462,9 +460,9 @@ private:
   public: // Putting deleted constructors in public gives more useful error
           // messages
     // Bunch of constructors we don't need
-    buffer_manager<T, Host_Allocator>(
+    buffer_manager(
         buffer_manager<T, Host_Allocator> const &other) = delete;
-    buffer_manager<T, Host_Allocator>(
+    buffer_manager(
         buffer_manager<T, Host_Allocator> &&other) = delete;
   };
 
@@ -472,9 +470,9 @@ public:
   // Putting deleted constructors in public gives more useful error messages
   // Bunch of constructors we don't need
   buffer_recycler(buffer_recycler const &other) = delete;
-  buffer_recycler operator=(buffer_recycler const &other) = delete;
+  buffer_recycler& operator=(buffer_recycler const &other) = delete;
   buffer_recycler(buffer_recycler &&other) = delete;
-  buffer_recycler operator=(buffer_recycler &&other) = delete;
+  buffer_recycler& operator=(buffer_recycler &&other) = delete;
 };
 
 template <typename T, typename Host_Allocator> struct recycle_allocator {
