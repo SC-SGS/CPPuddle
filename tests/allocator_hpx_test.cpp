@@ -16,7 +16,6 @@
 #include <boost/program_options.hpp>
 
 #include "../include/buffer_manager.hpp"
-#include "../include/hpx_buffer_util.hpp"
 
 int hpx_main(int argc, char *argv[]) {
 
@@ -74,102 +73,6 @@ int hpx_main(int argc, char *argv[]) {
   assert(array_size >= 1);                      // NOLINT
   assert(number_futures >= 1);                  // NOLINT
   assert(number_futures <= max_number_futures); // NOLINT
-
-  {
-    size_t aggressive_duration = 0;
-    size_t recycle_duration = 0;
-    size_t default_duration = 0;
-
-    // test using std::allocator:
-    {
-      auto begin = std::chrono::high_resolution_clock::now();
-      std::vector<hpx::shared_future<void>> futs(max_number_futures);
-      for (size_t i = 0; i < max_number_futures; i++) {
-        futs[i] = hpx::make_ready_future<void>();
-      }
-      for (size_t pass = 0; pass < passes; pass++) {
-        for (size_t i = 0; i < number_futures; i++) {
-          futs[i] = futs[i].then([&](hpx::shared_future<void> &&predecessor) {
-            std::vector<double> test6(array_size, double{});
-          });
-        }
-      }
-      auto when = hpx::when_all(futs);
-      when.wait();
-      auto end = std::chrono::high_resolution_clock::now();
-      default_duration =
-          std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-              .count();
-      std::cout << "\n==> Non-recycle allocation test took " << default_duration
-                << "ms" << std::endl;
-    }
-
-    // test using normal recycle allocator
-    {
-      auto begin = std::chrono::high_resolution_clock::now();
-      std::vector<hpx::shared_future<void>> futs(max_number_futures);
-      for (size_t i = 0; i < max_number_futures; i++) {
-        futs[i] = hpx::make_ready_future<void>();
-      }
-      for (size_t pass = 0; pass < passes; pass++) {
-        for (size_t i = 0; i < number_futures; i++) {
-          futs[i] = futs[i].then([&](hpx::shared_future<void> &&predecessor) {
-            std::vector<double, recycler::numa_aware_recycle_std<double>> test6(array_size,
-                                                                     double{});
-          });
-        }
-      }
-      auto when = hpx::when_all(futs);
-      when.wait();
-      auto end = std::chrono::high_resolution_clock::now();
-      recycle_duration =
-          std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-              .count();
-      std::cout << "\n==> NUMA-aware recycle allocation test took " << recycle_duration
-                << "ms" << std::endl;
-    }
-    recycler::force_cleanup(); // Cleanup all buffers and the managers for better
-                               // comparison
-
-    // Aggressive recycle Test:
-    {
-      auto begin = std::chrono::high_resolution_clock::now();
-      std::vector<hpx::shared_future<void>> futs(max_number_futures);
-      for (size_t i = 0; i < max_number_futures; i++) {
-        futs[i] = hpx::make_ready_future<void>();
-      }
-      for (size_t pass = 0; pass < passes; pass++) {
-        for (size_t i = 0; i < number_futures; i++) {
-          futs[i] = futs[i].then([&](hpx::shared_future<void> &&predecessor) {
-            std::vector<double, recycler::numa_aware_aggressive_recycle_std<double>> test6(
-                array_size, double{});
-          });
-        }
-      }
-      auto when = hpx::when_all(futs);
-      when.wait();
-      auto end = std::chrono::high_resolution_clock::now();
-      aggressive_duration =
-          std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-              .count();
-      std::cout << "\n==> NUMA-aware aggressive recycle allocation test took "
-                << aggressive_duration << "ms" << std::endl;
-    }
-    recycler::force_cleanup(); // Cleanup all buffers and the managers for better
-                               // comparison
-
-
-
-    if (aggressive_duration < recycle_duration) {
-      std::cout << "Test information: NUMA-aware aggressive recycler was faster than normal "
-                   "recycler!"
-                << std::endl;
-    }
-    if (recycle_duration < default_duration) {
-      std::cout << "Test information: NUMA-aware recycler was faster than default allocator!"
-                << std::endl;
-    }
-  }
 
   {
     size_t aggressive_duration = 0;

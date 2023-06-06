@@ -8,42 +8,73 @@ cmake_minimum_required(VERSION 3.16)
 project(CPPuddle CXX C) # Some random project name
 set(CMAKE_CXX_STANDARD 17)
 
+#------------------------------------------------------------------------------------------------------------
+# Version
+
 set(CPPUDDLE_VERSION_MAJOR 0)
 set(CPPUDDLE_VERSION_MINOR 1)
 set(CPPUDDLE_VERSION_PATCH 99)
 set(CPPUDDLE_VERSION_STRING "${CPPUDDLE_VERSION_MAJOR}.${CPPUDDLE_VERSION_MINOR}.${CPPUDDLE_VERSION_PATCH}.")
 
-option(CPPUDDLE_WITH_TESTS "Build tests/examples" OFF)
-set(CPPUDDLE_WITH_DEADLOCK_TEST_REPETITONS "100000" CACHE STRING "Number of repetitions for the aggregation executor deadlock tests")
-option(CPPUDDLE_WITH_COUNTERS "Turns on allocations counters. Useful for extended testing" OFF)
+#------------------------------------------------------------------------------------------------------------
+# Define Options
+
+# GPU-related options
 option(CPPUDDLE_WITH_CUDA "Enable CUDA tests/examples" OFF)
 option(CPPUDDLE_WITH_MULTIGPU_SUPPORT "Enables experimental MultiGPU support" OFF)
-option(CPPUDDLE_WITH_HPX "Enable HPX integration and examples" OFF)
 option(CPPUDDLE_WITH_KOKKOS "Enable KOKKOS tests/examples" OFF)
-option(CPPUDDLE_WITH_CLANG_TIDY "Enable clang tidy warnings" OFF)
-option(CPPUDDLE_WITH_CLANG_FORMAT "Enable clang format target" OFF)
-option(CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING "Deactivates the default recycling behaviour" OFF)
-option(CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS "Deactivates the aggressive allocators" OFF)
-
+# HPX-related options
+option(CPPUDDLE_WITH_HPX "Enable basic HPX integration and examples" OFF)
+option(CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS "Enable HPX-aware allocators for even better HPX integration" ON)
 set(CPPUDDLE_WITH_HPX_MUTEX OFF CACHE BOOL
   "Use HPX spinlock mutex instead of std::mutex")
+# Test-related options
+option(CPPUDDLE_WITH_COUNTERS "Turns on allocations counters. Useful for extended testing" OFF)
+option(CPPUDDLE_WITH_TESTS "Build tests/examples" OFF)
+set(CPPUDDLE_WITH_DEADLOCK_TEST_REPETITONS "100000" CACHE STRING "Number of repetitions for the aggregation executor deadlock tests")
+option(CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING "Deactivates the default recycling behaviour" OFF)
+option(CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS "Deactivates the aggressive allocators" OFF)
+# Tooling options
+option(CPPUDDLE_WITH_CLANG_TIDY "Enable clang tidy warnings" OFF)
+option(CPPUDDLE_WITH_CLANG_FORMAT "Enable clang format target" OFF)
 
+#------------------------------------------------------------------------------------------------------------
+# Define dependencies and conflicts/incompatibilities
+
+# Find HPX for HPX-enabled builds
+if (CPPUDDLE_WITH_HPX)
+  find_package(HPX 1.8.0 REQUIRED) # older versions might work but are untested with the current cppuddle
+endif()
+
+# HPX mutex requires HPX-Support
 if(CPPUDDLE_WITH_HPX_MUTEX)
   if(NOT CPPUDDLE_WITH_HPX)
-    message(FATAL_ERROR " CPPUDDLE_WITH_HPX_MUTEX requires a build with HPX (CPPUDDLE_WITH_HPX=ON")
+    message(FATAL_ERROR " CPPUDDLE_WITH_HPX_MUTEX requires a build with HPX (CPPUDDLE_WITH_HPX=ON)")
   endif()
 endif()
 
+# HPX build are really better with HPX-aware allocators: Warn if disabled
+if(CPPUDDLE_WITH_HPX)
+  if(NOT CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS)
+    message(WARNING " CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS=ON is recommended for HPX builds \
+(currently OFF even though CPPUDDLE_WITH_HPX=ON). Performance negatively impacted!")
+  endif()
+endif()
+
+# HPX-aware allocators require HPX-Support. Warn if HPX support is disabled as we fallback on non-aware
+# allocators
+if(NOT CPPUDDLE_WITH_HPX)
+  if(CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS)
+    message(WARNING " CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS=ON even though CPPUDDLE_WITH_HPX=OFF. \
+Falling back on non-hpx-aware allocators which will negatively impact performance!")
+  endif()
+endif()
+
+# GPU options -- mostly for tests actually, otherwise simply including the the headers
+# offers users all functionality regardless of these options
 if (CPPUDDLE_WITH_CUDA)
    enable_language(CUDA) 
 endif ()
-
-if (CPPUDDLE_WITH_HPX)
-  find_package(HPX REQUIRED)
-endif()
-if (CPPUDDLE_WITH_TESTS)
-  find_package(Boost REQUIRED program_options)
-endif()
 if (CPPUDDLE_WITH_KOKKOS)
   # Find packages
   find_package(Kokkos 3.0.0 REQUIRED)
@@ -75,6 +106,11 @@ if (CPPUDDLE_WITH_KOKKOS)
   kokkos_check(DEVICES HPX)
 endif()
 
+# For builds with tests we need Boost for the program_options
+if (CPPUDDLE_WITH_TESTS)
+  find_package(Boost REQUIRED program_options)
+endif()
+
 # Add Linter warnings
 if (CPPUDDLE_WITH_CLANG_TIDY)
   find_program(CLANG_TIDY "clang-tidy")
@@ -102,11 +138,18 @@ if (CPPUDDLE_WITH_CLANG_FORMAT)
   endif()
 endif()
 
+#------------------------------------------------------------------------------------------------------------
+# Define library targets and installation
+# (also includes various warnings for non-optimal build configurations)
 
 ## Interface targets
 add_library(buffer_manager INTERFACE)
 if (CPPUDDLE_WITH_HPX)
   target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_HPX")
+  if(CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS)
+    message(INFO " Compiling HPX-aware allocators!")
+    target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS")
+  endif()
 endif()
 if (CPPUDDLE_WITH_COUNTERS)
   target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_COUNTERS")
@@ -119,6 +162,9 @@ target_include_directories(buffer_manager INTERFACE
 add_library(stream_manager INTERFACE)
 if (CPPUDDLE_WITH_HPX)
   target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_HAVE_HPX")
+  if(CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS)
+    target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS")
+  endif()
 endif()
 if (CPPUDDLE_WITH_COUNTERS)
   target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_HAVE_COUNTERS")
@@ -160,6 +206,9 @@ install(
 
 install(FILES cppuddle-config.cmake DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/cmake/CPPuddle/)
 install(EXPORT CPPuddle NAMESPACE CPPuddle:: DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/cmake/CPPuddle/)
+
+#------------------------------------------------------------------------------------------------------------
+# Define cmake targets for all tests/example executables
 
 ## Add target for tests and tests definitions
 if (CPPUDDLE_WITH_TESTS)
@@ -274,6 +323,9 @@ if (CPPUDDLE_WITH_TESTS)
     add_compile_definitions(CPPUDDLE_HAVE_MULTIGPU)
     message(WARNING, " Multi-GPU Support not yet properly tested!")
   endif()
+
+#------------------------------------------------------------------------------------------------------------
+# Define actual tests (usually running the binary and checking its output for certain patterns via regex)
 
   enable_testing()
 

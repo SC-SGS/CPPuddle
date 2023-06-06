@@ -18,6 +18,18 @@
 #include <type_traits>
 #include <unordered_map>
 
+// Warn about suboptimal performance without correct HPX-aware allocators
+#ifdef CPPUDDLE_HAVE_HPX
+#ifndef CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS
+#pragma message                                                                \
+"Warning: CPPuddle build with HPX support but without HPX-aware allocators enabled. \
+For better performance configure CPPuddle with the cmake option CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS=ON !"
+#else
+// include runtime to get HPX thread IDs required for the HPX-aware allocators
+#include <hpx/include/runtime.hpp>
+#endif
+#endif
+
 #if defined(CPPUDDLE_HAVE_HPX) && defined(CPPUDDLE_HAVE_HPX_MUTEX)
 // For builds with The HPX mutex
 #include <hpx/mutex.hpp>
@@ -41,8 +53,12 @@ class buffer_recycler {
   // Public interface
 public:
 #if defined(CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING)
+
+// Warn about suboptimal performance without recycling
 #pragma message                                                                \
-    "Warning: Building without buffer recycling! Use only for performance testing!"
+"Warning: Building without buffer recycling! Use only for performance testing! \
+For better performance configure CPPuddle with the cmake option CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING=OFF !"
+
   template <typename T, typename Host_Allocator>
   static T *get(size_t number_elements, bool manage_content_lifetime = false,
       std::optional<size_t> location_hint = std::nullopt) {
@@ -463,10 +479,15 @@ public:
 
 template <typename T, typename Host_Allocator> struct recycle_allocator {
   using value_type = T;
+  const std::optional<size_t> dealloc_hint;
+
+#ifndef CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS
   recycle_allocator() noexcept = default;
   template <typename U>
+  explicit recycle_allocator(size_t hint) noexcept
+      : dealloc_hint(hint) {}
   explicit recycle_allocator(
-      recycle_allocator<U, Host_Allocator> const &) noexcept {}
+      recycle_allocator<T, Host_Allocator> const &other) noexcept {}
   T *allocate(std::size_t n) {
     T *data = buffer_recycler::get<T, Host_Allocator>(n);
     return data;
@@ -474,6 +495,24 @@ template <typename T, typename Host_Allocator> struct recycle_allocator {
   void deallocate(T *p, std::size_t n) {
     buffer_recycler::mark_unused<T, Host_Allocator>(p, n);
   }
+#else
+  recycle_allocator() noexcept
+      : dealloc_hint(hpx::get_worker_thread_num()) {}
+  explicit recycle_allocator(size_t hint) noexcept
+      : dealloc_hint(hint) {}
+  explicit recycle_allocator(
+      recycle_allocator<T, Host_Allocator> const &other) noexcept
+  : dealloc_hint(other.dealloc_hint) {}
+  T *allocate(std::size_t n) {
+    T *data = buffer_recycler::get<T, Host_Allocator>(
+        n, false, hpx::get_worker_thread_num());
+    return data;
+  }
+  void deallocate(T *p, std::size_t n) {
+    buffer_recycler::mark_unused<T, Host_Allocator>(p, n, dealloc_hint);
+  }
+#endif
+
   template <typename... Args>
   inline void construct(T *p, Args... args) noexcept {
     ::new (static_cast<void *>(p)) T(std::forward<Args>(args)...);
@@ -503,6 +542,9 @@ operator!=(recycle_allocator<T, Host_Allocator> const &,
 template <typename T, typename Host_Allocator>
 struct aggressive_recycle_allocator {
   using value_type = T;
+  std::optional<size_t> dealloc_hint;
+
+#ifndef CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS
   aggressive_recycle_allocator() noexcept = default;
   template <typename U>
   explicit aggressive_recycle_allocator(
@@ -515,6 +557,25 @@ struct aggressive_recycle_allocator {
   void deallocate(T *p, std::size_t n) {
     buffer_recycler::mark_unused<T, Host_Allocator>(p, n);
   }
+#else
+  aggressive_recycle_allocator() noexcept
+      : dealloc_hint(hpx::get_worker_thread_num()) {}
+  explicit aggressive_recycle_allocator(size_t hint) noexcept
+      : dealloc_hint(hint) {}
+  explicit aggressive_recycle_allocator(
+      recycle_allocator<T, Host_Allocator> const &other) noexcept 
+    : dealloc_hint(other.dealloc_hint) {}
+  T *allocate(std::size_t n) {
+    T *data = buffer_recycler::get<T, Host_Allocator>(
+        n, true, hpx::get_worker_thread_num()); // also initializes the buffer
+                                                // if it isn't reused
+    return data;
+  }
+  void deallocate(T *p, std::size_t n) {
+    buffer_recycler::mark_unused<T, Host_Allocator>(p, n, dealloc_hint);
+  }
+#endif
+
 #ifndef CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS
   template <typename... Args>
   inline void construct(T *p, Args... args) noexcept {
@@ -524,8 +585,19 @@ struct aggressive_recycle_allocator {
     // Do nothing here - Contents will be destroyed when the buffer manager is
     // destroyed, not before
   }
+#else
+// Warn about suboptimal performance without recycling
+#pragma message                                                                \
+"Warning: Building without content reusage for aggressive allocators! \
+For better performance configure with the cmake option CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS=OFF !"
+  template <typename... Args>
+  inline void construct(T *p, Args... args) noexcept {
+    ::new (static_cast<void *>(p)) T(std::forward<Args>(args)...);
+  }
+  void destroy(T *p) { p->~T(); }
 #endif
 };
+
 template <typename T, typename U, typename Host_Allocator>
 constexpr bool
 operator==(aggressive_recycle_allocator<T, Host_Allocator> const &,
@@ -558,6 +630,8 @@ using aggressive_recycle_std =
 inline void force_cleanup() { detail::buffer_recycler::clean_all(); }
 /// Deletes all buffers currently marked as unused
 inline void cleanup() { detail::buffer_recycler::clean_unused_buffers(); }
+/// Deletes all buffers (even ones still marked as used), delete the buffer
+/// managers and the recycler itself. Disallows further usage.
 inline void finalize() { detail::buffer_recycler::finalize(); }
 
 } // end namespace recycler
