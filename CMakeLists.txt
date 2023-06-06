@@ -572,16 +572,15 @@ if (CPPUDDLE_WITH_TESTS)
           FIXTURES_SETUP aggregation_basic_parallel_test_output
           PROCESSORS 4
         )
-        # new concurrent buffer managers change the game here.. as two aggregated runs are in parallel: 3 1
         add_test(aggregation_basic_parallel_test.analyse_int_buffers cat aggregation_basic_parallel_test.out)
         set_tests_properties(aggregation_basic_parallel_test.analyse_int_buffers PROPERTIES
           FIXTURES_REQUIRED aggregation_basic_parallel_test_output
-          PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 1"
+          PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 2"
         )
         add_test(aggregation_basic_parallel_test.analyse_float_buffers cat aggregation_basic_parallel_test.out)
         set_tests_properties(aggregation_basic_parallel_test.analyse_float_buffers PROPERTIES
           FIXTURES_REQUIRED aggregation_basic_parallel_test_output
-          PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 3"
+          PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 6"
         )
         add_test(aggregation_basic_parallel_test.analyse_cleanup cat aggregation_basic_parallel_test.out)
         set_tests_properties(aggregation_basic_parallel_test.analyse_cleanup PROPERTIES
@@ -642,7 +641,7 @@ if (CPPUDDLE_WITH_TESTS)
         add_test(aggregation_add_pointer_test.analyse_number_buffers cat aggregation_add_pointer_test.out)
         set_tests_properties(aggregation_add_pointer_test.analyse_number_buffers PROPERTIES
           FIXTURES_REQUIRED aggregation_add_pointer_test_output
-          PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 3"
+          PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 6"
         )
 
         add_test(aggregation_add_references_test_sequential.run work_aggregation_test --hpx:threads=1 --outputfile=aggregation_add_references_test_sequential.out --scenario=references_add_test)
@@ -670,12 +669,11 @@ if (CPPUDDLE_WITH_TESTS)
           FIXTURES_REQUIRED aggregation_add_references_test_output
           PASS_REGULAR_EXPRESSION "Number add_launches=1"
         )
-        # TODO Re-enable test as soon as we have aggregated counters...
-        # add_test(aggregation_add_references_test.analyse_number_buffers cat aggregation_add_references_test.out)
-        # set_tests_properties(aggregation_add_references_test.analyse_number_buffers PROPERTIES
-        #   FIXTURES_REQUIRED aggregation_add_references_test_output
-        #   PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 3"
-        # )
+        add_test(aggregation_add_references_test.analyse_number_buffers cat aggregation_add_references_test.out)
+        set_tests_properties(aggregation_add_references_test.analyse_number_buffers PROPERTIES
+          FIXTURES_REQUIRED aggregation_add_references_test_output
+          PASS_REGULAR_EXPRESSION "--> Number of buffers that got requested from this manager: [ ]* 3"
+        )
 
 
       # STREAM TESTS CPU
