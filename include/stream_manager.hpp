@@ -277,24 +277,24 @@ private:
       }
     }
 
-    static std::tuple<Interface &, size_t> get_interface() noexcept {
+    static std::tuple<Interface &, size_t> get_interface() {
       std::lock_guard<mutex_t> guard(pool_mut);
       assert(pool_instance); // should already be initialized
       return pool_instance->streampool->get_interface();
     }
-    static void release_interface(size_t index) noexcept {
+    static void release_interface(size_t index) {
       std::lock_guard<mutex_t> guard(pool_mut);
       assert(pool_instance); // should already be initialized
       pool_instance->streampool->release_interface(index);
     }
-    static bool interface_available(size_t load_limit) noexcept {
+    static bool interface_available(size_t load_limit) {
       std::lock_guard<mutex_t> guard(pool_mut);
       if (!pool_instance) {
         return false;
       }
       return pool_instance->streampool->interface_available(load_limit);
     }
-    static size_t get_current_load() noexcept {
+    static size_t get_current_load() {
       std::lock_guard<mutex_t> guard(pool_mut);
       if (!pool_instance) {
         return 0;
@@ -302,7 +302,7 @@ private:
       assert(pool_instance); // should already be initialized
       return pool_instance->streampool->get_current_load();
     }
-    static size_t get_next_device_id() noexcept {
+    static size_t get_next_device_id() {
       std::lock_guard<mutex_t> guard(pool_mut);
       if (!pool_instance) {
         return 0;
