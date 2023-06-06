@@ -260,6 +260,7 @@ private:
         // not enough memory left! Cleanup and attempt again:
         std::cerr << "Not enough memory left. Cleaning up unused buffers now..." << std::endl;
         buffer_recycler::clean_unused_buffers();
+        std::cerr << "Buffers cleaned! Try allocation again..." << std::endl;
 
         // If there still isn't enough memory left, the caller has to handle it
         // We've done all we can in here
@@ -272,6 +273,7 @@ private:
         instance()[location_id].number_creation++;
         instance()[location_id].number_bad_alloc++;
 #endif
+        std::cerr << "Second attempt allocation successful!" << std::endl;
         if (manage_content_lifetime) {
           std::uninitialized_value_construct_n(buffer, number_of_elements);
         }
@@ -334,8 +336,18 @@ private:
         }
       }
 
-      // Failure -- something is very wrong
-      throw std::runtime_error("Tried to delete non-existing buffer");
+      // TODO Throw exception instead in the futures, as soon as the recycler finalize is 
+      // in all user codes
+      /* throw std::runtime_error("Tried to delete non-existing buffer"); */
+
+      // This is odd: Print warning -- however, might also happen with static
+      // buffers using these allocators IF the new finalize was not called. For
+      // now, print warning until all user-code is upgraded to the finalize method.
+      // This allows using current versions of cppuddle with older application code
+      std::cerr
+          << "Warning! Tried to delete non-existing buffer within CPPuddle!"
+          << std::endl;
+      std::cerr << "Did you forget to call recycler::finalize?" << std::endl;
     }
 
   private:
