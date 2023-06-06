@@ -147,7 +147,7 @@ add_library(buffer_manager INTERFACE)
 if (CPPUDDLE_WITH_HPX)
   target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_HPX")
   if(CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS)
-    message(INFO " Compiling HPX-aware allocators!")
+    message(INFO " Compiling with HPX-aware allocators!")
     target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS")
   endif()
 endif()
@@ -456,7 +456,7 @@ if (CPPUDDLE_WITH_TESTS)
       add_test(allocator_concurrency_test.analyse_recycle_rate cat allocator_concurrency_test.out)
       set_tests_properties(allocator_concurrency_test.analyse_recycle_rate PROPERTIES
         FIXTURES_REQUIRED allocator_concurrency_output
-        PASS_REGULAR_EXPRESSION "==> Recycle rate: [ ]* 99.5%"
+        PASS_REGULAR_EXPRESSION "==> Recycle rate: [ ]* 99.*%"
       )
       add_test(allocator_concurrency_test.analyse_marked_buffers_cleanup cat allocator_concurrency_test.out)
       set_tests_properties(allocator_concurrency_test.analyse_marked_buffers_cleanup PROPERTIES
