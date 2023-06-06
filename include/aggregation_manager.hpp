@@ -556,15 +556,17 @@ public:
       if (buffer_counter <= slice_alloc_counter) {
         constexpr bool manage_content_lifetime = false;
         buffers_in_use = true;
-#ifndef CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS
-        // Deactivated HPX-aware allocation...
-        const size_t location_id = 0;
-        // not recommended for performance
-#pragma message                                                                \
-"Warning: Running work aggregation without HPX-aware allocators enabled. Performance negatively impacted!"
-#else
-        // get prefered location: aka the current hpx threads location
-        const size_t location_id = hpx::get_worker_thread_num();
+
+        // Default location -- useful for GPU builds as we otherwise create way too
+        // many different buffers for different aggregation sizes on different GPUs
+        size_t location_id = 0;
+#ifdef CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS
+        if (max_slices == 1) {
+          // get prefered location: aka the current hpx threads location
+          // Usually handy for CPU builds where we want to use the buffers
+          // close to the current CPU core
+          location_id = hpx::get_worker_thread_num();
+        }
 #endif
         // Get shiny and new buffer that will be shared between all slices
         // Buffer might be recycled from previous allocations by the

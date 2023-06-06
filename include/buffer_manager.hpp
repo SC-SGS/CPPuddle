@@ -482,12 +482,13 @@ template <typename T, typename Host_Allocator> struct recycle_allocator {
   const std::optional<size_t> dealloc_hint;
 
 #ifndef CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS
-  recycle_allocator() noexcept = default;
-  template <typename U>
+  recycle_allocator() noexcept
+      : dealloc_hint(std::nullopt) {}
   explicit recycle_allocator(size_t hint) noexcept
-      : dealloc_hint(hint) {}
+      : dealloc_hint(std::nullopt) {}
   explicit recycle_allocator(
-      recycle_allocator<T, Host_Allocator> const &other) noexcept {}
+      recycle_allocator<T, Host_Allocator> const &other) noexcept
+      : dealloc_hint(std::nullopt) {}
   T *allocate(std::size_t n) {
     T *data = buffer_recycler::get<T, Host_Allocator>(n);
     return data;
@@ -545,10 +546,13 @@ struct aggressive_recycle_allocator {
   std::optional<size_t> dealloc_hint;
 
 #ifndef CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS
-  aggressive_recycle_allocator() noexcept = default;
-  template <typename U>
+  aggressive_recycle_allocator() noexcept
+      : dealloc_hint(std::nullopt) {}
+  explicit aggressive_recycle_allocator(size_t hint) noexcept
+      : dealloc_hint(std::nullopt) {}
   explicit aggressive_recycle_allocator(
-      aggressive_recycle_allocator<U, Host_Allocator> const &) noexcept {}
+      aggressive_recycle_allocator<T, Host_Allocator> const &) noexcept 
+  : dealloc_hint(std::nullopt) {}
   T *allocate(std::size_t n) {
     T *data = buffer_recycler::get<T, Host_Allocator>(
         n, true); // also initializes the buffer if it isn't reused
