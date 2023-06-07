@@ -4,6 +4,9 @@
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
 #include "../include/buffer_manager.hpp"
+#ifdef CPPUDDLE_HAVE_HPX  
+#include <hpx/hpx_init.hpp>
+#endif
 #include <boost/program_options.hpp>
 
 #include <cassert>
@@ -14,7 +17,11 @@
 #include <string>
 #include <typeinfo>
 
+#ifdef CPPUDDLE_HAVE_HPX
+int hpx_main(int argc, char *argv[]) {
+#else
 int main(int argc, char *argv[]) {
+#endif
 
   size_t array_size = 500000;
   size_t passes = 10000;
@@ -129,5 +136,16 @@ int main(int argc, char *argv[]) {
     std::cout << "Test information: Recycler was faster than default allocator!"
               << std::endl;
   }
+#ifdef CPPUDDLE_HAVE_HPX  
+  return hpx::finalize();
+#else
   return EXIT_SUCCESS;
+#endif
 }
+#ifdef CPPUDDLE_HAVE_HPX
+int main(int argc, char *argv[]) {
+  hpx::init_params p;
+  p.cfg = {"hpx.commandline.allow_unknown=1"};
+  return hpx::init(argc, argv, p);
+}
+#endif

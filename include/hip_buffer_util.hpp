@@ -110,6 +110,7 @@ template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_hip_device =
     detail::recycle_allocator<T, detail::hip_device_allocator<T>>;
 
+// TODO Is this even required? (cuda version should work fine...)
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 struct hip_device_buffer {
   size_t gpu_id{0};

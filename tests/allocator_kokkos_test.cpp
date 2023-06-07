@@ -16,6 +16,9 @@
 #include "../include/buffer_manager.hpp"
 #include "../include/cuda_buffer_util.hpp"
 #include "../include/kokkos_buffer_util.hpp"
+#ifdef CPPUDDLE_HAVE_HPX  
+#include <hpx/hpx_init.hpp>
+#endif
 #include <boost/program_options.hpp>
 #include <hpx/timing/high_resolution_timer.hpp>
 #include <boost/program_options.hpp>
@@ -32,8 +35,11 @@ template <class T>
 using recycled_host_view =
     recycler::recycled_view<kokkos_um_array<T>, recycler::recycle_std<T>, T>;
 
-// #pragma nv_exec_check_disable
+#ifdef CPPUDDLE_HAVE_HPX
+int hpx_main(int argc, char *argv[]) {
+#else
 int main(int argc, char *argv[]) {
+#endif
 
   std::string filename{};
   try {
@@ -84,4 +90,17 @@ int main(int argc, char *argv[]) {
                         });
     Kokkos::fence();
   }
+#ifdef CPPUDDLE_HAVE_HPX  
+  return hpx::finalize();
+#else
+  return EXIT_SUCCESS;
+#endif
 }
+
+#ifdef CPPUDDLE_HAVE_HPX
+int main(int argc, char *argv[]) {
+  hpx::init_params p;
+  p.cfg = {"hpx.commandline.allow_unknown=1"};
+  return hpx::init(argc, argv, p);
+}
+#endif
