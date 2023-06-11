@@ -1,3 +1,8 @@
+// Copyright (c) 2022-2023 Gregor Daiß
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+
 #ifndef WORK_AGGREGATION_MANAGER
 #define WORK_AGGREGATION_MANAGER
 
@@ -27,7 +32,6 @@
 #include <hpx/include/iostreams.hpp>
 #include <hpx/include/lcos.hpp>
 #include <hpx/lcos/promise.hpp>
-//#include <hpx/synchronization/mutex.hpp> // obsolete
 #include <hpx/mutex.hpp>
 
 #if defined(HPX_HAVE_CUDA) || defined(HPX_HAVE_HIP)
@@ -41,12 +45,7 @@
 
 #include "../include/buffer_manager.hpp"
 #include "../include/stream_manager.hpp"
-
-#if defined(CPPUDDLE_HAVE_HPX_MUTEX)
-using aggregation_mutex_t = hpx::spinlock;
-#else
-using aggregation_mutex_t = std::mutex;
-#endif
+#include "../include/detail/config.hpp"
 
 //===============================================================================
 //===============================================================================
@@ -313,7 +312,8 @@ public:
         potential_async_promises[local_counter].get_future();
     if (local_counter == number_slices - 1) {
       /* slices_ready_promise.set_value(); */
-      auto fut = exec_async_wrapper<Executor, F, Ts...>(underlying_executor, std::forward<F>(f), std::forward<Ts>(ts)...);
+      auto fut = exec_async_wrapper<Executor, F, Ts...>(
+          underlying_executor, std::forward<F>(f), std::forward<Ts>(ts)...);
       fut.then([this](auto &&fut) {
         for (auto &promise : potential_async_promises) {
           promise.set_value();
@@ -808,8 +808,10 @@ public:
       if (local_slice_id == 1) {
         // Renew promise that all slices will be ready as the primary launch criteria...
         hpx::lcos::shared_future<void> fut;
-        if (mode == Aggregated_Executor_Modes::EAGER || mode == Aggregated_Executor_Modes::ENDLESS) {
-          // Fallback launch condidtion: Launch as soon as the underlying stream is ready
+        if (mode == Aggregated_Executor_Modes::EAGER ||
+            mode == Aggregated_Executor_Modes::ENDLESS) {
+          // Fallback launch condidtion: Launch as soon as the underlying stream
+          // is ready
           /* auto slices_full_fut = slices_full_promise.get_future(); */
           auto exec_fut = executor.get_future(); 
           /* fut = hpx::when_any(exec_fut, slices_full_fut); */
@@ -835,15 +837,16 @@ public:
       }
       if (local_slice_id >= max_slices &&
           mode != Aggregated_Executor_Modes::ENDLESS) {
-        slices_exhausted = true; // prevents any more threads from entering before the continuation is launched
-          /* launched_slices = current_slices; */
-          /* size_t id = 0; */
-          /* for (auto &slice_promise : executor_slices) { */
-          /*   slice_promise.set_value( */
-          /*       Executor_Slice{*this, id, launched_slices}); */
-          /*   id++; */
-          /* } */
-          /* executor_slices.clear(); */
+        slices_exhausted = true; // prevents any more threads from entering
+                                 // before the continuation is launched
+        /* launched_slices = current_slices; */
+        /* size_t id = 0; */
+        /* for (auto &slice_promise : executor_slices) { */
+        /*   slice_promise.set_value( */
+        /*       Executor_Slice{*this, id, launched_slices}); */
+        /*   id++; */
+        /* } */
+        /* executor_slices.clear(); */
         if (mode == Aggregated_Executor_Modes::STRICT ) {
           slices_full_promise.set_value(); // Trigger slices launch condition continuation 
         }
@@ -1005,38 +1008,40 @@ public:
   template <typename... Ts>
   static void init(size_t number_of_executors, size_t slices_per_executor,
                    Aggregated_Executor_Modes mode) {
-    std::lock_guard<aggregation_mutex_t> guard(instance.pool_mutex);
-    assert(instance.aggregation_executor_pool.empty());
+    const size_t gpu_id = get_device_id();
+    std::lock_guard<aggregation_mutex_t> guard(instance()[gpu_id].pool_mutex);
+    assert(instance()[gpu_id].aggregation_executor_pool.empty());
     for (int i = 0; i < number_of_executors; i++) {
-      instance.aggregation_executor_pool.emplace_back(slices_per_executor,
+      instance()[gpu_id].aggregation_executor_pool.emplace_back(slices_per_executor,
                                                       mode);
     }
-    instance.slices_per_executor = slices_per_executor;
-    instance.mode = mode;
+    instance()[gpu_id].slices_per_executor = slices_per_executor;
+    instance()[gpu_id].mode = mode;
   }
 
   /// Will always return a valid executor slice
   static decltype(auto) request_executor_slice(void) {
-    std::lock_guard<aggregation_mutex_t> guard(instance.pool_mutex);
-    assert(!instance.aggregation_executor_pool.empty());
+    const size_t gpu_id = get_device_id();
+    std::lock_guard<aggregation_mutex_t> guard(instance()[gpu_id].pool_mutex);
+    assert(!instance()[gpu_id].aggregation_executor_pool.empty());
     std::optional<hpx::lcos::future<
         typename Aggregated_Executor<Interface>::Executor_Slice>>
         ret;
-    size_t local_id = (instance.current_interface) %
-                      instance.aggregation_executor_pool.size();
-    ret = instance.aggregation_executor_pool[local_id].request_executor_slice();
+    size_t local_id = (instance()[gpu_id].current_interface) %
+                      instance()[gpu_id].aggregation_executor_pool.size();
+    ret = instance()[gpu_id].aggregation_executor_pool[local_id].request_executor_slice();
     // Expected case: current aggregation executor is free
     if (ret.has_value()) {
       return ret;
     }
     // current interface is bad -> find free one
     size_t abort_counter = 0;
-    const size_t abort_number = instance.aggregation_executor_pool.size() + 1;
+    const size_t abort_number = instance()[gpu_id].aggregation_executor_pool.size() + 1;
     do {
-      local_id = (++(instance.current_interface)) % // increment interface
-                 instance.aggregation_executor_pool.size();
+      local_id = (++(instance()[gpu_id].current_interface)) % // increment interface
+                 instance()[gpu_id].aggregation_executor_pool.size();
       ret =
-          instance.aggregation_executor_pool[local_id].request_executor_slice();
+          instance()[gpu_id].aggregation_executor_pool[local_id].request_executor_slice();
       if (ret.has_value()) {
         return ret;
       }
@@ -1044,12 +1049,15 @@ public:
     } while (abort_counter <= abort_number);
     // Everything's busy -> create new aggregation executor (growing pool) OR
     // return empty optional
-    if (instance.growing_pool) {
-      instance.aggregation_executor_pool.emplace_back(
-          instance.slices_per_executor, instance.mode);
-      instance.current_interface = instance.aggregation_executor_pool.size() - 1;
-      assert(instance.aggregation_executor_pool.size() < 20480);
-      ret = instance.aggregation_executor_pool[instance.current_interface].request_executor_slice();
+    if (instance()[gpu_id].growing_pool) {
+      instance()[gpu_id].aggregation_executor_pool.emplace_back(
+          instance()[gpu_id].slices_per_executor, instance()[gpu_id].mode);
+      instance()[gpu_id].current_interface =
+          instance()[gpu_id].aggregation_executor_pool.size() - 1;
+      assert(instance()[gpu_id].aggregation_executor_pool.size() < 20480);
+      ret = instance()[gpu_id]
+                .aggregation_executor_pool[instance()[gpu_id].current_interface]
+                .request_executor_slice();
       assert(ret.has_value()); // fresh executor -- should always have slices
                                // available
     }
@@ -1066,9 +1074,13 @@ private:
 private:
   /// Required for dealing with adding elements to the deque of
   /// aggregated_executors
-  static inline aggregation_mutex_t pool_mutex;
+  aggregation_mutex_t pool_mutex;
   /// Global access instance
-  static inline aggregation_pool instance{};
+  static std::unique_ptr<aggregation_pool[]>& instance(void) {
+    static std::unique_ptr<aggregation_pool[]> pool_instances{
+        new aggregation_pool[max_number_gpus]};
+    return pool_instances;
+  }
   aggregation_pool() = default;
 
 public:

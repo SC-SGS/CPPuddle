@@ -23,15 +23,17 @@ set(CPPUDDLE_VERSION_STRING "${CPPUDDLE_VERSION_MAJOR}.${CPPUDDLE_VERSION_MINOR}
 option(CPPUDDLE_WITH_CUDA "Enable CUDA tests/examples" OFF)
 option(CPPUDDLE_WITH_MULTIGPU_SUPPORT "Enables experimental MultiGPU support" OFF)
 option(CPPUDDLE_WITH_KOKKOS "Enable KOKKOS tests/examples" OFF)
+set(CPPUDDLE_WITH_NUMBER_GPUS "1" CACHE STRING "Number of GPUs that will be used. Should match the number of GPUs used when using the maximum number of HPX worker threads. Should be 1 for non-HPX builds.")
 # HPX-related options
 option(CPPUDDLE_WITH_HPX "Enable basic HPX integration and examples" OFF)
 option(CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS "Enable HPX-aware allocators for even better HPX integration" ON)
 set(CPPUDDLE_WITH_HPX_MUTEX OFF CACHE BOOL
   "Use HPX spinlock mutex instead of std::mutex")
+set(CPPUDDLE_WITH_MAX_NUMBER_WORKERS "128" CACHE STRING "Max number of workers threads supported. Should match the intended number of HPX workers or be 1 in non-HPX builds.")
 # Test-related options
 option(CPPUDDLE_WITH_COUNTERS "Turns on allocations counters. Useful for extended testing" OFF)
 option(CPPUDDLE_WITH_TESTS "Build tests/examples" OFF)
-set(CPPUDDLE_WITH_DEADLOCK_TEST_REPETITONS "100000" CACHE STRING "Number of repetitions for the aggregation executor deadlock tests")
+set(CPPUDDLE_WITH_DEADLOCK_TEST_REPETITONS "10000" CACHE STRING "Number of repetitions for the aggregation executor deadlock tests")
 option(CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING "Deactivates the default recycling behaviour" OFF)
 option(CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS "Deactivates the aggressive allocators" OFF)
 # Tooling options
@@ -61,6 +63,19 @@ if(CPPUDDLE_WITH_HPX)
   endif()
 endif()
 
+if(CPPUDDLE_WITH_NUMBER_GPUS GREATER 1)
+  if(NOT CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS)
+    message(FATAL_ERROR " CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS=ON is required Multi-GPU builds!")
+  endif()
+endif()
+
+if(CPPUDDLE_WITH_MAX_NUMBER_WORKERS GREATER 1)
+  if(NOT CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS)
+    message(FATAL_ERROR " CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS=ON is required for Multi-Worker build! \
+    Either turn it on or configure with CPPUDDLE_WITH_MAX_NUMBER_WORKERS=1 !")
+  endif()
+endif()
+
 # HPX-aware allocators require HPX-Support. Warn if HPX support is disabled as we fallback on non-aware
 # allocators
 if(NOT CPPUDDLE_WITH_HPX)
@@ -80,7 +95,7 @@ if (CPPUDDLE_WITH_KOKKOS)
   find_package(Kokkos 3.0.0 REQUIRED)
   find_package(HPXKokkos REQUIRED) 
 
-  # Check that everything required is actyivated
+  # Check that everything required is activated
   if (NOT CPPUDDLE_WITH_HPX)
     message(FATAL_ERROR " KOKKOS support requires HPX flag to be turned on")
   endif()
@@ -149,6 +164,11 @@ if (CPPUDDLE_WITH_HPX)
   if(CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS)
     message(INFO " Compiling with HPX-aware allocators!")
     target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS")
+    target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_MAX_NUMBER_GPUS=${CPPUDDLE_WITH_NUMBER_GPUS}")
+    target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_MAX_NUMBER_WORKERS=${CPPUDDLE_WITH_MAX_NUMBER_WORKERS}")
+  else()
+    target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_MAX_NUMBER_GPUS=1")
+    target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_MAX_NUMBER_WORKERS=1")
   endif()
 endif()
 if (CPPUDDLE_WITH_COUNTERS)
@@ -164,6 +184,11 @@ if (CPPUDDLE_WITH_HPX)
   target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_HAVE_HPX")
   if(CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS)
     target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS")
+    target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_MAX_NUMBER_GPUS=${CPPUDDLE_WITH_NUMBER_GPUS}")
+    target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_MAX_NUMBER_WORKERS=${CPPUDDLE_WITH_MAX_NUMBER_WORKERS}")
+  else()
+    target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_MAX_NUMBER_GPUS=1")
+    target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_MAX_NUMBER_WORKERS=1")
   endif()
 endif()
 if (CPPUDDLE_WITH_COUNTERS)

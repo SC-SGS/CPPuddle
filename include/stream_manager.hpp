@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2021 Gregor Daiß
+// Copyright (c) 2020-2023 Gregor Daiß
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -7,28 +7,25 @@
 #define STREAM_MANAGER_HPP
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <deque>
 #include <iostream>
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <tuple>
 #include <type_traits>
 
-#if defined(CPPUDDLE_HAVE_HPX) && defined(CPPUDDLE_HAVE_HPX_MUTEX)
-// For builds with The HPX mutex
-#include <hpx/mutex.hpp>
-#endif
+#include "../include/detail/config.hpp"
 
-#if defined(CPPUDDLE_HAVE_HPX) && defined(CPPUDDLE_HAVE_HPX_MUTEX)
-using mutex_t = hpx::spinlock;
-#else
-using mutex_t = std::mutex;
-#endif
-
-//#include <cuda_runtime.h>
-// #include <hpx/compute/cuda/target.hpp>
-// #include <hpx/include/compute.hpp>
+/// Turns a std::array_mutex into an scoped lock
+template<typename mutex_array_t>
+auto make_scoped_lock_from_array(mutex_array_t& mutexes)
+{
+    return std::apply([](auto&... mutexes) { return std::scoped_lock{mutexes...}; }, 
+                      mutexes);
+}
 
 template <class Interface> class round_robin_pool {
 private:
@@ -38,10 +35,10 @@ private:
 
 public:
   template <typename... Ts>
-  explicit round_robin_pool(size_t number_of_streams, Ts &&... executor_args) {
+  round_robin_pool(size_t number_of_streams, Ts... executor_args) {
     ref_counters.reserve(number_of_streams);
     for (int i = 0; i < number_of_streams; i++) {
-      pool.emplace_back(std::forward<Ts>(executor_args)...);
+      pool.emplace_back(executor_args...);
       ref_counters.emplace_back(0);
     }
   }
@@ -74,11 +71,11 @@ private:
   std::vector<size_t> priorities{};   // Ref counters
 public:
   template <typename... Ts>
-  explicit priority_pool(size_t number_of_streams, Ts &&... executor_args) {
+  priority_pool(size_t number_of_streams, Ts... executor_args) {
     ref_counters.reserve(number_of_streams);
     priorities.reserve(number_of_streams);
     for (auto i = 0; i < number_of_streams; i++) {
-      pool.emplace_back(std::forward<Ts>(executor_args)...);
+      pool.emplace_back(executor_args...);
       ref_counters.emplace_back(0);
       priorities.emplace_back(i);
     }
@@ -120,11 +117,11 @@ private:
 public:
   template <typename... Ts>
   multi_gpu_round_robin_pool(size_t number_of_streams, int number_of_gpus,
-                             Ts &&... executor_args)
+                             Ts... executor_args)
       : streams_per_gpu{number_of_streams} {
     for (auto gpu_id = 0; gpu_id < number_of_gpus; gpu_id++) {
       pool.push_back(std::make_tuple(
-          Pool(number_of_streams, gpu_id, std::forward<Ts>(executor_args)...),
+          Pool(number_of_streams, gpu_id, executor_args...),
           0));
     }
   }
@@ -175,7 +172,7 @@ private:
 public:
   template <typename... Ts>
   priority_pool_multi_gpu(size_t number_of_streams, int number_of_gpus,
-                          Ts &&... executor_args)
+                          Ts... executor_args)
       : streams_per_gpu(number_of_streams) {
     ref_counters.reserve(number_of_gpus);
     priorities.reserve(number_of_gpus);
@@ -183,7 +180,7 @@ public:
       priorities.emplace_back(gpu_id);
       ref_counters.emplace_back(0);
       gpu_interfaces.emplace_back(streams_per_gpu, gpu_id,
-                                  std::forward<Ts>(executor_args)...);
+                                  executor_args...);
     }
   }
   // return a tuple with the interface and its index (to release it later)
@@ -222,33 +219,41 @@ public:
 class stream_pool {
 public:
   template <class Interface, class Pool, typename... Ts>
-  static void init(size_t number_of_streams, Ts &&... executor_args) {
-    stream_pool_implementation<Interface, Pool>::init(
-        number_of_streams, std::forward<Ts>(executor_args)...);
-  }
+  static void init(size_t number_of_streams, Ts ... executor_args) {
+    stream_pool_implementation<Interface, Pool>::init(number_of_streams,
+                                                      executor_args...);
+}
   template <class Interface, class Pool> static void cleanup() {
     stream_pool_implementation<Interface, Pool>::cleanup();
   }
   template <class Interface, class Pool>
   static std::tuple<Interface &, size_t> get_interface() {
-    return stream_pool_implementation<Interface, Pool>::get_interface();
+    return stream_pool_implementation<Interface, Pool>::get_interface(get_device_id());
   }
   template <class Interface, class Pool>
   static void release_interface(size_t index) noexcept {
-    stream_pool_implementation<Interface, Pool>::release_interface(index);
+    stream_pool_implementation<Interface, Pool>::release_interface(index,
+        get_device_id());
   }
   template <class Interface, class Pool>
   static bool interface_available(size_t load_limit) noexcept {
     return stream_pool_implementation<Interface, Pool>::interface_available(
-        load_limit);
+        load_limit, get_device_id());
   }
   template <class Interface, class Pool>
   static size_t get_current_load() noexcept {
-    return stream_pool_implementation<Interface, Pool>::get_current_load();
+    return stream_pool_implementation<Interface, Pool>::get_current_load(
+        get_device_id());
   }
+  // TODO deprecated! Remove...
   template <class Interface, class Pool>
   static size_t get_next_device_id() noexcept {
-    return stream_pool_implementation<Interface, Pool>::get_next_device_id();
+    return stream_pool_implementation<Interface, Pool>::get_next_device_id(get_device_id());
+  }
+
+  template <class Interface, class Pool>
+  static size_t set_device_selector(std::function<void(size_t)> select_gpu_function) {
+    return stream_pool_implementation<Interface, Pool>::set_device_selector(select_gpu_function);
   }
 
 private:
@@ -258,64 +263,66 @@ private:
   template <class Interface, class Pool> class stream_pool_implementation {
   public:
     template <typename... Ts>
-    static void init(size_t number_of_streams, Ts &&... executor_args) {
-      // TODO(daissgr) What should happen if the instance already exists?
-      // warning?
-      if (!pool_instance && number_of_streams > 0) {
-        // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
-        pool_instance.reset(new stream_pool_implementation());
-        // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
-        pool_instance->streampool.reset(
-            new Pool{number_of_streams, std::forward<Ts>(executor_args)...});
-      }
-    }
-    static void cleanup() {
-      std::lock_guard<mutex_t> guard(pool_mut);
-      if (pool_instance) {
-        pool_instance->streampool.reset(nullptr);
-        pool_instance.reset(nullptr);
+    static void init(size_t number_of_streams, Ts ... executor_args) {
+      auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
+      if (number_of_streams > 0) {
+        for (size_t gpu_id = 0; gpu_id < max_number_gpus; gpu_id++) {
+          instance().select_gpu_function(gpu_id);
+          instance().streampools.emplace_back(number_of_streams,
+                                              executor_args...);
+        }
       }
     }
 
-    static std::tuple<Interface &, size_t> get_interface() {
-      std::lock_guard<mutex_t> guard(pool_mut);
-      assert(pool_instance); // should already be initialized
-      return pool_instance->streampool->get_interface();
+    // TODO add/rename into finalize?
+    static void cleanup() {
+      auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
+      instance().streampools.clear();
     }
-    static void release_interface(size_t index) {
-      std::lock_guard<mutex_t> guard(pool_mut);
-      assert(pool_instance); // should already be initialized
-      pool_instance->streampool->release_interface(index);
+
+    static std::tuple<Interface &, size_t> get_interface(const size_t gpu_id = 0) {
+      std::lock_guard<mutex_t> guard(instance().gpu_mutexes[gpu_id]);
+      return instance().streampools[gpu_id].get_interface();
     }
-    static bool interface_available(size_t load_limit) {
-      std::lock_guard<mutex_t> guard(pool_mut);
-      if (!pool_instance) {
-        return false;
-      }
-      return pool_instance->streampool->interface_available(load_limit);
+    static void release_interface(size_t index, const size_t gpu_id = 0) {
+      std::lock_guard<mutex_t> guard(instance().gpu_mutexes[gpu_id]);
+      instance().streampools[gpu_id].release_interface(index);
     }
-    static size_t get_current_load() {
-      std::lock_guard<mutex_t> guard(pool_mut);
-      if (!pool_instance) {
-        return 0;
-      }
-      assert(pool_instance); // should already be initialized
-      return pool_instance->streampool->get_current_load();
+    static bool interface_available(size_t load_limit, const size_t gpu_id = 0) {
+      std::lock_guard<mutex_t> guard(instance().gpu_mutexes[gpu_id]);
+      return instance().streampools[gpu_id].interface_available(load_limit);
     }
-    static size_t get_next_device_id() {
-      std::lock_guard<mutex_t> guard(pool_mut);
-      if (!pool_instance) {
-        return 0;
-      }
-      return pool_instance->streampool->get_next_device_id();
+    static size_t get_current_load(const size_t gpu_id = 0) {
+      std::lock_guard<mutex_t> guard(instance().gpu_mutexes[gpu_id]);
+      return instance().streampools[gpu_id].get_current_load();
+    }
+    // TODO deprecated! Remove...
+    static size_t get_next_device_id(const size_t gpu_id = 0) {
+      std::lock_guard<mutex_t> guard(instance().gpu_mutexes[gpu_id]);
+      return instance().streampools[gpu_id].get_next_device_id();
+    }
+
+    static size_t set_device_selector(std::function<void(size_t)> select_gpu_function) {
+      auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
+      return instance().select_gpu_function = select_gpu_function;
     }
 
   private:
-    inline static std::unique_ptr<stream_pool_implementation> pool_instance{};
     stream_pool_implementation() = default;
-    inline static mutex_t pool_mut{};
+    mutex_t pool_mut{};
+    std::function<void(size_t)> select_gpu_function = [](size_t gpu_id) {
+      // By default no multi gpu support
+      assert(max_number_gpus == 1);
+      assert(gpu_id == 0);
+    };
 
-    std::unique_ptr<Pool> streampool{nullptr};
+    std::deque<Pool> streampools{};
+    std::array<mutex_t, max_number_gpus> gpu_mutexes;
+
+    static stream_pool_implementation& instance(void) {
+      static stream_pool_implementation pool_instance{};
+      return pool_instance;
+    }
 
   public:
     ~stream_pool_implementation() = default;
@@ -338,13 +345,9 @@ public:
   stream_pool &operator=(stream_pool &&other) = delete;
 };
 
-/* template <class Interface, class Pool> */
-/* std::unique_ptr<stream_pool::stream_pool_implementation<Interface, Pool>> */
-/*     stream_pool::stream_pool_implementation<Interface, Pool>::pool_instance{}; */
-
 template <class Interface, class Pool> class stream_interface {
 public:
-  explicit stream_interface()
+  stream_interface()
       : t(stream_pool::get_interface<Interface, Pool>()),
         interface(std::get<0>(t)), interface_index(std::get<1>(t)) {}
 

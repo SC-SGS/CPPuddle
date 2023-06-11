@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2021 Gregor Daiß
+// Copyright (c) 2020-2023 Gregor Daiß
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -23,7 +23,7 @@
 #ifndef CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS
 #pragma message                                                                \
 "Warning: CPPuddle build with HPX support but without HPX-aware allocators enabled. \
-For better performance configure CPPuddle with the cmake option CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS=ON !"
+For better performance configure CPPuddle with CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS=ON!"
 #else
 // include runtime to get HPX thread IDs required for the HPX-aware allocators
 #include <hpx/include/runtime.hpp>
@@ -39,15 +39,10 @@ For better performance configure CPPuddle with the cmake option CPPUDDLE_WITH_HP
 #include <boost/core/demangle.hpp>
 #endif
 
-namespace recycler {
-constexpr size_t number_instances = 128;
-namespace detail {
+#include "../include/detail/config.hpp"
 
-#if defined(CPPUDDLE_HAVE_HPX) && defined(CPPUDDLE_HAVE_HPX_MUTEX)
-using mutex_t = hpx::spinlock;
-#else
-using mutex_t = std::mutex;
-#endif
+namespace recycler {
+namespace detail {
 
 class buffer_recycler {
   // Public interface
@@ -57,7 +52,7 @@ public:
 // Warn about suboptimal performance without recycling
 #pragma message                                                                \
 "Warning: Building without buffer recycling! Use only for performance testing! \
-For better performance configure CPPuddle with the cmake option CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING=OFF !"
+For better performance configure CPPuddle with CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING=OFF!"
 
   template <typename T, typename Host_Allocator>
   static T *get(size_t number_elements, bool manage_content_lifetime = false,
@@ -258,7 +253,9 @@ private:
         return buffer;
       } catch (std::bad_alloc &e) {
         // not enough memory left! Cleanup and attempt again:
-        std::cerr << "Not enough memory left. Cleaning up unused buffers now..." << std::endl;
+        std::cerr 
+          << "Not enough memory left. Cleaning up unused buffers now..." 
+          << std::endl;
         buffer_recycler::clean_unused_buffers();
         std::cerr << "Buffers cleaned! Try allocation again..." << std::endl;
 
@@ -370,7 +367,6 @@ private:
     buffer_manager&
     operator=(buffer_manager<T, Host_Allocator> &&other) = delete;
     static std::unique_ptr<buffer_manager[]>& instance(void) {
-      /* static std::array<buffer_manager, number_instances> instances{{}}; */
       static std::unique_ptr<buffer_manager[]> instances{
           new buffer_manager[number_instances]};
       return instances;
@@ -603,7 +599,7 @@ struct aggressive_recycle_allocator {
 // Warn about suboptimal performance without recycling
 #pragma message                                                                \
 "Warning: Building without content reusage for aggressive allocators! \
-For better performance configure with the cmake option CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS=OFF !"
+For better performance configure with CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS=OFF !"
   template <typename... Args>
   inline void construct(T *p, Args... args) noexcept {
     ::new (static_cast<void *>(p)) T(std::forward<Args>(args)...);

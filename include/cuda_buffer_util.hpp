@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2021 Gregor Daiß
+// Copyright (c) 2020-2023 Gregor Daiß
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -7,6 +7,7 @@
 #define CUDA_BUFFER_UTIL_HPP
 
 #include "buffer_manager.hpp"
+#include "detail/config.hpp"
 
 #include <cuda_runtime.h>
 #include <stdexcept>
@@ -22,6 +23,7 @@ template <class T> struct cuda_pinned_allocator {
   template <class U>
   explicit cuda_pinned_allocator(cuda_pinned_allocator<U> const &) noexcept {}
   T *allocate(std::size_t n) {
+    cudaSetDevice(get_device_id());
     T *data;
     cudaError_t error =
         cudaMallocHost(reinterpret_cast<void **>(&data), n * sizeof(T));
@@ -62,6 +64,7 @@ template <class T> struct cuda_device_allocator {
   template <class U>
   explicit cuda_device_allocator(cuda_device_allocator<U> const &) noexcept {}
   T *allocate(std::size_t n) {
+    cudaSetDevice(get_device_id());
     T *data;
     cudaError_t error = cudaMalloc(&data, n * sizeof(T));
     if (error != cudaSuccess) {
@@ -114,29 +117,14 @@ struct cuda_device_buffer {
     device_side_buffer =
         recycle_allocator_cuda_device<T>{}.allocate(number_of_elements);
   }
+  // TODO deprecate and remove gpu_id
   explicit cuda_device_buffer(size_t number_of_elements, size_t gpu_id)
       : gpu_id(gpu_id), number_of_elements(number_of_elements), set_id(true) {
-#if defined(CPPUDDLE_HAVE_MULTIGPU) 
-    cudaSetDevice(gpu_id);
-#else
-    // TODO It would be better to have separate method for this but it would change the interface
-    // This will have to do for some testing. If it's worth it, add separate method without cudaSetDevice
-    // Allows for testing without any changes to other projects 
-    assert(gpu_id == 0); 
-#endif
+    assert(gpu_id == 0);
     device_side_buffer =
         recycle_allocator_cuda_device<T>{}.allocate(number_of_elements);
   }
   ~cuda_device_buffer() {
-#if defined(CPPUDDLE_HAVE_MULTIGPU) 
-    if (set_id)
-      cudaSetDevice(gpu_id);
-#else
-    // TODO It would be better to have separate method for this but it would change the interface
-    // This will have to do for some testing. If it's worth it, add separate method without cudaSetDevice
-    // Allows for testing without any changes to other projects 
-    assert(gpu_id == 0); 
-#endif
     recycle_allocator_cuda_device<T>{}.deallocate(device_side_buffer,
                                                   number_of_elements);
   }
@@ -160,29 +148,14 @@ struct cuda_aggregated_device_buffer {
     device_side_buffer =
         recycle_allocator_cuda_device<T>{}.allocate(number_of_elements);
   }
+  // TODO deprecate and remove gpu_id
   explicit cuda_aggregated_device_buffer(size_t number_of_elements, size_t gpu_id, Host_Allocator &alloc)
       : gpu_id(gpu_id), number_of_elements(number_of_elements), set_id(true), alloc(alloc) {
-#if defined(CPPUDDLE_HAVE_MULTIGPU) 
-    cudaSetDevice(gpu_id);
-#else
-    // TODO It would be better to have separate method for this but it would change the interface
-    // This will have to do for some testing. If it's worth it, add separate method without cudaSetDevice
-    // Allows for testing without any changes to other projects 
-    assert(gpu_id == 0); 
-#endif
+    assert(gpu_id == 0);
     device_side_buffer =
         alloc.allocate(number_of_elements);
   }
   ~cuda_aggregated_device_buffer() {
-#if defined(CPPUDDLE_HAVE_MULTIGPU) 
-    if (set_id)
-      cudaSetDevice(gpu_id);
-#else
-    // TODO It would be better to have separate method for this but it would change the interface
-    // This will have to do for some testing. If it's worth it, add separate method without cudaSetDevice
-    // Allows for testing without any changes to other projects 
-    assert(gpu_id == 0); 
-#endif
     alloc.deallocate(device_side_buffer,
                                                   number_of_elements);
   }
