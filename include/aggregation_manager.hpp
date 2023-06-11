@@ -565,7 +565,8 @@ public:
           // get prefered location: aka the current hpx threads location
           // Usually handy for CPU builds where we want to use the buffers
           // close to the current CPU core
-          location_id = hpx::get_worker_thread_num();
+          location_id = (hpx::get_worker_thread_num() / instances_per_gpu) * instances_per_gpu;
+          // division makes sure that we always use the same instance to store our gpu buffers.
         }
 #endif
         // Get shiny and new buffer that will be shared between all slices
