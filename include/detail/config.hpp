@@ -53,7 +53,7 @@ static_assert(number_instances > 0);
 constexpr size_t instances_per_gpu = number_instances / max_number_gpus;
 
 /// Uses HPX thread information to determine which GPU should be used
-size_t get_device_id(void) {
+inline size_t get_device_id(void) {
 #if defined(CPPUDDLE_HAVE_HPX) 
     return hpx::get_worker_thread_num() / instances_per_gpu; 
 #else
