@@ -19,14 +19,12 @@ namespace detail {
 
 
 
-template <class T, bool auto_select_device = true> struct cuda_pinned_allocator {
+template <class T> struct cuda_pinned_allocator {
   using value_type = T;
   cuda_pinned_allocator() noexcept = default;
   template <class U>
   explicit cuda_pinned_allocator(cuda_pinned_allocator<U> const &) noexcept {}
   T *allocate(std::size_t n) {
-    if constexpr (auto_select_device)
-      cudaSetDevice(get_device_id());
     T *data;
     cudaError_t error =
         cudaMallocHost(reinterpret_cast<void **>(&data), n * sizeof(T));
@@ -62,14 +60,12 @@ constexpr bool operator!=(cuda_pinned_allocator<T> const &,
   return false;
 }
 
-template <class T, bool auto_select_device = true> struct cuda_device_allocator {
+template <class T> struct cuda_device_allocator {
   using value_type = T;
   cuda_device_allocator() noexcept = default;
   template <class U>
   explicit cuda_device_allocator(cuda_device_allocator<U> const &) noexcept {}
   T *allocate(std::size_t n) {
-    if constexpr (auto_select_device)
-      cudaSetDevice(get_device_id());
     T *data;
     cudaError_t error = cudaMalloc(&data, n * sizeof(T));
     if (error != cudaSuccess) {
@@ -92,26 +88,26 @@ template <class T, bool auto_select_device = true> struct cuda_device_allocator 
     }
   }
 };
-template <class T, class U, bool auto_select_T, bool auto_select_U>
-constexpr bool operator==(cuda_device_allocator<T, auto_select_T> const &,
-                          cuda_device_allocator<U, auto_select_U> const &) noexcept {
+template <class T, class U>
+constexpr bool operator==(cuda_device_allocator<T> const &,
+                          cuda_device_allocator<U> const &) noexcept {
   return true;
 }
-template <class T, class U, bool auto_select_T, bool auto_select_U>
-constexpr bool operator!=(cuda_device_allocator<T, auto_select_T> const &,
-                          cuda_device_allocator<U, auto_select_U> const &) noexcept {
+template <class T, class U>
+constexpr bool operator!=(cuda_device_allocator<T> const &,
+                          cuda_device_allocator<U> const &) noexcept {
   return false;
 }
 
 
 } // end namespace detail
 
-template <typename T, bool auto_select_device = true, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
+template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_cuda_host =
-    detail::aggressive_recycle_allocator<T, detail::cuda_pinned_allocator<T, auto_select_device>>;
-template <typename T, bool auto_select_device = true,  std::enable_if_t<std::is_trivial<T>::value, int> = 0>
+    detail::aggressive_recycle_allocator<T, detail::cuda_pinned_allocator<T>>;
+template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_cuda_device =
-    detail::recycle_allocator<T, detail::cuda_device_allocator<T, auto_select_device>>;
+    detail::recycle_allocator<T, detail::cuda_device_allocator<T>>;
 
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 struct cuda_device_buffer {
