@@ -42,10 +42,25 @@ For better performance configure CPPuddle with CPPUDDLE_WITH_HPX_AWARE_ALLOCATOR
 #include "../include/detail/config.hpp"
 
 namespace recycler {
+
+namespace device_selection {
+template <typename T, typename Allocator> struct select_device_functor {
+  void operator()(const size_t device_id) {
+    if constexpr (max_number_gpus > 1)
+      throw std::runtime_error(
+          "Allocators used in Multi-GPU builds need explicit Multi-GPU support "
+          "(by having a select_device_functor overload");
+  }
+};
+template <typename T> struct select_device_functor<T, std::allocator<T>> {
+  void operator()(const size_t device_id) {}
+};
+} // namespace device_selection
+
 namespace detail {
 
+
 class buffer_recycler {
-  // Public interface
 public:
 #if defined(CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING)
 
@@ -239,6 +254,7 @@ private:
 
       // No unused buffer found -> Create new one and return it
       try {
+        recycler::device_selection::select_device_functor<T, Host_Allocator>{}(location_id / number_instances); 
         Host_Allocator alloc;
         T *buffer = alloc.allocate(number_of_elements);
         instance()[location_id].buffer_map.insert(

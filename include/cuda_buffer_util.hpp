@@ -17,6 +17,8 @@ namespace recycler {
 
 namespace detail {
 
+
+
 template <class T, bool auto_select_device = true> struct cuda_pinned_allocator {
   using value_type = T;
   cuda_pinned_allocator() noexcept = default;
@@ -48,6 +50,7 @@ template <class T, bool auto_select_device = true> struct cuda_pinned_allocator 
     }
   }
 };
+
 template <class T, class U>
 constexpr bool operator==(cuda_pinned_allocator<T> const &,
                           cuda_pinned_allocator<U> const &) noexcept {
@@ -99,6 +102,7 @@ constexpr bool operator!=(cuda_device_allocator<T, auto_select_T> const &,
                           cuda_device_allocator<U, auto_select_U> const &) noexcept {
   return false;
 }
+
 
 } // end namespace detail
 
@@ -171,6 +175,17 @@ private:
   bool set_id{false};
   Host_Allocator &alloc;
 };
+
+namespace device_selection {
+template <typename T>
+struct select_device_functor<T, detail::cuda_pinned_allocator<T>> {
+  void operator()(const size_t device_id) { cudaSetDevice(get_device_id()); }
+};
+template <typename T>
+struct select_device_functor<T, detail::cuda_device_allocator<T>> {
+  void operator()(const size_t device_id) { cudaSetDevice(get_device_id()); }
+};
+} // namespace device_selection
 
 } // end namespace recycler
 #endif
