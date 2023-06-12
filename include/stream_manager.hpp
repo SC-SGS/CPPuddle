@@ -107,114 +107,6 @@ public:
   }
 };
 
-template <class Interface, class Pool> class multi_gpu_round_robin_pool {
-private:
-  using gpu_entry = std::tuple<Pool, size_t>; // interface, ref counter
-  std::deque<gpu_entry> pool{};
-  size_t current_interface{0};
-  size_t streams_per_gpu{0};
-
-public:
-  template <typename... Ts>
-  multi_gpu_round_robin_pool(size_t number_of_streams, int number_of_gpus,
-                             Ts... executor_args)
-      : streams_per_gpu{number_of_streams} {
-    for (auto gpu_id = 0; gpu_id < number_of_gpus; gpu_id++) {
-      pool.push_back(std::make_tuple(
-          Pool(number_of_streams, gpu_id, executor_args...),
-          0));
-    }
-  }
-
-  // return a tuple with the interface and its index (to release it later)
-  std::tuple<Interface &, size_t> get_interface() {
-    size_t last_interface = current_interface;
-    current_interface = (current_interface + 1) % pool.size();
-    std::get<1>(pool[last_interface])++;
-    size_t gpu_offset = last_interface * streams_per_gpu;
-    std::tuple<Interface &, size_t> stream_entry =
-        std::get<0>(pool[last_interface]).get_interface();
-    std::get<1>(stream_entry) += gpu_offset;
-    return stream_entry;
-  }
-  void release_interface(size_t index) {
-    size_t gpu_index = index / streams_per_gpu;
-    size_t stream_index = index % streams_per_gpu;
-    std::get<1>(pool[gpu_index])--;
-    std::get<0>(pool[gpu_index]).release_interface(stream_index);
-  }
-  bool interface_available(size_t load_limit) {
-    auto &current_min_gpu = std::get<0>(*(std::min_element(
-        std::begin(pool), std::end(pool),
-        [](const gpu_entry &first, const gpu_entry &second) -> bool {
-          return std::get<1>(first) < std::get<1>(second);
-        })));
-    return current_min_gpu.interface_available(load_limit);
-  }
-  size_t get_current_load() {
-    auto &current_min_gpu = std::get<0>(*(std::min_element(
-        std::begin(pool), std::end(pool),
-        [](const gpu_entry &first, const gpu_entry &second) -> bool {
-          return std::get<1>(first) < std::get<1>(second);
-        })));
-    return current_min_gpu.get_current_load();
-  }
-  size_t get_next_device_id() { return current_interface; }
-};
-
-template <class Interface, class Pool> class priority_pool_multi_gpu {
-private:
-  std::vector<size_t> priorities{};
-  std::vector<size_t> ref_counters{};
-  std::deque<Pool> gpu_interfaces{};
-  size_t streams_per_gpu{0};
-
-public:
-  template <typename... Ts>
-  priority_pool_multi_gpu(size_t number_of_streams, int number_of_gpus,
-                          Ts... executor_args)
-      : streams_per_gpu(number_of_streams) {
-    ref_counters.reserve(number_of_gpus);
-    priorities.reserve(number_of_gpus);
-    for (auto gpu_id = 0; gpu_id < number_of_gpus; gpu_id++) {
-      priorities.emplace_back(gpu_id);
-      ref_counters.emplace_back(0);
-      gpu_interfaces.emplace_back(streams_per_gpu, gpu_id,
-                                  executor_args...);
-    }
-  }
-  // return a tuple with the interface and its index (to release it later)
-  std::tuple<Interface &, size_t> get_interface() {
-    auto gpu = priorities[0];
-    ref_counters[gpu]++;
-    std::make_heap(std::begin(priorities), std::end(priorities),
-                   [this](const size_t &first, const size_t &second) -> bool {
-                     return ref_counters[first] > ref_counters[second];
-                   });
-    size_t gpu_offset = gpu * streams_per_gpu;
-    auto stream_entry = gpu_interfaces[gpu].get_interface();
-    std::get<1>(stream_entry) += gpu_offset;
-    return stream_entry;
-  }
-  void release_interface(size_t index) {
-    size_t gpu_index = index / streams_per_gpu;
-    size_t stream_index = index % streams_per_gpu;
-    ref_counters[gpu_index]--;
-    std::make_heap(std::begin(priorities), std::end(priorities),
-                   [this](const size_t &first, const size_t &second) -> bool {
-                     return ref_counters[first] > ref_counters[second];
-                   });
-    gpu_interfaces[gpu_index].release_interface(stream_index);
-  }
-  bool interface_available(size_t load_limit) {
-    return gpu_interfaces[priorities[0]].interface_available(load_limit);
-  }
-  size_t get_current_load() {
-    return gpu_interfaces[priorities[0]].get_current_load();
-  }
-  size_t get_next_device_id() { return priorities[0]; }
-};
-
 /// Access/Concurrency Control for stream pool implementation
 class stream_pool {
 public:
@@ -262,8 +154,18 @@ private:
 private:
   template <class Interface, class Pool> class stream_pool_implementation {
   public:
+    /// Deprecated! Use init_on_all_gpu or init_on_gpu
     template <typename... Ts>
     static void init(size_t number_of_streams, Ts ... executor_args) {
+      static_assert(max_number_gpus == 1, "deprecated stream_pool::init does not support multigpu");
+      auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
+          instance().streampools.emplace_back(number_of_streams,
+                                              executor_args...);
+    }
+
+    /// Multi-GPU init where executors / interfaces on all GPUs are initialized with the same arguments
+    template <typename... Ts>
+    static void init_on_all_gpus(size_t number_of_streams, Ts ... executor_args) {
       auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
       if (number_of_streams > 0) {
         for (size_t gpu_id = 0; gpu_id < max_number_gpus; gpu_id++) {
@@ -274,36 +176,55 @@ private:
       }
     }
 
+    /// Per-GPU init allowing for different init parameters depending on the GPU 
+    /// (useful for executor that expect an GPU-id during construction)
+    template <typename... Ts>
+    static void init_on_gpu(size_t gpu_id, size_t number_of_streams, Ts ... executor_args) {
+      auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
+      if (number_of_streams > 0) {
+        instance().select_gpu_function(gpu_id);
+        instance().streampools.emplace_back(number_of_streams, 
+                                            executor_args...);
+      }
+    }
+
     // TODO add/rename into finalize?
     static void cleanup() {
       auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
+      assert(instance().streampools.size() == max_number_gpus);
       instance().streampools.clear();
     }
 
     static std::tuple<Interface &, size_t> get_interface(const size_t gpu_id = 0) {
       std::lock_guard<mutex_t> guard(instance().gpu_mutexes[gpu_id]);
+      assert(instance().streampools.size() == max_number_gpus);
       return instance().streampools[gpu_id].get_interface();
     }
     static void release_interface(size_t index, const size_t gpu_id = 0) {
       std::lock_guard<mutex_t> guard(instance().gpu_mutexes[gpu_id]);
+      assert(instance().streampools.size() == max_number_gpus);
       instance().streampools[gpu_id].release_interface(index);
     }
     static bool interface_available(size_t load_limit, const size_t gpu_id = 0) {
       std::lock_guard<mutex_t> guard(instance().gpu_mutexes[gpu_id]);
+      assert(instance().streampools.size() == max_number_gpus);
       return instance().streampools[gpu_id].interface_available(load_limit);
     }
     static size_t get_current_load(const size_t gpu_id = 0) {
       std::lock_guard<mutex_t> guard(instance().gpu_mutexes[gpu_id]);
+      assert(instance().streampools.size() == max_number_gpus);
       return instance().streampools[gpu_id].get_current_load();
     }
     // TODO deprecated! Remove...
     static size_t get_next_device_id(const size_t gpu_id = 0) {
       std::lock_guard<mutex_t> guard(instance().gpu_mutexes[gpu_id]);
+      assert(instance().streampools.size() == max_number_gpus);
       return instance().streampools[gpu_id].get_next_device_id();
     }
 
     static size_t set_device_selector(std::function<void(size_t)> select_gpu_function) {
       auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
+      assert(instance().streampools.size() == max_number_gpus);
       return instance().select_gpu_function = select_gpu_function;
     }
 
