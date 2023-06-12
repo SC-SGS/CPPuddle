@@ -559,7 +559,7 @@ public:
 
         // Default location -- useful for GPU builds as we otherwise create way too
         // many different buffers for different aggregation sizes on different GPUs
-        size_t location_id = 0;
+        size_t location_id = (hpx::get_worker_thread_num() / instances_per_gpu) * instances_per_gpu;
 #ifdef CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS
         if (max_slices == 1) {
           // get prefered location: aka the current hpx threads location
