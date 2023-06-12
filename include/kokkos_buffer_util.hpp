@@ -80,7 +80,7 @@ public:
 template <typename kokkos_type, typename alloc_type, typename element_type>
 class recycled_view : public kokkos_type {
 private:
-  static alloc_type allocator;
+  alloc_type allocator;
   size_t total_elements{0};
   std::shared_ptr<element_type> data_ref_counter;
 
@@ -91,6 +91,28 @@ public:
       : kokkos_type(
             allocator.allocate(kokkos_type::required_allocation_size(args...) /
                                sizeof(element_type)),
+            args...),
+        total_elements(kokkos_type::required_allocation_size(args...) /
+                       sizeof(element_type)),
+        data_ref_counter(this->data(), view_deleter<element_type, alloc_type>(
+                                           allocator, total_elements)) {}
+
+  template <class... Args>
+  explicit recycled_view(std::size_t location_id, alloc_type alloc, Args... args)
+      : allocator(alloc), kokkos_type(
+            allocator.allocate(kokkos_type::required_allocation_size(args...) /
+                               sizeof(element_type), location_id),
+            args...),
+        total_elements(kokkos_type::required_allocation_size(args...) /
+                       sizeof(element_type)),
+        data_ref_counter(this->data(), view_deleter<element_type, alloc_type>(
+                                           allocator, total_elements)) {}
+
+  template <bool use_custom_location_id, class... Args>
+  explicit recycled_view(std::size_t location_id, alloc_type alloc, Args... args)
+      : allocator(alloc), kokkos_type(
+            allocator.allocate(kokkos_type::required_allocation_size(args...) /
+                               sizeof(element_type), location_id),
             args...),
         total_elements(kokkos_type::required_allocation_size(args...) /
                        sizeof(element_type)),
@@ -110,7 +132,6 @@ public:
     data_ref_counter = other.data_ref_counter;
     kokkos_type::operator=(other);
     total_elements = other.total_elements;
-    allocator.increase_usage_counter(other.data(), other.total_elements);
     return *this;
   }
 
@@ -132,8 +153,8 @@ public:
   ~recycled_view() {  }
 };
 
-template <class kokkos_type, class alloc_type, class element_type>
-alloc_type recycled_view<kokkos_type, alloc_type, element_type>::allocator;
+/* template <class kokkos_type, class alloc_type, class element_type> */
+/* alloc_type recycled_view<kokkos_type, alloc_type, element_type>::allocator; */
 
 } // end namespace recycler
 

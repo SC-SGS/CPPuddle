@@ -515,6 +515,12 @@ template <typename T, typename Host_Allocator> struct recycle_allocator {
     T *data = buffer_recycler::get<T, Host_Allocator>(n);
     return data;
   }
+  T *allocate(std::size_t n, std::size_t location_id) {
+    assert(location_id == 0);
+    T *data = buffer_recycler::get<T, Host_Allocator>(
+        n, true, location_id); // also initializes the buffer if it isn't reused
+    return data;
+  }
   void deallocate(T *p, std::size_t n) {
     buffer_recycler::mark_unused<T, Host_Allocator>(p, n);
   }
@@ -529,6 +535,13 @@ template <typename T, typename Host_Allocator> struct recycle_allocator {
   T *allocate(std::size_t n) {
     T *data = buffer_recycler::get<T, Host_Allocator>(
         n, false, hpx::get_worker_thread_num());
+    return data;
+  }
+  T *allocate(std::size_t n, std::size_t location_id) {
+    assert(location_id >= 0 && location_id < number_instances);
+    T *data = buffer_recycler::get<T, Host_Allocator>(
+        n, true, location_id); // also initializes the buffer
+                                                // if it isn't reused
     return data;
   }
   void deallocate(T *p, std::size_t n) {
@@ -580,6 +593,12 @@ struct aggressive_recycle_allocator {
         n, true); // also initializes the buffer if it isn't reused
     return data;
   }
+  T *allocate(std::size_t n, std::size_t location_id) {
+    assert(location_id == 0);
+    T *data = buffer_recycler::get<T, Host_Allocator>(
+        n, true, location_id); // also initializes the buffer if it isn't reused
+    return data;
+  }
   void deallocate(T *p, std::size_t n) {
     buffer_recycler::mark_unused<T, Host_Allocator>(p, n);
   }
@@ -594,6 +613,13 @@ struct aggressive_recycle_allocator {
   T *allocate(std::size_t n) {
     T *data = buffer_recycler::get<T, Host_Allocator>(
         n, true, hpx::get_worker_thread_num()); // also initializes the buffer
+                                                // if it isn't reused
+    return data;
+  }
+  T *allocate(std::size_t n, std::size_t location_id) {
+    assert(location_id >= 0 && location_id < number_instances);
+    T *data = buffer_recycler::get<T, Host_Allocator>(
+        n, true, location_id); // also initializes the buffer
                                                 // if it isn't reused
     return data;
   }
