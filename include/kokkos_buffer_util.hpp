@@ -7,6 +7,8 @@
 #define KOKKOS_BUFFER_UTIL_HPP
 #include <Kokkos_Core.hpp>
 #include <memory>
+#include <buffer_manager.hpp>
+#include <type_traits>
 
 namespace recycler {
 
@@ -86,8 +88,10 @@ private:
 
 public:
   using view_type = kokkos_type;
-  template <class... Args>
-  explicit recycled_view(Args... args)
+  static_assert(std::is_same_v<element_type, typename alloc_type::value_type>);
+  template <typename... Args,
+            std::enable_if_t<sizeof...(Args) == kokkos_type::rank, bool> = true>
+  recycled_view(Args... args)
       : kokkos_type(
             allocator.allocate(kokkos_type::required_allocation_size(args...) /
                                sizeof(element_type)),
@@ -97,24 +101,33 @@ public:
         data_ref_counter(this->data(), view_deleter<element_type, alloc_type>(
                                            allocator, total_elements)) {}
 
-  template <class... Args>
-  explicit recycled_view(std::size_t location_id, alloc_type alloc, Args... args)
-      : allocator(alloc), kokkos_type(
-            allocator.allocate(kokkos_type::required_allocation_size(args...) /
-                               sizeof(element_type), location_id),
+  template <typename... Args,
+            std::enable_if_t<sizeof...(Args) == kokkos_type::rank, bool> = true>
+  recycled_view(std::size_t location_id, Args... args)
+      : kokkos_type(
+            detail::buffer_recycler::get<
+                element_type, typename alloc_type::underlying_allocator_type>(
+                kokkos_type::required_allocation_size(args...) /
+                    sizeof(element_type),
+                false, location_id),
             args...),
         total_elements(kokkos_type::required_allocation_size(args...) /
                        sizeof(element_type)),
         data_ref_counter(this->data(), view_deleter<element_type, alloc_type>(
                                            allocator, total_elements)) {}
 
-  template <bool use_custom_location_id, class... Args>
-  explicit recycled_view(std::size_t location_id, alloc_type alloc, Args... args)
-      : allocator(alloc), kokkos_type(
-            allocator.allocate(kokkos_type::required_allocation_size(args...) /
-                               sizeof(element_type), location_id),
-            args...),
-        total_elements(kokkos_type::required_allocation_size(args...) /
+  template <
+      typename layout_t,
+      std::enable_if_t<Kokkos::is_array_layout<layout_t>::value, bool> = true>
+  recycled_view(std::size_t location_id, layout_t layout)
+      : kokkos_type(
+            detail::buffer_recycler::get<
+                element_type, typename alloc_type::underlying_allocator_type>(
+                kokkos_type::required_allocation_size(layout) /
+                    sizeof(element_type),
+                false, location_id),
+            layout),
+        total_elements(kokkos_type::required_allocation_size(layout) /
                        sizeof(element_type)),
         data_ref_counter(this->data(), view_deleter<element_type, alloc_type>(
                                            allocator, total_elements)) {}
@@ -153,8 +166,6 @@ public:
   ~recycled_view() {  }
 };
 
-/* template <class kokkos_type, class alloc_type, class element_type> */
-/* alloc_type recycled_view<kokkos_type, alloc_type, element_type>::allocator; */
 
 } // end namespace recycler
 

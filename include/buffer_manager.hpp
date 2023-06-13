@@ -501,6 +501,8 @@ public:
 
 template <typename T, typename Host_Allocator> struct recycle_allocator {
   using value_type = T;
+  using underlying_allocator_type = Host_Allocator;
+  static_assert(std::is_same_v<value_type, typename underlying_allocator_type::value_type>);
   const std::optional<size_t> dealloc_hint;
 
 #ifndef CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS
@@ -513,12 +515,6 @@ template <typename T, typename Host_Allocator> struct recycle_allocator {
       : dealloc_hint(std::nullopt) {}
   T *allocate(std::size_t n) {
     T *data = buffer_recycler::get<T, Host_Allocator>(n);
-    return data;
-  }
-  T *allocate(std::size_t n, std::size_t location_id) {
-    assert(location_id == 0);
-    T *data = buffer_recycler::get<T, Host_Allocator>(
-        n, true, location_id); // also initializes the buffer if it isn't reused
     return data;
   }
   void deallocate(T *p, std::size_t n) {
@@ -535,13 +531,6 @@ template <typename T, typename Host_Allocator> struct recycle_allocator {
   T *allocate(std::size_t n) {
     T *data = buffer_recycler::get<T, Host_Allocator>(
         n, false, hpx::get_worker_thread_num());
-    return data;
-  }
-  T *allocate(std::size_t n, std::size_t location_id) {
-    assert(location_id >= 0 && location_id < number_instances);
-    T *data = buffer_recycler::get<T, Host_Allocator>(
-        n, true, location_id); // also initializes the buffer
-                                                // if it isn't reused
     return data;
   }
   void deallocate(T *p, std::size_t n) {
@@ -578,6 +567,8 @@ operator!=(recycle_allocator<T, Host_Allocator> const &,
 template <typename T, typename Host_Allocator>
 struct aggressive_recycle_allocator {
   using value_type = T;
+  using underlying_allocator_type = Host_Allocator;
+  static_assert(std::is_same_v<value_type, typename underlying_allocator_type::value_type>);
   std::optional<size_t> dealloc_hint;
 
 #ifndef CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS
@@ -591,12 +582,6 @@ struct aggressive_recycle_allocator {
   T *allocate(std::size_t n) {
     T *data = buffer_recycler::get<T, Host_Allocator>(
         n, true); // also initializes the buffer if it isn't reused
-    return data;
-  }
-  T *allocate(std::size_t n, std::size_t location_id) {
-    assert(location_id == 0);
-    T *data = buffer_recycler::get<T, Host_Allocator>(
-        n, true, location_id); // also initializes the buffer if it isn't reused
     return data;
   }
   void deallocate(T *p, std::size_t n) {
@@ -613,13 +598,6 @@ struct aggressive_recycle_allocator {
   T *allocate(std::size_t n) {
     T *data = buffer_recycler::get<T, Host_Allocator>(
         n, true, hpx::get_worker_thread_num()); // also initializes the buffer
-                                                // if it isn't reused
-    return data;
-  }
-  T *allocate(std::size_t n, std::size_t location_id) {
-    assert(location_id >= 0 && location_id < number_instances);
-    T *data = buffer_recycler::get<T, Host_Allocator>(
-        n, true, location_id); // also initializes the buffer
                                                 // if it isn't reused
     return data;
   }
