@@ -165,7 +165,7 @@ private:
 
     /// Multi-GPU init where executors / interfaces on all GPUs are initialized with the same arguments
     template <typename... Ts>
-    static void init_on_all_gpus(size_t number_of_streams, Ts ... executor_args) {
+    static void init_all_executor_pools(size_t number_of_streams, Ts ... executor_args) {
       auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
       if (number_of_streams > 0) {
         for (size_t gpu_id = 0; gpu_id < max_number_gpus; gpu_id++) {
@@ -179,7 +179,7 @@ private:
     /// Per-GPU init allowing for different init parameters depending on the GPU 
     /// (useful for executor that expect an GPU-id during construction)
     template <typename... Ts>
-    static void init_on_gpu(size_t gpu_id, size_t number_of_streams, Ts ... executor_args) {
+    static void init_executor_pool(size_t gpu_id, size_t number_of_streams, Ts ... executor_args) {
       auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
       if (number_of_streams > 0) {
         instance().select_gpu_function(gpu_id);
