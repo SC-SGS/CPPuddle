@@ -44,6 +44,7 @@ public:
   }
   // return a tuple with the interface and its index (to release it later)
   std::tuple<Interface &, size_t> get_interface() {
+    assert(!(pool.empty())); 
     size_t last_interface = current_interface;
     current_interface = (current_interface + 1) % pool.size();
     ref_counters[last_interface]++;
@@ -114,18 +115,28 @@ public:
   static void init(size_t number_of_streams, Ts ... executor_args) {
     stream_pool_implementation<Interface, Pool>::init(number_of_streams,
                                                       executor_args...);
-}
+  }
+  template <class Interface, class Pool, typename... Ts>
+  static void init_all_executor_pools(size_t number_of_streams, Ts ... executor_args) {
+    stream_pool_implementation<Interface, Pool>::init_all_executor_pools(number_of_streams,
+                                                      executor_args...);
+  }
+  template <class Interface, class Pool, typename... Ts>
+  static void init_executor_pool(size_t pool_id, size_t number_of_streams, Ts ... executor_args) {
+    stream_pool_implementation<Interface, Pool>::init_executor_pool(pool_id, number_of_streams,
+                                                      executor_args...);
+  }
   template <class Interface, class Pool> static void cleanup() {
     stream_pool_implementation<Interface, Pool>::cleanup();
   }
   template <class Interface, class Pool>
-  static std::tuple<Interface &, size_t> get_interface() {
-    return stream_pool_implementation<Interface, Pool>::get_interface(get_device_id());
+  static std::tuple<Interface &, size_t> get_interface(const size_t gpu_id = get_device_id()) {
+    return stream_pool_implementation<Interface, Pool>::get_interface(gpu_id);
   }
   template <class Interface, class Pool>
-  static void release_interface(size_t index) noexcept {
+  static void release_interface(size_t index, const size_t gpu_id = get_device_id()) noexcept {
     stream_pool_implementation<Interface, Pool>::release_interface(index,
-        get_device_id());
+        gpu_id);
   }
   template <class Interface, class Pool>
   static bool interface_available(size_t load_limit) noexcept {
@@ -144,8 +155,8 @@ public:
   }
 
   template <class Interface, class Pool>
-  static size_t set_device_selector(std::function<void(size_t)> select_gpu_function) {
-    return stream_pool_implementation<Interface, Pool>::set_device_selector(select_gpu_function);
+  static void set_device_selector(std::function<void(size_t)> select_gpu_function) {
+    stream_pool_implementation<Interface, Pool>::set_device_selector(select_gpu_function);
   }
 
 private:
@@ -157,10 +168,10 @@ private:
     /// Deprecated! Use init_on_all_gpu or init_on_gpu
     template <typename... Ts>
     static void init(size_t number_of_streams, Ts ... executor_args) {
-      static_assert(max_number_gpus == 1, "deprecated stream_pool::init does not support multigpu");
+      /* static_assert(sizeof...(Ts) == sizeof...(Ts) && max_number_gpus == 1, */
+      /*               "deprecated stream_pool::init does not support multigpu"); */
       auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
-          instance().streampools.emplace_back(number_of_streams,
-                                              executor_args...);
+      instance().streampools.emplace_back(number_of_streams, executor_args...);
     }
 
     /// Multi-GPU init where executors / interfaces on all GPUs are initialized with the same arguments
@@ -222,10 +233,10 @@ private:
       return instance().streampools[gpu_id].get_next_device_id();
     }
 
-    static size_t set_device_selector(std::function<void(size_t)> select_gpu_function) {
+    static void set_device_selector(std::function<void(size_t)> select_gpu_function) {
       auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
       assert(instance().streampools.size() == max_number_gpus);
-      return instance().select_gpu_function = select_gpu_function;
+      instance().select_gpu_function = select_gpu_function;
     }
 
   private:
@@ -289,8 +300,6 @@ public:
   inline decltype(auto) async_execute(F &&f, Ts &&... ts) {
     return interface.async_execute(std::forward<F>(f), std::forward<Ts>(ts)...);
   }
-
-  inline size_t get_gpu_id() noexcept { return interface.get_gpu_id(); }
 
   // allow implict conversion
   operator Interface &() { // NOLINT

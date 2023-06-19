@@ -389,6 +389,7 @@ private:
   Executor &executor;
 
 public:
+  size_t gpu_id;
   // Subclasses
 
   /// Slice class - meant as a scope interface to the aggregated executor
@@ -559,13 +560,14 @@ public:
 
         // Default location -- useful for GPU builds as we otherwise create way too
         // many different buffers for different aggregation sizes on different GPUs
-        size_t location_id = (hpx::get_worker_thread_num() / instances_per_gpu) * instances_per_gpu;
+        size_t location_id = gpu_id * instances_per_gpu;
 #ifdef CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS
         if (max_slices == 1) {
           // get prefered location: aka the current hpx threads location
           // Usually handy for CPU builds where we want to use the buffers
           // close to the current CPU core
-          location_id = (hpx::get_worker_thread_num() / instances_per_gpu) * instances_per_gpu;
+          /* location_id = (hpx::get_worker_thread_num() / instances_per_gpu) * instances_per_gpu; */
+          location_id = (gpu_id) * instances_per_gpu;
           // division makes sure that we always use the same instance to store our gpu buffers.
         }
 #endif
@@ -914,11 +916,11 @@ public:
   }
 
   Aggregated_Executor(const size_t number_slices,
-                      Aggregated_Executor_Modes mode)
+                      Aggregated_Executor_Modes mode, const size_t gpu_id)
       : max_slices(number_slices), current_slices(0), slices_exhausted(false),dealloc_counter(0),
-        mode(mode), executor_slices_alive(false), buffers_in_use(false),
+        mode(mode), executor_slices_alive(false), buffers_in_use(false), gpu_id(gpu_id),
         executor_tuple(
-            stream_pool::get_interface<Executor, round_robin_pool<Executor>>()),
+            stream_pool::get_interface<Executor, round_robin_pool<Executor>>(gpu_id)),
         executor(std::get<0>(executor_tuple)),
         current_continuation(hpx::make_ready_future()),
         last_stream_launch_done(hpx::make_ready_future()) {}
@@ -1009,20 +1011,22 @@ public:
   template <typename... Ts>
   static void init(size_t number_of_executors, size_t slices_per_executor,
                    Aggregated_Executor_Modes mode) {
-    const size_t gpu_id = get_device_id();
-    std::lock_guard<aggregation_mutex_t> guard(instance()[gpu_id].pool_mutex);
-    assert(instance()[gpu_id].aggregation_executor_pool.empty());
-    for (int i = 0; i < number_of_executors; i++) {
-      instance()[gpu_id].aggregation_executor_pool.emplace_back(slices_per_executor,
-                                                      mode);
+    for (size_t gpu_id = 0; gpu_id < max_number_gpus; gpu_id++) {
+      std::lock_guard<aggregation_mutex_t> guard(instance()[gpu_id].pool_mutex);
+      assert(instance()[gpu_id].aggregation_executor_pool.empty());
+      for (int i = 0; i < number_of_executors; i++) {
+        instance()[gpu_id].aggregation_executor_pool.emplace_back(slices_per_executor,
+                                                        mode, gpu_id);
+      }
+      instance()[gpu_id].slices_per_executor = slices_per_executor;
+      instance()[gpu_id].mode = mode;
     }
-    instance()[gpu_id].slices_per_executor = slices_per_executor;
-    instance()[gpu_id].mode = mode;
   }
 
   /// Will always return a valid executor slice
   static decltype(auto) request_executor_slice(void) {
     const size_t gpu_id = get_device_id();
+    /* const size_t gpu_id = 1; */
     std::lock_guard<aggregation_mutex_t> guard(instance()[gpu_id].pool_mutex);
     assert(!instance()[gpu_id].aggregation_executor_pool.empty());
     std::optional<hpx::lcos::future<
@@ -1052,7 +1056,7 @@ public:
     // return empty optional
     if (instance()[gpu_id].growing_pool) {
       instance()[gpu_id].aggregation_executor_pool.emplace_back(
-          instance()[gpu_id].slices_per_executor, instance()[gpu_id].mode);
+          instance()[gpu_id].slices_per_executor, instance()[gpu_id].mode, gpu_id);
       instance()[gpu_id].current_interface =
           instance()[gpu_id].aggregation_executor_pool.size() - 1;
       assert(instance()[gpu_id].aggregation_executor_pool.size() < 20480);

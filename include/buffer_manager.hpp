@@ -254,7 +254,8 @@ private:
 
       // No unused buffer found -> Create new one and return it
       try {
-        recycler::device_selection::select_device_functor<T, Host_Allocator>{}(location_id / number_instances); 
+        recycler::device_selection::select_device_functor<T, Host_Allocator>{}(
+            location_id / instances_per_gpu);
         Host_Allocator alloc;
         T *buffer = alloc.allocate(number_of_elements);
         instance()[location_id].buffer_map.insert(
@@ -278,6 +279,8 @@ private:
         // If there still isn't enough memory left, the caller has to handle it
         // We've done all we can in here
         Host_Allocator alloc;
+        recycler::device_selection::select_device_functor<T, Host_Allocator>{}(
+            location_id / instances_per_gpu);
         T *buffer = alloc.allocate(number_of_elements);
         instance()[location_id].buffer_map.insert(
             {buffer, std::make_tuple(buffer, number_of_elements, 1,

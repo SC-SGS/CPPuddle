@@ -175,11 +175,11 @@ private:
 namespace device_selection {
 template <typename T>
 struct select_device_functor<T, detail::cuda_pinned_allocator<T>> {
-  void operator()(const size_t device_id) { cudaSetDevice(get_device_id()); }
+  void operator()(const size_t device_id) { cudaSetDevice(device_id); }
 };
 template <typename T>
 struct select_device_functor<T, detail::cuda_device_allocator<T>> {
-  void operator()(const size_t device_id) { cudaSetDevice(get_device_id()); }
+  void operator()(const size_t device_id) { cudaSetDevice(device_id); }
 };
 } // namespace device_selection
 
