@@ -10,8 +10,8 @@
 //
 #if defined(CPPUDDLE_HAVE_HPX) && defined(CPPUDDLE_HAVE_HPX_MUTEX)
 #include <hpx/mutex.hpp>
-using mutex_t = hpx::spinlock;
-using aggregation_mutex_t = hpx::spinlock;
+using mutex_t = hpx::spinlock_no_backoff;
+using aggregation_mutex_t = hpx::spinlock_no_backoff;
 #else
 #include <mutex>
 using mutex_t = std::mutex;
