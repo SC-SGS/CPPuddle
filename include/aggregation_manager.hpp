@@ -816,6 +816,7 @@ public:
           // Fallback launch condidtion: Launch as soon as the underlying stream
           // is ready
           /* auto slices_full_fut = slices_full_promise.get_future(); */
+          stream_pool::select_device<Executor, round_robin_pool<Executor>>(gpu_id);
           auto exec_fut = executor.get_future(); 
           /* fut = hpx::when_any(exec_fut, slices_full_fut); */
           fut = std::move(exec_fut);

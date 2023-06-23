@@ -159,6 +159,11 @@ public:
     stream_pool_implementation<Interface, Pool>::set_device_selector(select_gpu_function);
   }
 
+  template <class Interface, class Pool>
+  static void select_device(size_t gpu_id) {
+    stream_pool_implementation<Interface, Pool>::select_device(gpu_id);
+  }
+
 private:
   stream_pool() = default;
 
@@ -237,6 +242,10 @@ private:
       auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
       assert(instance().streampools.size() == max_number_gpus);
       instance().select_gpu_function = select_gpu_function;
+    }
+
+    static void select_device(size_t gpu_id) {
+      instance().select_gpu_function(gpu_id);
     }
 
   private:
