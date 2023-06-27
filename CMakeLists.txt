@@ -33,7 +33,7 @@ set(CPPUDDLE_WITH_MAX_NUMBER_WORKERS "128" CACHE STRING "Max number of workers t
 # Test-related options
 option(CPPUDDLE_WITH_COUNTERS "Turns on allocations counters. Useful for extended testing" OFF)
 option(CPPUDDLE_WITH_TESTS "Build tests/examples" OFF)
-set(CPPUDDLE_WITH_DEADLOCK_TEST_REPETITONS "10000" CACHE STRING "Number of repetitions for the aggregation executor deadlock tests")
+set(CPPUDDLE_WITH_DEADLOCK_TEST_REPETITONS "100000" CACHE STRING "Number of repetitions for the aggregation executor deadlock tests")
 option(CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING "Deactivates the default recycling behaviour" OFF)
 option(CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS "Deactivates the aggressive allocators" OFF)
 # Tooling options
