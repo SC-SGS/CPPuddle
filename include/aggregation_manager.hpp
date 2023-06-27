@@ -917,7 +917,7 @@ public:
   }
 
   Aggregated_Executor(const size_t number_slices,
-                      Aggregated_Executor_Modes mode, const size_t gpu_id)
+                      Aggregated_Executor_Modes mode, const size_t gpu_id = 0)
       : max_slices(number_slices), current_slices(0), slices_exhausted(false),dealloc_counter(0),
         mode(mode), executor_slices_alive(false), buffers_in_use(false), gpu_id(gpu_id),
         executor_tuple(
