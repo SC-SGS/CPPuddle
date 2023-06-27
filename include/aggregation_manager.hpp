@@ -675,11 +675,11 @@ public:
 
   /// Only meant to be accessed by the slice executors
   bool sync_aggregation_slices(const size_t slice_launch_counter) {
-    /* std::lock_guard<aggregation_mutex_t> guard(mut); */
+    std::lock_guard<aggregation_mutex_t> guard(mut);
     assert(slices_exhausted == true);
     // Add function call object in case it hasn't happened for this launch yet
     if (overall_launch_counter <= slice_launch_counter) {
-      std::lock_guard<aggregation_mutex_t> guard(mut);
+      /* std::lock_guard<aggregation_mutex_t> guard(mut); */
       if (overall_launch_counter <= slice_launch_counter) {
         function_calls.emplace_back(current_slices, false, executor);
         overall_launch_counter = function_calls.size();
@@ -695,11 +695,11 @@ public:
   /// Only meant to be accessed by the slice executors
   template <typename F, typename... Ts>
   void post(const size_t slice_launch_counter, F &&f, Ts &&...ts) {
-    /* std::lock_guard<aggregation_mutex_t> guard(mut); */
+    std::lock_guard<aggregation_mutex_t> guard(mut);
     assert(slices_exhausted == true);
     // Add function call object in case it hasn't happened for this launch yet
     if (overall_launch_counter <= slice_launch_counter) {
-      std::lock_guard<aggregation_mutex_t> guard(mut);
+      /* std::lock_guard<aggregation_mutex_t> guard(mut); */
       if (overall_launch_counter <= slice_launch_counter) {
         function_calls.emplace_back(current_slices, false, executor);
         overall_launch_counter = function_calls.size();
@@ -718,11 +718,11 @@ public:
   template <typename F, typename... Ts>
   hpx::lcos::future<void> async(const size_t slice_launch_counter, F &&f,
                                 Ts &&...ts) {
-    /* std::lock_guard<aggregation_mutex_t> guard(mut); */
+    std::lock_guard<aggregation_mutex_t> guard(mut);
     assert(slices_exhausted == true);
     // Add function call object in case it hasn't happened for this launch yet
     if (overall_launch_counter <= slice_launch_counter) {
-      std::lock_guard<aggregation_mutex_t> guard(mut);
+      /* std::lock_guard<aggregation_mutex_t> guard(mut); */
       if (overall_launch_counter <= slice_launch_counter) {
         function_calls.emplace_back(current_slices, true, executor);
         overall_launch_counter = function_calls.size();
@@ -738,11 +738,11 @@ public:
   template <typename F, typename... Ts>
   hpx::lcos::shared_future<void> wrap_async(const size_t slice_launch_counter, F &&f,
                                 Ts &&...ts) {
-    /* std::lock_guard<aggregation_mutex_t> guard(mut); */
+    std::lock_guard<aggregation_mutex_t> guard(mut);
     assert(slices_exhausted == true);
     // Add function call object in case it hasn't happened for this launch yet
     if (overall_launch_counter <= slice_launch_counter) {
-      std::lock_guard<aggregation_mutex_t> guard(mut);
+      /* std::lock_guard<aggregation_mutex_t> guard(mut); */
       if (overall_launch_counter <= slice_launch_counter) {
         function_calls.emplace_back(current_slices, true, executor);
         overall_launch_counter = function_calls.size();
