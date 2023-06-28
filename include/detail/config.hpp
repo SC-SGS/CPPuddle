@@ -11,7 +11,7 @@
 #if defined(CPPUDDLE_HAVE_HPX) && defined(CPPUDDLE_HAVE_HPX_MUTEX)
 #include <hpx/mutex.hpp>
 using mutex_t = hpx::spinlock_no_backoff;
-using aggregation_mutex_t = hpx::spinlock_no_backoff;
+using aggregation_mutex_t = hpx::mutex;
 #else
 #include <mutex>
 using mutex_t = std::mutex;
@@ -43,6 +43,7 @@ For better performance configure CPPuddle with CPPUDDLE_WITH_HPX_AWARE_ALLOCATOR
 // Thread and MultiGPU configuration
 //
 constexpr size_t number_instances = CPPUDDLE_MAX_NUMBER_WORKERS;
+static_assert(number_instances >= 1);
 constexpr size_t max_number_gpus = CPPUDDLE_MAX_NUMBER_GPUS;
 #ifndef CPPUDDLE_HAVE_HPX
 static_assert(max_number_gpus == 1, "Non HPX builds do not support multigpu");

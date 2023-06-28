@@ -28,6 +28,7 @@ __global__ void __launch_bounds__(1024, 2) triad_kernel(float_t *A, const float_
 //===============================================================================
 //===============================================================================
 int hpx_main(int argc, char *argv[]) {
+  static_assert(max_number_gpus == 1, "This test currently does not support MultiGPU builds!");
   // Init parameters
   size_t problem_size{0};
   size_t kernel_size{0};
