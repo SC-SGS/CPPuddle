@@ -221,6 +221,9 @@ private:
       if (location_hint) {
         location_id = location_hint.value();
       }
+      if (location_id >= number_instances) {
+        throw std::runtime_error("Tried to create buffer with invalid location_id [get]");
+      }
       std::lock_guard<mutex_t> guard(instance()[location_id].mut);
 
 
@@ -305,6 +308,10 @@ private:
 
       if (location_hint) {
         size_t location_id = location_hint.value();
+        if (location_id >= number_instances) {
+          throw std::runtime_error(
+              "Buffer recylcer received invalid location hint [mark_unused]");
+        }
         std::lock_guard<mutex_t> guard(instance()[location_id].mut);
         if (instance()[location_id].buffer_map.find(memory_location) !=
             instance()[location_id].buffer_map.end()) {
