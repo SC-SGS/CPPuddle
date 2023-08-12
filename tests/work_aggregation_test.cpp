@@ -863,6 +863,7 @@ int hpx_main(int argc, char *argv[]) {
   std::flush(hpx::cout);
   sleep(1);
 
+  recycler::print_performance_counters();
   recycler::force_cleanup(); // Cleanup all buffers and the managers
   return hpx::finalize();
 }

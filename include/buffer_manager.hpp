@@ -37,6 +37,9 @@ For better performance configure CPPuddle with CPPUDDLE_WITH_HPX_AWARE_ALLOCATOR
 
 #ifdef CPPUDDLE_HAVE_COUNTERS
 #include <boost/core/demangle.hpp>
+#if defined(CPPUDDLE_HAVE_HPX)
+#include <hpx/include/performance_counters.hpp>
+#endif
 #endif
 
 #include "../include/detail/config.hpp"
@@ -96,6 +99,17 @@ For better performance configure CPPuddle with CPPUDDLE_DEACTIVATE_BUFFER_RECYCL
     return buffer_manager<T, Host_Allocator>::mark_unused(p, number_elements);
   }
 #endif
+  template <typename T, typename Host_Allocator>
+    static void register_allocator_counters_with_hpx(void) {
+#ifdef CPPUDDLE_HAVE_COUNTERS
+      buffer_manager<T, Host_Allocator>::register_counters_with_hpx();
+#else
+    std::cerr << "Warning: Trying to register allocator performance counters with HPX but CPPuddle was built "
+                 "without CPPUDDLE_WITH_COUNTERS -- operation will be ignored!"
+              << std::endl;
+#endif
+    }
+
   /// Deallocate all buffers, no matter whether they are marked as used or not
   static void clean_all() {
     std::lock_guard<mutex_t> guard(instance().callback_protection_mut);
@@ -121,6 +135,20 @@ For better performance configure CPPuddle with CPPUDDLE_DEACTIVATE_BUFFER_RECYCL
     }
   }
 
+  static void print_performance_counters() {
+#ifdef CPPUDDLE_HAVE_COUNTERS
+    std::lock_guard<mutex_t> guard(instance().callback_protection_mut);
+    for (const auto &print_function :
+         instance().print_callbacks) {
+      print_function();
+    }
+#else
+    std::cerr << "Warning: Trying to print allocator performance counters but CPPuddle was built "
+                 "without CPPUDDLE_WITH_COUNTERS -- operation will be ignored!"
+              << std::endl;
+#endif
+  }
+
   // Member variables and methods
 private:
 
@@ -129,6 +157,8 @@ private:
     static buffer_recycler singleton{};
     return singleton;
   }
+  /// Callbacks for printing the performance counter data
+  std::list<std::function<void()>> print_callbacks;
   /// Callbacks for buffer_manager finalize - each callback completely destroys
   /// one buffer_manager
   std::list<std::function<void()>> finalize_callbacks;
@@ -160,6 +190,12 @@ private:
     std::lock_guard<mutex_t> guard(instance().callback_protection_mut);
     instance().finalize_callbacks.push_back(func);
   }
+  /// Add a callback function that gets executed upon partial (unused memory)
+  /// cleanup
+  static void add_print_callback(const std::function<void()> &func) {
+    std::lock_guard<mutex_t> guard(instance().callback_protection_mut);
+    instance().print_callbacks.push_back(func);
+  }
 
 public:
   ~buffer_recycler() = default; 
@@ -174,6 +210,7 @@ private:
     // well
     using buffer_entry_type = std::tuple<T *, size_t, size_t, bool>;
 
+
   public:
     /// Cleanup and delete this singleton
     static void clean() {
@@ -181,6 +218,13 @@ private:
       for (auto i = 0; i < number_instances; i++) {
         std::lock_guard<mutex_t> guard(instance()[i].mut);
         instance()[i].clean_all_buffers();
+      }
+    }
+    static void print_performance_counters() {
+      assert(instance() && !is_finalized);
+      for (auto i = 0; i < number_instances; i++) {
+        std::lock_guard<mutex_t> guard(instance()[i].mut);
+        instance()[i].print_counters();
       }
     }
     static void finalize() {
@@ -207,6 +251,71 @@ private:
         instance()[i].unused_buffer_list.clear();
       }
     }
+#if defined(CPPUDDLE_HAVE_COUNTERS) && defined(CPPUDDLE_HAVE_HPX)
+    static size_t get_sum_number_recycling(bool reset) {
+      if (reset)
+        sum_number_recycling = 0;
+      return sum_number_recycling;
+    }
+    static size_t get_sum_number_allocation(bool reset) {
+      if (reset)
+        sum_number_allocation = 0;
+      return sum_number_allocation;
+    }
+    static size_t get_sum_number_creation(bool reset) {
+      if (reset)
+        sum_number_creation = 0;
+      return sum_number_creation;
+    }
+    static size_t get_sum_number_deallocation(bool reset) {
+      if (reset)
+        sum_number_deallocation = 0;
+      return sum_number_deallocation;
+    }
+    static size_t get_sum_number_wrong_hints(bool reset) {
+      if (reset)
+        sum_number_wrong_hints = 0;
+      return sum_number_wrong_hints;
+    }
+    static size_t get_sum_number_bad_allocs(bool reset) {
+      if (reset)
+        sum_number_bad_allocs = 0;
+      return sum_number_bad_allocs;
+    }
+
+    static void register_counters_with_hpx(void) {
+      std::string alloc_name =
+          boost::core::demangle(typeid(Host_Allocator).name()) +
+          std::string("_") + boost::core::demangle(typeid(T).name());
+      hpx::performance_counters::install_counter_type(
+          std::string("/cppuddle/allocators/") + alloc_name + std::string("/number_recycling/"),
+          &get_sum_number_recycling,
+          "Number of allocations using a recycled buffer with this "
+          "allocator");
+      hpx::performance_counters::install_counter_type(
+          std::string("/cppuddle/allocators/") + alloc_name + std::string("/number_allocations/"),
+          &get_sum_number_allocation,
+          "Number of allocations with this allocator");
+      hpx::performance_counters::install_counter_type(
+          std::string("/cppuddle/allocators/") + alloc_name + std::string("/number_creations/"),
+          &get_sum_number_creation,
+          "Number of allocations not using a recycled buffer with this "
+          "allocator");
+      hpx::performance_counters::install_counter_type(
+          std::string("/cppuddle/allocators/") + alloc_name + std::string("/number_deallocations/"),
+          &get_sum_number_deallocation,
+          "Number of deallocations yielding buffers to be recycled with this "
+          "allocator");
+      hpx::performance_counters::install_counter_type(
+          std::string("/cppuddle/allocators/") + alloc_name + std::string("/number_wrong_hints/"),
+          &get_sum_number_wrong_hints,
+          "Number of wrong hints supplied to the dealloc method with this allocator");
+      hpx::performance_counters::install_counter_type(
+          std::string("/cppuddle/allocators/") + alloc_name + std::string("/number_bad_allocs/"),
+          &get_sum_number_bad_allocs,
+          "Number of wrong bad allocs which triggered a cleanup of unused buffers");
+    }
+#endif
 
     /// Tries to recycle or create a buffer of type T and size number_elements.
     static T *get(size_t number_of_elements, bool manage_content_lifetime,
@@ -229,6 +338,7 @@ private:
 
 #ifdef CPPUDDLE_HAVE_COUNTERS
       instance()[location_id].number_allocation++;
+      sum_number_allocation++;
 #endif
       // Check for unused buffers we can recycle:
       for (auto iter = instance()[location_id].unused_buffer_list.begin();
@@ -250,6 +360,7 @@ private:
           instance()[location_id].buffer_map.insert({std::get<0>(tuple), tuple});
 #ifdef CPPUDDLE_HAVE_COUNTERS
           instance()[location_id].number_recycling++;
+          sum_number_recycling++;
 #endif
           return std::get<0>(tuple);
         }
@@ -266,6 +377,7 @@ private:
                                      manage_content_lifetime)});
 #ifdef CPPUDDLE_HAVE_COUNTERS
         instance()[location_id].number_creation++;
+        sum_number_creation++;
 #endif
         if (manage_content_lifetime) {
           std::uninitialized_value_construct_n(buffer, number_of_elements);
@@ -290,7 +402,9 @@ private:
                                      manage_content_lifetime)});
 #ifdef CPPUDDLE_HAVE_COUNTERS
         instance()[location_id].number_creation++;
+        sum_number_creation++;
         instance()[location_id].number_bad_alloc++;
+        sum_number_bad_allocs++;
 #endif
         std::cerr << "Second attempt allocation successful!" << std::endl;
         if (manage_content_lifetime) {
@@ -316,7 +430,8 @@ private:
         if (instance()[location_id].buffer_map.find(memory_location) !=
             instance()[location_id].buffer_map.end()) {
 #ifdef CPPUDDLE_HAVE_COUNTERS
-          instance()[location_id].number_dealloacation++;
+          instance()[location_id].number_deallocation++;
+          sum_number_deallocation++;
 #endif
           auto it = instance()[location_id].buffer_map.find(memory_location);
           assert(it != instance()[location_id].buffer_map.end());
@@ -332,6 +447,7 @@ private:
         // managers
 #ifdef CPPUDDLE_HAVE_COUNTERS
         instance()[location_id].number_wrong_hints++;
+        sum_number_wrong_hints++;
 #endif
       }
 
@@ -345,7 +461,8 @@ private:
         if (instance()[location_id].buffer_map.find(memory_location) !=
             instance()[location_id].buffer_map.end()) {
 #ifdef CPPUDDLE_HAVE_COUNTERS
-          instance()[location_id].number_dealloacation++;
+          instance()[location_id].number_deallocation++;
+          sum_number_deallocation++;
 #endif
           auto it = instance()[location_id].buffer_map.find(memory_location);
           assert(it != instance()[location_id].buffer_map.end());
@@ -382,8 +499,13 @@ private:
     mutex_t mut;
 #ifdef CPPUDDLE_HAVE_COUNTERS
     /// Performance counters
-    size_t number_allocation{0}, number_dealloacation{0}, number_wrong_hints{0};
+    size_t number_allocation{0}, number_deallocation{0}, number_wrong_hints{0};
     size_t number_recycling{0}, number_creation{0}, number_bad_alloc{0};
+
+    static inline std::atomic<size_t> sum_number_allocation{0},
+        sum_number_deallocation{0}, sum_number_wrong_hints{0};
+    static inline std::atomic<size_t> sum_number_recycling{0},
+        sum_number_creation{0}, sum_number_bad_allocs{0};
 #endif
     /// default, private constructor - not automatically constructed due to the
     /// deleted constructors
@@ -412,35 +534,16 @@ private:
             clean_unused_buffers_only);
         buffer_recycler::add_finalize_callback(
             finalize);
+#ifdef CPPUDDLE_HAVE_COUNTERS
+        buffer_recycler::add_print_callback(
+            print_performance_counters);
+#endif
           });
     }
     static inline std::atomic<bool> is_finalized;
 
-
-    void clean_all_buffers(void) {
 #ifdef CPPUDDLE_HAVE_COUNTERS
-      if (number_allocation == 0 && number_recycling == 0 &&
-          number_bad_alloc == 0 && number_creation == 0 &&
-          unused_buffer_list.empty() && buffer_map.empty()) {
-        return;
-      }
-#endif
-      for (auto &buffer_tuple : unused_buffer_list) {
-        Host_Allocator alloc;
-        if (std::get<3>(buffer_tuple)) {
-          std::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
-        }
-        alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
-      }
-      for (auto &map_tuple : buffer_map) {
-        auto buffer_tuple = map_tuple.second;
-        Host_Allocator alloc;
-        if (std::get<3>(buffer_tuple)) {
-          std::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
-        }
-        alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
-      }
-#ifdef CPPUDDLE_HAVE_COUNTERS
+    void print_counters(void) {
       // Print performance counters
       size_t number_cleaned = unused_buffer_list.size() + buffer_map.size();
       std::cout << "\nBuffer manager destructor for (Alloc: "
@@ -475,7 +578,32 @@ private:
                 << static_cast<float>(number_recycling) / number_allocation *
                        100.0f
                 << "%" << std::endl;
+    }
 #endif
+
+    void clean_all_buffers(void) {
+#ifdef CPPUDDLE_HAVE_COUNTERS
+      if (number_allocation == 0 && number_recycling == 0 &&
+          number_bad_alloc == 0 && number_creation == 0 &&
+          unused_buffer_list.empty() && buffer_map.empty()) {
+        return;
+      }
+#endif
+      for (auto &buffer_tuple : unused_buffer_list) {
+        Host_Allocator alloc;
+        if (std::get<3>(buffer_tuple)) {
+          std::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+        }
+        alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+      }
+      for (auto &map_tuple : buffer_map) {
+        auto buffer_tuple = map_tuple.second;
+        Host_Allocator alloc;
+        if (std::get<3>(buffer_tuple)) {
+          std::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+        }
+        alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+      }
       unused_buffer_list.clear();
       buffer_map.clear();
 #ifdef CPPUDDLE_HAVE_COUNTERS
@@ -665,6 +793,7 @@ template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using aggressive_recycle_std =
     detail::aggressive_recycle_allocator<T, std::allocator<T>>;
 
+inline void print_performance_counters() { detail::buffer_recycler::print_performance_counters(); }
 /// Deletes all buffers (even ones still marked as used), delete the buffer
 /// managers and the recycler itself
 inline void force_cleanup() { detail::buffer_recycler::clean_all(); }

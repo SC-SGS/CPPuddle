@@ -126,6 +126,7 @@ int hpx_main(int argc, char *argv[]) {
       std::cout << "\n==> Recycle allocation test took " << recycle_duration
                 << "ms" << std::endl;
     }
+    recycler::print_performance_counters();
     recycler::force_cleanup(); // Cleanup all buffers and the managers for better
                                // comparison
 
@@ -166,6 +167,7 @@ int hpx_main(int argc, char *argv[]) {
       std::cout << "\n==> Aggressive recycle allocation test took "
                 << aggressive_duration << "ms" << std::endl;
     }
+    recycler::print_performance_counters();
     recycler::force_cleanup(); // Cleanup all buffers and the managers for better
                                // comparison
 

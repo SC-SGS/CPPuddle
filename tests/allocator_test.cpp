@@ -88,6 +88,7 @@ int main(int argc, char *argv[]) {
     std::cout << "\n\n==> Aggressive recycle allocation test took "
               << aggressive_duration << "ms" << std::endl;
   }
+  recycler::print_performance_counters();
   recycler::force_cleanup(); // Cleanup all buffers and the managers for better
                              // comparison
 
@@ -107,6 +108,7 @@ int main(int argc, char *argv[]) {
     std::cout << "\n\n==> Recycle allocation test took " << recycle_duration
               << "ms" << std::endl;
   }
+  recycler::print_performance_counters();
   recycler::force_cleanup(); // Cleanup all buffers and the managers for better
                              // comparison
 
@@ -136,6 +138,7 @@ int main(int argc, char *argv[]) {
     std::cout << "Test information: Recycler was faster than default allocator!"
               << std::endl;
   }
+  recycler::print_performance_counters();
 #ifdef CPPUDDLE_HAVE_HPX  
   return hpx::finalize();
 #else

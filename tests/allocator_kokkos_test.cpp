@@ -91,6 +91,7 @@ int main(int argc, char *argv[]) {
                         });
     Kokkos::fence();
   }
+  recycler::print_performance_counters();
 #ifdef CPPUDDLE_HAVE_HPX  
   return hpx::finalize();
 #else
