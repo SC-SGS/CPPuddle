@@ -101,15 +101,29 @@ public:
         data_ref_counter(this->data(), view_deleter<element_type, alloc_type>(
                                            allocator, total_elements)) {}
 
+  // TODO Add version with only a device parameter -- should use get but come with a different
+  // view deleter that just uses mark unused
+
+
+  // TODO NExt up: Add similar mechanism to aggregatation manager
+  
+
+  // TODO Add similar mechanism to cuda_device_buffer
+  
+
+  // TODO Switch Octo-Tiger hydro kokkos solver to this (should mostly just
+  // require 
+
+  // TODO These are meant to get the static data (predicatable location_id really required?)
   template <typename... Args,
             std::enable_if_t<sizeof...(Args) == kokkos_type::rank, bool> = true>
-  recycled_view(std::size_t location_id, Args... args)
+  recycled_view(std::size_t device_id, std::size_t location_id, Args... args)
       : kokkos_type(
             detail::buffer_recycler::get<
                 element_type, typename alloc_type::underlying_allocator_type>(
                 kokkos_type::required_allocation_size(args...) /
                     sizeof(element_type),
-                false, location_id),
+                false, location_id, device_id),
             args...),
         total_elements(kokkos_type::required_allocation_size(args...) /
                        sizeof(element_type)),
@@ -119,13 +133,13 @@ public:
   template <
       typename layout_t,
       std::enable_if_t<Kokkos::is_array_layout<layout_t>::value, bool> = true>
-  recycled_view(std::size_t location_id, layout_t layout)
+  recycled_view(std::size_t device_id, std::size_t location_id, layout_t layout)
       : kokkos_type(
             detail::buffer_recycler::get<
                 element_type, typename alloc_type::underlying_allocator_type>(
                 kokkos_type::required_allocation_size(layout) /
                     sizeof(element_type),
-                false, location_id),
+                false, location_id, device_id),
             layout),
         total_elements(kokkos_type::required_allocation_size(layout) /
                        sizeof(element_type)),

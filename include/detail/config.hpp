@@ -51,7 +51,7 @@ static_assert(max_number_gpus == 1, "Non HPX builds do not support multigpu");
 static_assert(number_instances >= max_number_gpus);
 static_assert(max_number_gpus > 0);
 static_assert(number_instances > 0);
-constexpr size_t instances_per_gpu = number_instances / max_number_gpus;
+//constexpr size_t instances_per_gpu = number_instances / max_number_gpus;
 
 /// Uses HPX thread information to determine which GPU should be used
 inline size_t get_device_id(void) {
