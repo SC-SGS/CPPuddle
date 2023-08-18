@@ -532,9 +532,9 @@ public:
   aggregation_mutex_t mut;
 
   /// Data entry for a buffer allocation: void* pointer, size_t for
-  /// buffer-size, atomic for the slice counter
+  /// buffer-size, atomic for the slice counter, location_id, gpu_id
   using buffer_entry_t =
-      std::tuple<void*, const size_t, std::atomic<size_t>, bool, const size_t>;
+      std::tuple<void*, const size_t, std::atomic<size_t>, bool, const size_t, size_t>;
   /// Keeps track of the aggregated buffer allocations done in all the slices
   std::deque<buffer_entry_t> buffer_allocations;
   /// Map pointer to deque index for fast access in the deallocations
@@ -560,14 +560,16 @@ public:
 
         // Default location -- useful for GPU builds as we otherwise create way too
         // many different buffers for different aggregation sizes on different GPUs
-        size_t location_id = gpu_id * instances_per_gpu;
+        /* size_t location_id = gpu_id * instances_per_gpu; */
+        // Use integer conversion to only use 0 16 32 ... as buckets
+        size_t location_id = (hpx::get_worker_thread_num() / 16) * 16; 
 #ifdef CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS
         if (max_slices == 1) {
           // get prefered location: aka the current hpx threads location
           // Usually handy for CPU builds where we want to use the buffers
           // close to the current CPU core
           /* location_id = (hpx::get_worker_thread_num() / instances_per_gpu) * instances_per_gpu; */
-          location_id = (gpu_id) * instances_per_gpu;
+          /* location_id = (gpu_id) * instances_per_gpu; */
           // division makes sure that we always use the same instance to store our gpu buffers.
         }
 #endif
@@ -576,10 +578,10 @@ public:
         // buffer_recycler...
         T *aggregated_buffer =
             recycler::detail::buffer_recycler::get<T, Host_Allocator>(
-                size, manage_content_lifetime, location_id);
+                size, manage_content_lifetime, location_id, gpu_id);
         // Create buffer entry for this buffer
         buffer_allocations.emplace_back(static_cast<void *>(aggregated_buffer),
-                                        size, 1, true, location_id);
+                                        size, 1, true, location_id, gpu_id);
 
 #ifndef NDEBUG
         // if previousely used the buffer should not be in usage anymore
@@ -633,6 +635,7 @@ public:
     auto &buffer_allocation_counter = std::get<2>(buffer_allocations[slice_alloc_counter]);
     auto &valid = std::get<3>(buffer_allocations[slice_alloc_counter]);
     const auto &location_id = std::get<4>(buffer_allocations[slice_alloc_counter]);
+    const auto &gpu_id = std::get<5>(buffer_allocations[slice_alloc_counter]);
     assert(valid);
     T *buffer_pointer = static_cast<T *>(buffer_pointer_void);
 
@@ -650,7 +653,7 @@ public:
       if (valid) {
         assert(buffers_in_use == true);
         recycler::detail::buffer_recycler::mark_unused<T, Host_Allocator>(
-            buffer_pointer, buffer_size, location_id);
+            buffer_pointer, buffer_size, location_id, gpu_id);
         // mark buffer as invalid to prevent any other slice from marking the
         // buffer as unused
         valid = false;

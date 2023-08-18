@@ -16,7 +16,7 @@ template<typename element_type, typename alloc_type>
 struct view_deleter {
   alloc_type allocator;
   size_t total_elements;
-  view_deleter(alloc_type &alloc, size_t total_elements) : allocator(alloc),
+  view_deleter(alloc_type alloc, size_t total_elements) : allocator(alloc),
     total_elements(total_elements) {}
   void operator()(element_type* p) {
     allocator.deallocate(p, total_elements);
@@ -29,6 +29,7 @@ private:
   alloc_type allocator;
   size_t total_elements{0};
   std::shared_ptr<element_type> data_ref_counter;
+  static_assert(std::is_same_v<element_type, typename alloc_type::value_type>);
 
 public:
   using view_type = kokkos_type;
@@ -79,10 +80,10 @@ public:
   ~aggregated_recycled_view() {}
 };
 
+
 template <typename kokkos_type, typename alloc_type, typename element_type>
 class recycled_view : public kokkos_type {
 private:
-  alloc_type allocator;
   size_t total_elements{0};
   std::shared_ptr<element_type> data_ref_counter;
 
@@ -93,58 +94,38 @@ public:
             std::enable_if_t<sizeof...(Args) == kokkos_type::rank, bool> = true>
   recycled_view(Args... args)
       : kokkos_type(
-            allocator.allocate(kokkos_type::required_allocation_size(args...) /
+            alloc_type{}.allocate(kokkos_type::required_allocation_size(args...) /
                                sizeof(element_type)),
             args...),
         total_elements(kokkos_type::required_allocation_size(args...) /
                        sizeof(element_type)),
         data_ref_counter(this->data(), view_deleter<element_type, alloc_type>(
-                                           allocator, total_elements)) {}
+                                           alloc_type{}, total_elements)) {}
 
-  // TODO Add version with only a device parameter -- should use get but come with a different
-  // view deleter that just uses mark unused
-
-
-  // TODO NExt up: Add similar mechanism to aggregatation manager
-  
-
-  // TODO Add similar mechanism to cuda_device_buffer
-  
-
-  // TODO Switch Octo-Tiger hydro kokkos solver to this (should mostly just
-  // require 
-
-  // TODO These are meant to get the static data (predicatable location_id really required?)
   template <typename... Args,
             std::enable_if_t<sizeof...(Args) == kokkos_type::rank, bool> = true>
-  recycled_view(std::size_t device_id, std::size_t location_id, Args... args)
+  recycled_view(const size_t device_id, Args... args)
       : kokkos_type(
-            detail::buffer_recycler::get<
-                element_type, typename alloc_type::underlying_allocator_type>(
-                kokkos_type::required_allocation_size(args...) /
-                    sizeof(element_type),
-                false, location_id, device_id),
+            alloc_type{device_id}.allocate(kokkos_type::required_allocation_size(args...) /
+                               sizeof(element_type)),
             args...),
         total_elements(kokkos_type::required_allocation_size(args...) /
                        sizeof(element_type)),
         data_ref_counter(this->data(), view_deleter<element_type, alloc_type>(
-                                           allocator, total_elements)) {}
+                                           alloc_type{device_id}, total_elements)) {}
 
   template <
       typename layout_t,
       std::enable_if_t<Kokkos::is_array_layout<layout_t>::value, bool> = true>
-  recycled_view(std::size_t device_id, std::size_t location_id, layout_t layout)
+  recycled_view(std::size_t device_id, layout_t layout)
       : kokkos_type(
-            detail::buffer_recycler::get<
-                element_type, typename alloc_type::underlying_allocator_type>(
-                kokkos_type::required_allocation_size(layout) /
-                    sizeof(element_type),
-                false, location_id, device_id),
+            alloc_type{device_id}.allocate(kokkos_type::required_allocation_size(layout) /
+                               sizeof(element_type)),
             layout),
         total_elements(kokkos_type::required_allocation_size(layout) /
                        sizeof(element_type)),
         data_ref_counter(this->data(), view_deleter<element_type, alloc_type>(
-                                           allocator, total_elements)) {}
+                                           alloc_type{device_id}, total_elements)) {}
 
   recycled_view(
       const recycled_view<kokkos_type, alloc_type, element_type> &other)

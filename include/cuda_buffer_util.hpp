@@ -111,24 +111,18 @@ using recycle_allocator_cuda_device =
 
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 struct cuda_device_buffer {
-  size_t gpu_id{0};
+  recycle_allocator_cuda_device<T> allocator;
   T *device_side_buffer;
   size_t number_of_elements;
-  explicit cuda_device_buffer(size_t number_of_elements)
-      : number_of_elements(number_of_elements) {
+
+  cuda_device_buffer(const size_t number_of_elements, const size_t device_id = 0)
+      : allocator{device_id}, number_of_elements(number_of_elements) {
+    assert(device_id < max_number_gpus);
     device_side_buffer =
-        recycle_allocator_cuda_device<T>{}.allocate(number_of_elements);
-  }
-  // TODO deprecate and remove gpu_id
-  explicit cuda_device_buffer(size_t number_of_elements, size_t gpu_id)
-      : gpu_id(gpu_id), number_of_elements(number_of_elements), set_id(true) {
-    assert(gpu_id == 0);
-    device_side_buffer =
-        recycle_allocator_cuda_device<T>{}.allocate(number_of_elements);
+        allocator.allocate(number_of_elements);
   }
   ~cuda_device_buffer() {
-    recycle_allocator_cuda_device<T>{}.deallocate(device_side_buffer,
-                                                  number_of_elements);
+    allocator.deallocate(device_side_buffer, number_of_elements);
   }
   // not yet implemented
   cuda_device_buffer(cuda_device_buffer const &other) = delete;
@@ -136,30 +130,19 @@ struct cuda_device_buffer {
   cuda_device_buffer(cuda_device_buffer const &&other) = delete;
   cuda_device_buffer operator=(cuda_device_buffer const &&other) = delete;
 
-private:
-  bool set_id{false};
 };
 
 template <typename T, typename Host_Allocator, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 struct cuda_aggregated_device_buffer {
-  size_t gpu_id{0};
   T *device_side_buffer;
   size_t number_of_elements;
-  explicit cuda_aggregated_device_buffer(size_t number_of_elements)
-      : number_of_elements(number_of_elements) {
-    device_side_buffer =
-        recycle_allocator_cuda_device<T>{}.allocate(number_of_elements);
-  }
-  // TODO deprecate and remove gpu_id
-  explicit cuda_aggregated_device_buffer(size_t number_of_elements, size_t gpu_id, Host_Allocator &alloc)
-      : gpu_id(gpu_id), number_of_elements(number_of_elements), set_id(true), alloc(alloc) {
-    assert(gpu_id == 0);
+  explicit cuda_aggregated_device_buffer(size_t number_of_elements, Host_Allocator &alloc)
+      : number_of_elements(number_of_elements), alloc(alloc) {
     device_side_buffer =
         alloc.allocate(number_of_elements);
   }
   ~cuda_aggregated_device_buffer() {
-    alloc.deallocate(device_side_buffer,
-                                                  number_of_elements);
+    alloc.deallocate(device_side_buffer, number_of_elements);
   }
   // not yet implemented
   cuda_aggregated_device_buffer(cuda_aggregated_device_buffer const &other) = delete;
@@ -168,8 +151,8 @@ struct cuda_aggregated_device_buffer {
   cuda_aggregated_device_buffer operator=(cuda_aggregated_device_buffer const &&other) = delete;
 
 private:
-  bool set_id{false};
-  Host_Allocator &alloc;
+  Host_Allocator &alloc; // will stay valid for the entire aggregation region and hence
+                         // for the entire lifetime of this buffer
 };
 
 namespace device_selection {

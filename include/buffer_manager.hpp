@@ -284,6 +284,11 @@ private:
         sum_number_wrong_hints = 0;
       return sum_number_wrong_hints;
     }
+    static size_t get_sum_number_wrong_device_hints(bool reset) {
+      if (reset)
+        sum_number_wrong_hints = 0;
+      return sum_number_wrong_device_hints;
+    }
     static size_t get_sum_number_bad_allocs(bool reset) {
       if (reset)
         sum_number_bad_allocs = 0;
@@ -317,6 +322,10 @@ private:
           std::string("/cppuddle/allocators/") + alloc_name + std::string("/number_wrong_hints/"),
           &get_sum_number_wrong_hints,
           "Number of wrong hints supplied to the dealloc method with this allocator");
+      hpx::performance_counters::install_counter_type(
+          std::string("/cppuddle/allocators/") + alloc_name + std::string("/number_wrong_device_hints/"),
+          &get_sum_number_wrong_device_hints,
+          "Number of wrong device hints supplied to the dealloc method with this allocator");
       hpx::performance_counters::install_counter_type(
           std::string("/cppuddle/allocators/") + alloc_name + std::string("/number_bad_allocs/"),
           &get_sum_number_bad_allocs,
@@ -510,6 +519,12 @@ private:
           return; // Success
         }
       }
+      // device hint was wrong 
+#ifdef CPPUDDLE_HAVE_COUNTERS
+      if (device_hint) {
+        sum_number_wrong_device_hints++;
+      }
+#endif
       // Failed to find buffer on the specified device!
       // Attempt 3 - Look for buffer on other devices...
       for (size_t local_device_id = 0; local_device_id < max_number_gpus;
@@ -592,17 +607,17 @@ private:
     mutex_t mut;
 #ifdef CPPUDDLE_HAVE_COUNTERS
     /// Performance counters
-    size_t number_allocation{0}, number_deallocation{0}, number_wrong_hints{0};
-    size_t number_recycling{0}, number_creation{0}, number_bad_alloc{0};
+    size_t number_allocation{0}, number_deallocation{0}, number_wrong_hints{0},
+        number_recycling{0}, number_creation{0}, number_bad_alloc{0};
 
     static inline std::atomic<size_t> sum_number_allocation{0},
-        sum_number_deallocation{0}, sum_number_wrong_hints{0};
-    static inline std::atomic<size_t> sum_number_recycling{0},
+        sum_number_deallocation{0}, sum_number_wrong_hints{0},
+        sum_number_wrong_device_hints{0}, sum_number_recycling{0},
         sum_number_creation{0}, sum_number_bad_allocs{0};
 #endif
-    /// default, private constructor - not automatically constructed due to the
-    /// deleted constructors
-    buffer_manager() = default;
+        /// default, private constructor - not automatically constructed due to
+        /// the deleted constructors
+        buffer_manager() = default;
     buffer_manager&
     operator=(buffer_manager<T, Host_Allocator> const &other) = default;
     buffer_manager&
@@ -758,7 +773,9 @@ template <typename T, typename Host_Allocator> struct recycle_allocator {
   recycle_allocator() noexcept
       : dealloc_hint(hpx::get_worker_thread_num()), device_id(0) {}
   explicit recycle_allocator(const size_t device_id) noexcept
-      : dealloc_hint(hint), device_id(device_id) {}
+      : dealloc_hint(hpx::get_worker_thread_num()), device_id(device_id) {}
+  explicit recycle_allocator(const size_t device_i, const size_t location_id) noexcept
+      : dealloc_hint(location_id), device_id(device_id) {}
   explicit recycle_allocator(
       recycle_allocator<T, Host_Allocator> const &other) noexcept
   : dealloc_hint(other.dealloc_hint), device_id(other.device_id) {}
@@ -827,7 +844,9 @@ struct aggressive_recycle_allocator {
   aggressive_recycle_allocator() noexcept
       : dealloc_hint(hpx::get_worker_thread_num()), device_id(0) {}
   explicit aggressive_recycle_allocator(const size_t device_id) noexcept
-      : device_id(device_id) {}
+      : dealloc_hint(hpx::get_worker_thread_num()), device_id(device_id) {}
+  explicit aggressive_recycle_allocator(const size_t device_id, const size_t location_id) noexcept
+      : dealloc_hint(location_id), device_id(device_id) {}
   explicit aggressive_recycle_allocator(
       recycle_allocator<T, Host_Allocator> const &other) noexcept 
     : dealloc_hint(other.dealloc_hint), device_id(other.device_id) {}
