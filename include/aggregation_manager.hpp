@@ -6,6 +6,7 @@
 #ifndef WORK_AGGREGATION_MANAGER
 #define WORK_AGGREGATION_MANAGER
 
+#include <stdexcept>
 #define DEBUG_AGGREGATION_CALLS 1
 
 #include <stdio.h>
@@ -1014,8 +1015,23 @@ public:
   /// interface
   template <typename... Ts>
   static void init(size_t number_of_executors, size_t slices_per_executor,
-                   Aggregated_Executor_Modes mode) {
-    for (size_t gpu_id = 0; gpu_id < max_number_gpus; gpu_id++) {
+                   Aggregated_Executor_Modes mode, std::optional<size_t> overwrite_number_devices) {
+    if (is_initialized) {
+      throw std::runtime_error(
+          std::string("Trying to initialize cppuddle aggregation pool twice") +
+          " Kernel: " + std::string(kernelname));
+    }
+    if (number_devices) {
+      if (*overwrite_number_devices > max_number_gpus) {
+        throw std::runtime_error(
+            std::string(
+                "Trying to initialize aggregation with more devices than the "
+                "maximum number of GPUs given at compiletime") +
+            " Kernel: " + std::string(kernelname));
+      }
+      number_devices = *overwrite_number_devices;
+    }
+    for (size_t gpu_id = 0; gpu_id < number_devices; gpu_id++) {
       std::lock_guard<aggregation_mutex_t> guard(instance()[gpu_id].pool_mutex);
       assert(instance()[gpu_id].aggregation_executor_pool.empty());
       for (int i = 0; i < number_of_executors; i++) {
@@ -1029,7 +1045,7 @@ public:
 
   /// Will always return a valid executor slice
   static decltype(auto) request_executor_slice(void) {
-    const size_t gpu_id = get_device_id();
+    const size_t gpu_id = get_device_id(number_devices);
     /* const size_t gpu_id = 1; */
     std::lock_guard<aggregation_mutex_t> guard(instance()[gpu_id].pool_mutex);
     assert(!instance()[gpu_id].aggregation_executor_pool.empty());
@@ -1090,6 +1106,8 @@ private:
         new aggregation_pool[max_number_gpus]};
     return pool_instances;
   }
+  static inline size_t number_devices = max_number_gpus;
+  static inline bool is_initialized = false;
   aggregation_pool() = default;
 
 public:
