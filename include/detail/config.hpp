@@ -48,16 +48,15 @@ constexpr size_t max_number_gpus = CPPUDDLE_MAX_NUMBER_GPUS;
 #ifndef CPPUDDLE_HAVE_HPX
 static_assert(max_number_gpus == 1, "Non HPX builds do not support multigpu");
 #endif
-static_assert(number_instances >= max_number_gpus);
+//static_assert(number_instances >= max_number_gpus);
 static_assert(max_number_gpus > 0);
-static_assert(number_instances > 0);
 //constexpr size_t instances_per_gpu = number_instances / max_number_gpus;
 
 /// Uses HPX thread information to determine which GPU should be used
 inline size_t get_device_id(const size_t number_gpus) {
 #if defined(CPPUDDLE_HAVE_HPX) 
     assert(number_gpus < max_number_gpus);
-    return hpx::get_worker_thread_num() / number_gpus; 
+    return hpx::get_worker_thread_num() % number_gpus; 
 #else
     return 0;
 #endif

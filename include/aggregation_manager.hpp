@@ -563,7 +563,7 @@ public:
         // many different buffers for different aggregation sizes on different GPUs
         /* size_t location_id = gpu_id * instances_per_gpu; */
         // Use integer conversion to only use 0 16 32 ... as buckets
-        size_t location_id = (hpx::get_worker_thread_num() / 16) * 16; 
+        size_t location_id = ((hpx::get_worker_thread_num() % number_instances) / 16) * 16; 
 #ifdef CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS
         if (max_slices == 1) {
           // get prefered location: aka the current hpx threads location
@@ -1015,23 +1015,22 @@ public:
   /// interface
   template <typename... Ts>
   static void init(size_t number_of_executors, size_t slices_per_executor,
-                   Aggregated_Executor_Modes mode, std::optional<size_t> overwrite_number_devices) {
+                   Aggregated_Executor_Modes mode, size_t num_devices = 1) {
     if (is_initialized) {
       throw std::runtime_error(
           std::string("Trying to initialize cppuddle aggregation pool twice") +
-          " Kernel: " + std::string(kernelname));
+          " Agg pool name: " + std::string(kernelname));
     }
-    if (number_devices) {
-      if (*overwrite_number_devices > max_number_gpus) {
-        throw std::runtime_error(
-            std::string(
-                "Trying to initialize aggregation with more devices than the "
-                "maximum number of GPUs given at compiletime") +
-            " Kernel: " + std::string(kernelname));
-      }
-      number_devices = *overwrite_number_devices;
+    if (num_devices > max_number_gpus) {
+      throw std::runtime_error(
+          std::string(
+              "Trying to initialize aggregation with more devices than the "
+              "maximum number of GPUs given at compiletime") +
+          " Agg pool name: " + std::string(kernelname));
     }
+    number_devices = num_devices;
     for (size_t gpu_id = 0; gpu_id < number_devices; gpu_id++) {
+
       std::lock_guard<aggregation_mutex_t> guard(instance()[gpu_id].pool_mutex);
       assert(instance()[gpu_id].aggregation_executor_pool.empty());
       for (int i = 0; i < number_of_executors; i++) {
@@ -1041,10 +1040,16 @@ public:
       instance()[gpu_id].slices_per_executor = slices_per_executor;
       instance()[gpu_id].mode = mode;
     }
+    is_initialized = true;
   }
 
   /// Will always return a valid executor slice
   static decltype(auto) request_executor_slice(void) {
+    if (!is_initialized) {
+      throw std::runtime_error(
+          std::string("Trying to use cppuddle aggregation pool without first calling init") +
+          " Agg poolname: " + std::string(kernelname));
+    }
     const size_t gpu_id = get_device_id(number_devices);
     /* const size_t gpu_id = 1; */
     std::lock_guard<aggregation_mutex_t> guard(instance()[gpu_id].pool_mutex);
@@ -1106,7 +1111,7 @@ private:
         new aggregation_pool[max_number_gpus]};
     return pool_instances;
   }
-  static inline size_t number_devices = max_number_gpus;
+  static inline size_t number_devices = 1;
   static inline bool is_initialized = false;
   aggregation_pool() = default;
 

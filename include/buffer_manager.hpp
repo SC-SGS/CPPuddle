@@ -771,9 +771,9 @@ template <typename T, typename Host_Allocator> struct recycle_allocator {
   }
 #else
   recycle_allocator() noexcept
-      : dealloc_hint(hpx::get_worker_thread_num()), device_id(0) {}
+      : dealloc_hint(hpx::get_worker_thread_num() % number_instances), device_id(0) {}
   explicit recycle_allocator(const size_t device_id) noexcept
-      : dealloc_hint(hpx::get_worker_thread_num()), device_id(device_id) {}
+      : dealloc_hint(hpx::get_worker_thread_num() % number_instances), device_id(device_id) {}
   explicit recycle_allocator(const size_t device_i, const size_t location_id) noexcept
       : dealloc_hint(location_id), device_id(device_id) {}
   explicit recycle_allocator(
@@ -781,7 +781,7 @@ template <typename T, typename Host_Allocator> struct recycle_allocator {
   : dealloc_hint(other.dealloc_hint), device_id(other.device_id) {}
   T *allocate(std::size_t n) {
     T *data = buffer_recycler::get<T, Host_Allocator>(
-        n, false, hpx::get_worker_thread_num(), device_id);
+        n, false, hpx::get_worker_thread_num() % number_instances, device_id);
     return data;
   }
   void deallocate(T *p, std::size_t n) {
@@ -842,9 +842,9 @@ struct aggressive_recycle_allocator {
   }
 #else
   aggressive_recycle_allocator() noexcept
-      : dealloc_hint(hpx::get_worker_thread_num()), device_id(0) {}
+      : dealloc_hint(hpx::get_worker_thread_num() % number_instances), device_id(0) {}
   explicit aggressive_recycle_allocator(const size_t device_id) noexcept
-      : dealloc_hint(hpx::get_worker_thread_num()), device_id(device_id) {}
+      : dealloc_hint(hpx::get_worker_thread_num() % number_instances), device_id(device_id) {}
   explicit aggressive_recycle_allocator(const size_t device_id, const size_t location_id) noexcept
       : dealloc_hint(location_id), device_id(device_id) {}
   explicit aggressive_recycle_allocator(

@@ -60,9 +60,10 @@ public:
     return *(
         std::min_element(std::begin(ref_counters), std::end(ref_counters)));
   }
-  size_t get_next_device_id() {
-    return 0; // single gpu pool
-  }
+  // TODO Remove
+  /* size_t get_next_device_id() { */
+  /*   return 0; // single gpu pool */
+  /* } */
 };
 
 template <class Interface> class priority_pool {
@@ -103,9 +104,10 @@ public:
     return ref_counters[priorities[0]] < load_limit;
   }
   size_t get_current_load() { return ref_counters[priorities[0]]; }
-  size_t get_next_device_id() {
-    return 0; // single gpu pool
-  }
+  // TODO remove
+  /* size_t get_next_device_id() { */
+  /*   return 0; // single gpu pool */
+  /* } */
 };
 
 /// Access/Concurrency Control for stream pool implementation
@@ -130,28 +132,28 @@ public:
     stream_pool_implementation<Interface, Pool>::cleanup();
   }
   template <class Interface, class Pool>
-  static std::tuple<Interface &, size_t> get_interface(const size_t gpu_id = get_device_id()) {
+  static std::tuple<Interface &, size_t> get_interface(const size_t gpu_id) {
     return stream_pool_implementation<Interface, Pool>::get_interface(gpu_id);
   }
   template <class Interface, class Pool>
-  static void release_interface(size_t index, const size_t gpu_id = get_device_id()) noexcept {
+  static void release_interface(size_t index, const size_t gpu_id) noexcept {
     stream_pool_implementation<Interface, Pool>::release_interface(index,
         gpu_id);
   }
   template <class Interface, class Pool>
-  static bool interface_available(size_t load_limit) noexcept {
+  static bool interface_available(size_t load_limit, const size_t gpu_id) noexcept {
     return stream_pool_implementation<Interface, Pool>::interface_available(
-        load_limit, get_device_id());
+        load_limit, gpu_id);
   }
   template <class Interface, class Pool>
-  static size_t get_current_load() noexcept {
+  static size_t get_current_load(const size_t gpu_id = 0) noexcept {
     return stream_pool_implementation<Interface, Pool>::get_current_load(
-        get_device_id());
+        gpu_id);
   }
-  // TODO deprecated! Remove...
   template <class Interface, class Pool>
-  static size_t get_next_device_id() noexcept {
-    return stream_pool_implementation<Interface, Pool>::get_next_device_id(get_device_id());
+  static size_t get_next_device_id(const size_t number_gpus) noexcept {
+    // TODO add round robin and min strategy
+    return get_device_id(number_gpus);
   }
 
   template <class Interface, class Pool>
@@ -232,11 +234,11 @@ private:
       return instance().streampools[gpu_id].get_current_load();
     }
     // TODO deprecated! Remove...
-    static size_t get_next_device_id(const size_t gpu_id = 0) {
-      std::lock_guard<mutex_t> guard(instance().gpu_mutexes[gpu_id]);
-      assert(instance().streampools.size() == max_number_gpus);
-      return instance().streampools[gpu_id].get_next_device_id();
-    }
+    /* static size_t get_next_device_id(const size_t gpu_id = 0) { */
+    /*   std::lock_guard<mutex_t> guard(instance().gpu_mutexes[gpu_id]); */
+    /*   assert(instance().streampools.size() == max_number_gpus); */
+    /*   return instance().streampools[gpu_id].get_next_device_id(); */
+    /* } */
 
     static void set_device_selector(std::function<void(size_t)> select_gpu_function) {
       auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
@@ -288,16 +290,16 @@ public:
 
 template <class Interface, class Pool> class stream_interface {
 public:
-  stream_interface()
-      : t(stream_pool::get_interface<Interface, Pool>()),
-        interface(std::get<0>(t)), interface_index(std::get<1>(t)) {}
+  explicit stream_interface(size_t gpu_id)
+      : t(stream_pool::get_interface<Interface, Pool>(gpu_id)),
+        interface(std::get<0>(t)), interface_index(std::get<1>(t)), gpu_id(gpu_id) {}
 
   stream_interface(const stream_interface &other) = delete;
   stream_interface &operator=(const stream_interface &other) = delete;
   stream_interface(stream_interface &&other) = delete;
   stream_interface &operator=(stream_interface &&other) = delete;
   ~stream_interface() {
-    stream_pool::release_interface<Interface, Pool>(interface_index);
+    stream_pool::release_interface<Interface, Pool>(interface_index, gpu_id);
   }
 
   template <typename F, typename... Ts>
@@ -318,6 +320,7 @@ public:
 private:
   std::tuple<Interface &, size_t> t;
   size_t interface_index;
+  size_t gpu_id;
 
 public:
   Interface &interface;
