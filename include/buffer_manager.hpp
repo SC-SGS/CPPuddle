@@ -93,16 +93,28 @@ For better performance configure CPPuddle with CPPUDDLE_DEACTIVATE_BUFFER_RECYCL
   static T *get(size_t number_elements, bool manage_content_lifetime = false,
       std::optional<size_t> location_hint = std::nullopt, 
       std::optional<size_t> device_id = std::nullopt) {
-    return buffer_manager<T, Host_Allocator>::get(
-        number_elements, manage_content_lifetime, location_hint, device_id);
+    try {
+      return buffer_manager<T, Host_Allocator>::get(
+          number_elements, manage_content_lifetime, location_hint, device_id);
+    } catch (const std::exception &exc) {
+      std::cerr << "ERROR: Encountered unhandled exception in cppuddle get: " << exc.what() << std::endl;
+      std::cerr << "Rethrowing exception... " << std::endl;;
+      throw;
+    }
   }
   /// Marks an buffer as unused and fit for reusage
   template <typename T, typename Host_Allocator>
   static void mark_unused(T *p, size_t number_elements,
       std::optional<size_t> location_hint = std::nullopt, 
       std::optional<size_t> device_id = std::nullopt) {
-    return buffer_manager<T, Host_Allocator>::mark_unused(p, number_elements,
-        location_hint, device_id);
+    try {
+      return buffer_manager<T, Host_Allocator>::mark_unused(p, number_elements,
+          location_hint, device_id);
+    } catch (const std::exception &exc) {
+      std::cerr << "ERROR: Encountered unhandled exception in cppuddle mark_unused: " << exc.what() << std::endl;
+      std::cerr << "Rethrowing exception... " << std::endl;;
+      throw;
+    }
   }
 #endif
   template <typename T, typename Host_Allocator>
