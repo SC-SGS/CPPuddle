@@ -121,7 +121,7 @@ struct hip_device_buffer {
       : allocator{device_id}, number_of_elements(number_of_elements) {
     assert(device_id < max_number_gpus);
     device_side_buffer =
-        recycle_allocator_hip_device<T>{}.allocate(number_of_elements);
+        allocator.allocate(number_of_elements);
   }
   ~hip_device_buffer() {
     allocator.deallocate(device_side_buffer, number_of_elements);
