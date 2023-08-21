@@ -136,7 +136,7 @@ template <typename T, typename Host_Allocator, std::enable_if_t<std::is_trivial<
 struct cuda_aggregated_device_buffer {
   T *device_side_buffer;
   size_t number_of_elements;
-  explicit cuda_aggregated_device_buffer(size_t number_of_elements, Host_Allocator &alloc)
+  cuda_aggregated_device_buffer(size_t number_of_elements, Host_Allocator &alloc)
       : number_of_elements(number_of_elements), alloc(alloc) {
     device_side_buffer =
         alloc.allocate(number_of_elements);

@@ -22,7 +22,6 @@ template <class T> struct hip_pinned_allocator {
   template <class U>
   explicit hip_pinned_allocator(hip_pinned_allocator<U> const &) noexcept {}
   T *allocate(std::size_t n) {
-    hipSetDevice(get_device_id());
     T *data;
     // hipError_t error =
     //     hipMallocHost(reinterpret_cast<void **>(&data), n * sizeof(T));
@@ -69,7 +68,6 @@ template <class T> struct hip_device_allocator {
   template <class U>
   explicit hip_device_allocator(hip_device_allocator<U> const &) noexcept {}
   T *allocate(std::size_t n) {
-    hipSetDevice(get_device_id());
     T *data;
     hipError_t error = hipMalloc(&data, n * sizeof(T));
     if (error != hipSuccess) {
@@ -115,22 +113,18 @@ using recycle_allocator_hip_device =
 // TODO Is this even required? (cuda version should work fine...)
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 struct hip_device_buffer {
-  size_t gpu_id{0};
+  recycle_allocator_hip_device<T> allocator;
   T *device_side_buffer;
   size_t number_of_elements;
-  explicit hip_device_buffer(size_t number_of_elements)
-      : number_of_elements(number_of_elements) {
-    device_side_buffer =
-        recycle_allocator_hip_device<T>{}.allocate(number_of_elements);
-  }
-  explicit hip_device_buffer(size_t number_of_elements, size_t gpu_id)
-      : gpu_id(gpu_id), number_of_elements(number_of_elements), set_id(true) {
+
+  hip_device_buffer(size_t number_of_elements, size_t device_id)
+      : allocator{device_id}, number_of_elements(number_of_elements) {
+    assert(device_id < max_number_gpus);
     device_side_buffer =
         recycle_allocator_hip_device<T>{}.allocate(number_of_elements);
   }
   ~hip_device_buffer() {
-    recycle_allocator_hip_device<T>{}.deallocate(device_side_buffer,
-                                                  number_of_elements);
+    allocator.deallocate(device_side_buffer, number_of_elements);
   }
   // not yet implemented
   hip_device_buffer(hip_device_buffer const &other) = delete;
@@ -138,30 +132,19 @@ struct hip_device_buffer {
   hip_device_buffer(hip_device_buffer const &&other) = delete;
   hip_device_buffer operator=(hip_device_buffer const &&other) = delete;
 
-private:
-  bool set_id{false};
 };
 
 template <typename T, typename Host_Allocator, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 struct hip_aggregated_device_buffer {
-  size_t gpu_id{0};
   T *device_side_buffer;
   size_t number_of_elements;
-  explicit hip_aggregated_device_buffer(size_t number_of_elements)
-      : number_of_elements(number_of_elements) {
-    device_side_buffer =
-        recycle_allocator_hip_device<T>{}.allocate(number_of_elements);
-  }
-  explicit hip_aggregated_device_buffer(size_t number_of_elements, size_t gpu_id, Host_Allocator &alloc)
-      : gpu_id(gpu_id), number_of_elements(number_of_elements), set_id(true), alloc(alloc) {
-    assert(gpu_id == 0); 
+  hip_aggregated_device_buffer(size_t number_of_elements, Host_Allocator &alloc)
+      : number_of_elements(number_of_elements), alloc(alloc) {
     device_side_buffer =
         alloc.allocate(number_of_elements);
   }
   ~hip_aggregated_device_buffer() {
-    assert(gpu_id == 0); 
-    alloc.deallocate(device_side_buffer,
-                                                  number_of_elements);
+    alloc.deallocate(device_side_buffer, number_of_elements);
   }
   // not yet implemented
   hip_aggregated_device_buffer(hip_aggregated_device_buffer const &other) = delete;
@@ -170,8 +153,8 @@ struct hip_aggregated_device_buffer {
   hip_aggregated_device_buffer operator=(hip_aggregated_device_buffer const &&other) = delete;
 
 private:
-  bool set_id{false};
-  Host_Allocator &alloc;
+  Host_Allocator &alloc; // will stay valid for the entire aggregation region and hence
+                         // for the entire lifetime of this buffer
 };
 
 } // end namespace recycler
