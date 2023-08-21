@@ -157,5 +157,16 @@ private:
                          // for the entire lifetime of this buffer
 };
 
+namespace device_selection {
+template <typename T>
+struct select_device_functor<T, detail::hip_pinned_allocator<T>> {
+  void operator()(const size_t device_id) { hipSetDevice(device_id); }
+};
+template <typename T>
+struct select_device_functor<T, detail::hip_device_allocator<T>> {
+  void operator()(const size_t device_id) { hipSetDevice(device_id); }
+};
+} // namespace device_selection
+
 } // end namespace recycler
 #endif
