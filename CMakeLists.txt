@@ -12,8 +12,8 @@ set(CMAKE_CXX_STANDARD 17)
 # Version
 
 set(CPPUDDLE_VERSION_MAJOR 0)
-set(CPPUDDLE_VERSION_MINOR 1)
-set(CPPUDDLE_VERSION_PATCH 99)
+set(CPPUDDLE_VERSION_MINOR 3)
+set(CPPUDDLE_VERSION_PATCH 0)
 set(CPPUDDLE_VERSION_STRING "${CPPUDDLE_VERSION_MAJOR}.${CPPUDDLE_VERSION_MINOR}.${CPPUDDLE_VERSION_PATCH}.")
 
 #------------------------------------------------------------------------------------------------------------
