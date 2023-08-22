@@ -144,7 +144,7 @@ private:
   std::any function_tuple;
   /// Stores the string of the first function call for debug output
   std::string debug_type_information;
-  aggregation_mutex_t debug_mut;
+  recycler::aggregation_mutex_t debug_mut;
 #endif
 
   std::vector<hpx::lcos::local::promise<void>> potential_async_promises{};
@@ -175,7 +175,7 @@ public:
 #if !(defined(NDEBUG)) && defined(DEBUG_AGGREGATION_CALLS)
     // needed for concurrent access to function_tuple and debug_type_information
     // Not required for normal use
-    std::lock_guard<aggregation_mutex_t> guard(debug_mut);
+    std::lock_guard<recycler::aggregation_mutex_t> guard(debug_mut);
 #endif
     assert(!async_mode);
     assert(potential_async_promises.empty());
@@ -249,7 +249,7 @@ public:
 #if !(defined(NDEBUG)) && defined(DEBUG_AGGREGATION_CALLS)
     // needed for concurrent access to function_tuple and debug_type_information
     // Not required for normal use
-    std::lock_guard<aggregation_mutex_t> guard(debug_mut);
+    std::lock_guard<recycler::aggregation_mutex_t> guard(debug_mut);
 #endif
     assert(async_mode);
     assert(!potential_async_promises.empty());
@@ -530,7 +530,7 @@ public:
   /// slices have called it
   std::deque<aggregated_function_call<Executor>> function_calls;
   /// For synchronizing the access to the function calls list
-  aggregation_mutex_t mut;
+  recycler::aggregation_mutex_t mut;
 
   /// Data entry for a buffer allocation: void* pointer, size_t for
   /// buffer-size, atomic for the slice counter, location_id, gpu_id
@@ -541,7 +541,7 @@ public:
   /// Map pointer to deque index for fast access in the deallocations
   std::unordered_map<void*,size_t> buffer_allocations_map;
   /// For synchronizing the access to the buffer_allocations
-  aggregation_mutex_t buffer_mut;
+  recycler::aggregation_mutex_t buffer_mut;
   std::atomic<size_t> buffer_counter = 0;
 
   /// Get new buffer OR get buffer already allocated by different slice
@@ -553,7 +553,7 @@ public:
     // First: Check if it already has happened
     if (buffer_counter <= slice_alloc_counter) {
       // we might be the first! Lock...
-      std::lock_guard<aggregation_mutex_t> guard(buffer_mut);
+      std::lock_guard<recycler::aggregation_mutex_t> guard(buffer_mut);
       // ... and recheck
       if (buffer_counter <= slice_alloc_counter) {
         constexpr bool manage_content_lifetime = false;
@@ -563,7 +563,7 @@ public:
         // many different buffers for different aggregation sizes on different GPUs
         /* size_t location_id = gpu_id * instances_per_gpu; */
         // Use integer conversion to only use 0 16 32 ... as buckets
-        size_t location_id = ((hpx::get_worker_thread_num() % number_instances) / 16) * 16; 
+        size_t location_id = ((hpx::get_worker_thread_num() % recycler::number_instances) / 16) * 16; 
 #ifdef CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS
         if (max_slices == 1) {
           // get prefered location: aka the current hpx threads location
@@ -648,7 +648,7 @@ public:
     // Check if all slices are done with this buffer?
     if (buffer_allocation_counter == 0) {
       // Yes! "Deallocate" by telling the recylcer the buffer is fit for reusage
-      std::lock_guard<aggregation_mutex_t> guard(buffer_mut);
+      std::lock_guard<recycler::aggregation_mutex_t> guard(buffer_mut);
       // Only mark unused if another buffer has not done so already (and marked
       // it as invalid)
       if (valid) {
@@ -661,7 +661,7 @@ public:
 
         const size_t current_deallocs = ++dealloc_counter;
         if (current_deallocs == buffer_counter) {
-          std::lock_guard<aggregation_mutex_t> guard(mut);
+          std::lock_guard<recycler::aggregation_mutex_t> guard(mut);
           buffers_in_use = false;
           if (!executor_slices_alive && !buffers_in_use)
             slices_exhausted = false;
@@ -679,11 +679,11 @@ public:
 
   /// Only meant to be accessed by the slice executors
   bool sync_aggregation_slices(const size_t slice_launch_counter) {
-    std::lock_guard<aggregation_mutex_t> guard(mut);
+    std::lock_guard<recycler::aggregation_mutex_t> guard(mut);
     assert(slices_exhausted == true);
     // Add function call object in case it hasn't happened for this launch yet
     if (overall_launch_counter <= slice_launch_counter) {
-      /* std::lock_guard<aggregation_mutex_t> guard(mut); */
+      /* std::lock_guard<recycler::aggregation_mutex_t> guard(mut); */
       if (overall_launch_counter <= slice_launch_counter) {
         function_calls.emplace_back(current_slices, false, executor);
         overall_launch_counter = function_calls.size();
@@ -699,11 +699,11 @@ public:
   /// Only meant to be accessed by the slice executors
   template <typename F, typename... Ts>
   void post(const size_t slice_launch_counter, F &&f, Ts &&...ts) {
-    std::lock_guard<aggregation_mutex_t> guard(mut);
+    std::lock_guard<recycler::aggregation_mutex_t> guard(mut);
     assert(slices_exhausted == true);
     // Add function call object in case it hasn't happened for this launch yet
     if (overall_launch_counter <= slice_launch_counter) {
-      /* std::lock_guard<aggregation_mutex_t> guard(mut); */
+      /* std::lock_guard<recycler::aggregation_mutex_t> guard(mut); */
       if (overall_launch_counter <= slice_launch_counter) {
         function_calls.emplace_back(current_slices, false, executor);
         overall_launch_counter = function_calls.size();
@@ -722,11 +722,11 @@ public:
   template <typename F, typename... Ts>
   hpx::lcos::future<void> async(const size_t slice_launch_counter, F &&f,
                                 Ts &&...ts) {
-    std::lock_guard<aggregation_mutex_t> guard(mut);
+    std::lock_guard<recycler::aggregation_mutex_t> guard(mut);
     assert(slices_exhausted == true);
     // Add function call object in case it hasn't happened for this launch yet
     if (overall_launch_counter <= slice_launch_counter) {
-      /* std::lock_guard<aggregation_mutex_t> guard(mut); */
+      /* std::lock_guard<recycler::aggregation_mutex_t> guard(mut); */
       if (overall_launch_counter <= slice_launch_counter) {
         function_calls.emplace_back(current_slices, true, executor);
         overall_launch_counter = function_calls.size();
@@ -742,11 +742,11 @@ public:
   template <typename F, typename... Ts>
   hpx::lcos::shared_future<void> wrap_async(const size_t slice_launch_counter, F &&f,
                                 Ts &&...ts) {
-    std::lock_guard<aggregation_mutex_t> guard(mut);
+    std::lock_guard<recycler::aggregation_mutex_t> guard(mut);
     assert(slices_exhausted == true);
     // Add function call object in case it hasn't happened for this launch yet
     if (overall_launch_counter <= slice_launch_counter) {
-      /* std::lock_guard<aggregation_mutex_t> guard(mut); */
+      /* std::lock_guard<recycler::aggregation_mutex_t> guard(mut); */
       if (overall_launch_counter <= slice_launch_counter) {
         function_calls.emplace_back(current_slices, true, executor);
         overall_launch_counter = function_calls.size();
@@ -760,12 +760,12 @@ public:
   }
 
   bool slice_available(void) {
-    std::lock_guard<aggregation_mutex_t> guard(mut);
+    std::lock_guard<recycler::aggregation_mutex_t> guard(mut);
     return !slices_exhausted;
   }
 
   std::optional<hpx::lcos::future<Executor_Slice>> request_executor_slice() {
-    std::lock_guard<aggregation_mutex_t> guard(mut);
+    std::lock_guard<recycler::aggregation_mutex_t> guard(mut);
     if (!slices_exhausted) {
       const size_t local_slice_id = ++current_slices;
       if (local_slice_id == 1) {
@@ -773,7 +773,7 @@ public:
         // TODO still required? Should be clean here already
         function_calls.clear();
         overall_launch_counter = 0;
-        std::lock_guard<aggregation_mutex_t> guard(buffer_mut);
+        std::lock_guard<recycler::aggregation_mutex_t> guard(buffer_mut);
 #ifndef NDEBUG
         for (const auto &buffer_entry : buffer_allocations) {
           const auto &[buffer_pointer_any, buffer_size,
@@ -831,7 +831,7 @@ public:
         }
         // Launch all executor slices within this continuation
         current_continuation = fut.then([this](auto &&fut) {
-          std::lock_guard<aggregation_mutex_t> guard(mut);
+          std::lock_guard<recycler::aggregation_mutex_t> guard(mut);
           slices_exhausted = true;
           launched_slices = current_slices;
           size_t id = 0;
@@ -868,7 +868,7 @@ public:
   }
   size_t launched_slices;
   void reduce_usage_counter(void) {
-    /* std::lock_guard<aggregation_mutex_t> guard(mut); */
+    /* std::lock_guard<recycler::aggregation_mutex_t> guard(mut); */
     assert(slices_exhausted == true);
     assert(executor_slices_alive == true);
     assert(launched_slices >= 1);
@@ -885,7 +885,7 @@ public:
       // std::get<0>(executor_tuple); 
       // Mark executor fit for reusage
 
-      std::lock_guard<aggregation_mutex_t> guard(mut);
+      std::lock_guard<recycler::aggregation_mutex_t> guard(mut);
       executor_slices_alive = false; 
       if (!executor_slices_alive && !buffers_in_use) {
         slices_exhausted = false;
@@ -1021,7 +1021,7 @@ public:
           std::string("Trying to initialize cppuddle aggregation pool twice") +
           " Agg pool name: " + std::string(kernelname));
     }
-    if (num_devices > max_number_gpus) {
+    if (num_devices > recycler::max_number_gpus) {
       throw std::runtime_error(
           std::string(
               "Trying to initialize aggregation with more devices than the "
@@ -1031,7 +1031,7 @@ public:
     number_devices = num_devices;
     for (size_t gpu_id = 0; gpu_id < number_devices; gpu_id++) {
 
-      std::lock_guard<aggregation_mutex_t> guard(instance()[gpu_id].pool_mutex);
+      std::lock_guard<recycler::aggregation_mutex_t> guard(instance()[gpu_id].pool_mutex);
       assert(instance()[gpu_id].aggregation_executor_pool.empty());
       for (int i = 0; i < number_of_executors; i++) {
         instance()[gpu_id].aggregation_executor_pool.emplace_back(slices_per_executor,
@@ -1050,9 +1050,9 @@ public:
           std::string("Trying to use cppuddle aggregation pool without first calling init") +
           " Agg poolname: " + std::string(kernelname));
     }
-    const size_t gpu_id = get_device_id(number_devices);
+    const size_t gpu_id = recycler::get_device_id(number_devices);
     /* const size_t gpu_id = 1; */
-    std::lock_guard<aggregation_mutex_t> guard(instance()[gpu_id].pool_mutex);
+    std::lock_guard<recycler::aggregation_mutex_t> guard(instance()[gpu_id].pool_mutex);
     assert(!instance()[gpu_id].aggregation_executor_pool.empty());
     std::optional<hpx::lcos::future<
         typename Aggregated_Executor<Interface>::Executor_Slice>>
@@ -1104,11 +1104,11 @@ private:
 private:
   /// Required for dealing with adding elements to the deque of
   /// aggregated_executors
-  aggregation_mutex_t pool_mutex;
+  recycler::aggregation_mutex_t pool_mutex;
   /// Global access instance
   static std::unique_ptr<aggregation_pool[]>& instance(void) {
     static std::unique_ptr<aggregation_pool[]> pool_instances{
-        new aggregation_pool[max_number_gpus]};
+        new aggregation_pool[recycler::max_number_gpus]};
     return pool_instances;
   }
   static inline size_t number_devices = 1;

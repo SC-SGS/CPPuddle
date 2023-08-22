@@ -6,16 +6,13 @@
 #ifndef CPPUDDLE_CONFIG_HPP
 #define CPPUDDLE_CONFIG_HPP
 
+
 // Mutex configuration
 //
 #if defined(CPPUDDLE_HAVE_HPX) && defined(CPPUDDLE_HAVE_HPX_MUTEX)
 #include <hpx/mutex.hpp>
-using mutex_t = hpx::spinlock_no_backoff;
-using aggregation_mutex_t = hpx::mutex;
 #else
 #include <mutex>
-using mutex_t = std::mutex;
-using aggregation_mutex_t = std::mutex;
 #endif
 
 // HPX-aware configuration
@@ -29,6 +26,16 @@ For better performance configure CPPuddle with CPPUDDLE_WITH_HPX_AWARE_ALLOCATOR
 // include runtime to get HPX thread IDs required for the HPX-aware allocators
 #include <hpx/include/runtime.hpp>
 #endif
+#endif
+
+namespace recycler {
+
+#if defined(CPPUDDLE_HAVE_HPX) && defined(CPPUDDLE_HAVE_HPX_MUTEX)
+using mutex_t = hpx::spinlock_no_backoff;
+using aggregation_mutex_t = hpx::mutex;
+#else
+using mutex_t = std::mutex;
+using aggregation_mutex_t = std::mutex;
 #endif
 
 // Recycling configuration
@@ -61,5 +68,7 @@ inline size_t get_device_id(const size_t number_gpus) {
     return 0;
 #endif
 }
+
+} // end namespace recycler
 
 #endif
