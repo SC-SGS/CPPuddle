@@ -49,9 +49,9 @@ using aggregation_mutex_t = std::mutex;
 
 // Thread and MultiGPU configuration
 //
-constexpr size_t number_instances = CPPUDDLE_MAX_NUMBER_WORKERS;
+constexpr size_t number_instances = CPPUDDLE_HAVE_NUMBER_BUCKETS;
 static_assert(number_instances >= 1);
-constexpr size_t max_number_gpus = CPPUDDLE_MAX_NUMBER_GPUS;
+constexpr size_t max_number_gpus = CPPUDDLE_HAVE_MAX_NUMBER_GPUS;
 #ifndef CPPUDDLE_HAVE_HPX
 static_assert(max_number_gpus == 1, "Non HPX builds do not support multigpu");
 #endif
