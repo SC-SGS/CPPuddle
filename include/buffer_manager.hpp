@@ -70,7 +70,7 @@ public:
 // Warn about suboptimal performance without recycling
 #pragma message                                                                \
 "Warning: Building without buffer recycling! Use only for performance testing! \
-For better performance configure CPPuddle with CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING=OFF!"
+For better performance configure CPPuddle with CPPUDDLE_WITH_BUFFER_RECYCLING=ON!"
 
   template <typename T, typename Host_Allocator>
   static T *get(size_t number_elements, bool manage_content_lifetime = false,
@@ -887,7 +887,7 @@ struct aggressive_recycle_allocator {
 // Warn about suboptimal performance without recycling
 #pragma message                                                                \
 "Warning: Building without content reusage for aggressive allocators! \
-For better performance configure with CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS=OFF !"
+For better performance configure with CPPUDDLE_WITH_AGGRESSIVE_CONTENT_RECYCLING=ON !"
   template <typename... Args>
   inline void construct(T *p, Args... args) noexcept {
     ::new (static_cast<void *>(p)) T(std::forward<Args>(args)...);
