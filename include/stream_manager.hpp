@@ -15,6 +15,7 @@
 #include <queue>
 #include <stdexcept>
 #include <type_traits>
+#include <functional>
 
 //#include <cuda_runtime.h>
 // #include <hpx/compute/cuda/target.hpp>

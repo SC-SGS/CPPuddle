@@ -17,7 +17,7 @@
 #include <optional>
 
 #ifdef CPPUDDLE_HAVE_COUNTERS
-#include <boost/core/demangle.hpp>
+//#include <boost/core/demangle.hpp>
 #endif
 
 
@@ -323,8 +323,8 @@ private:
       // Print performance counters
       size_t number_cleaned = unused_buffer_list.size() + buffer_map.size();
       std::cout << "\nBuffer manager destructor for (Alloc: "
-                << boost::core::demangle(typeid(Host_Allocator).name()) << ", Type: "
-                << boost::core::demangle(typeid(T).name())
+                << typeid(Host_Allocator).name() << ", Type: "
+                << typeid(T).name()
                 << "):" << std::endl
                 << "--------------------------------------------------------------------"
                 << std::endl
