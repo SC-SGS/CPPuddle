@@ -605,7 +605,7 @@ void references_add_test(void) {
     auto &agg_exec =
         std::get<0>(stream_pool::get_interface<
                     Aggregated_Executor<Dummy_Executor>,
-                    round_robin_pool<Aggregated_Executor<Dummy_Executor>>>());
+                    round_robin_pool<Aggregated_Executor<Dummy_Executor>>>(0));
     std::vector<float> erg(512);
     std::vector<hpx::lcos::future<void>> slices_done_futs;
 

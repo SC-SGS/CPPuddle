@@ -777,7 +777,7 @@ public:
 #ifndef NDEBUG
         for (const auto &buffer_entry : buffer_allocations) {
           const auto &[buffer_pointer_any, buffer_size,
-                       buffer_allocation_counter, valid, location_id] =
+                       buffer_allocation_counter, valid, location_id, device_id] =
               buffer_entry;
           assert(!valid);
         }
@@ -908,7 +908,7 @@ public:
 #ifndef NDEBUG
     for (const auto &buffer_entry : buffer_allocations) {
       const auto &[buffer_pointer_any, buffer_size, buffer_allocation_counter,
-                   valid, location_id] = buffer_entry;
+                   valid, location_id, device_id] = buffer_entry;
       assert(!valid);
     }
 #endif

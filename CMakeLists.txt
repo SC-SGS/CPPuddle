@@ -561,12 +561,12 @@ if (CPPUDDLE_WITH_TESTS)
         add_test(allocator_kokkos_test.analyse_cleaned_buffers cat allocator_kokkos_test.out)
         set_tests_properties(allocator_kokkos_test.analyse_cleaned_buffers PROPERTIES
           FIXTURES_REQUIRED allocator_kokkos_output
-          PASS_REGULAR_EXPRESSION "--> Number cleaned up buffers:[ ]* 2"
+          PASS_REGULAR_EXPRESSION "--> Number cleaned up buffers:[ ]* 3"
         )
         add_test(allocator_kokkos_test.analyse_created_buffers cat allocator_kokkos_test.out)
         set_tests_properties(allocator_kokkos_test.analyse_created_buffers PROPERTIES
           FIXTURES_REQUIRED allocator_kokkos_output
-          PASS_REGULAR_EXPRESSION "--> Number of times a new buffer had to be created for a request:[ ]* 2"
+          PASS_REGULAR_EXPRESSION "--> Number of times a new buffer had to be created for a request:[ ]* 3"
         )
         add_test(allocator_kokkos_test.analyse_bad_allocs cat allocator_kokkos_test.out)
         set_tests_properties(allocator_kokkos_test.analyse_bad_allocs PROPERTIES
