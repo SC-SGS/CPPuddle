@@ -385,6 +385,7 @@ private:
   Executor &executor;
 
 public:
+  const size_t gpu_id{0};
   // Subclasses
 
   /// Slice class - meant as a scope interface to the aggregated executor
@@ -895,7 +896,7 @@ public:
 
   Aggregated_Executor(const size_t number_slices,
                       Aggregated_Executor_Modes mode)
-      : max_slices(number_slices), current_slices(0), slices_exhausted(false),dealloc_counter(0),
+      : gpu_id(0), max_slices(number_slices), current_slices(0), slices_exhausted(false), dealloc_counter(0),
         mode(mode), executor_slices_alive(false), buffers_in_use(false),
         executor_tuple(
             stream_pool::get_interface<Executor, round_robin_pool<Executor>>()),
@@ -988,7 +989,9 @@ public:
   /// interface
   template <typename... Ts>
   static void init(size_t number_of_executors, size_t slices_per_executor,
-                   Aggregated_Executor_Modes mode) {
+                   Aggregated_Executor_Modes mode, size_t num_devices = 1) {
+    if (num_devices > 1)
+      throw std::runtime_error("Got num_devices > 1. MultiGPU not yet supported in v0.2.1");
     std::lock_guard<aggregation_mutex_t> guard(instance.pool_mutex);
     assert(instance.aggregation_executor_pool.empty());
     for (int i = 0; i < number_of_executors; i++) {

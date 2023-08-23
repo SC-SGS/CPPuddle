@@ -84,13 +84,34 @@ private:
 
 public:
   using view_type = kokkos_type;
-  template <class... Args>
+  template <typename... Args,
+            std::enable_if_t<sizeof...(Args) == kokkos_type::rank, bool> = true>
   explicit recycled_view(Args... args)
       : kokkos_type(
             allocator.allocate(kokkos_type::required_allocation_size(args...) /
                                sizeof(element_type)),
             args...),
         total_elements(kokkos_type::required_allocation_size(args...) /
+                       sizeof(element_type)) {}
+
+  template <typename... Args,
+            std::enable_if_t<sizeof...(Args) == kokkos_type::rank, bool> = true>
+  recycled_view(const size_t device_id, Args... args)
+      : kokkos_type(
+            allocator.allocate(kokkos_type::required_allocation_size(args...) /
+                               sizeof(element_type)),
+            args...),
+        total_elements(kokkos_type::required_allocation_size(args...) /
+                       sizeof(element_type)) {}
+
+  template <typename layout_t,
+      std::enable_if_t<Kokkos::is_array_layout<layout_t>::value, bool> = true>
+  recycled_view(std::size_t device_id, layout_t layout)
+      : kokkos_type(
+            allocator.allocate(kokkos_type::required_allocation_size(layout) /
+                               sizeof(element_type)),
+            layout),
+        total_elements(kokkos_type::required_allocation_size(layout) /
                        sizeof(element_type)) {}
 
   recycled_view(
@@ -100,6 +121,7 @@ public:
 
     allocator.increase_usage_counter(this->data(), this->total_elements);
   }
+
 
   recycled_view<kokkos_type, alloc_type, element_type> &
   operator=(const recycled_view<kokkos_type, alloc_type, element_type> &other) {

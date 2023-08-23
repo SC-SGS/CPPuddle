@@ -14,12 +14,16 @@
 #include <mutex>
 #include <type_traits>
 #include <unordered_map>
+#include <optional>
 
 #ifdef CPPUDDLE_HAVE_COUNTERS
 #include <boost/core/demangle.hpp>
 #endif
 
+
 namespace recycler {
+constexpr size_t number_instances = 1;
+constexpr size_t max_number_gpus = 1;
 namespace detail {
 
 namespace util {
@@ -51,7 +55,12 @@ public:
   /// Returns and allocated buffer of the requested size - this may be a reused
   /// buffer
   template <typename T, typename Host_Allocator>
-  static T *get(size_t number_elements, bool manage_content_lifetime = false) {
+  static T *get(size_t number_elements, bool manage_content_lifetime = false,
+      std::optional<size_t> localtion_id = std::nullopt, std::optional<size_t> device_id = std::nullopt) {
+    if (device_id) {
+      if (*device_id > 0)
+        throw std::runtime_error("Got device_id > 1. MultiGPU not yet supported in v0.2.1");
+    }
     std::lock_guard<std::mutex> guard(mut);
     if (!recycler_instance) {
       // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
@@ -62,12 +71,20 @@ public:
   }
   /// Marks an buffer as unused and fit for reusage
   template <typename T, typename Host_Allocator>
-  static void mark_unused(T *p, size_t number_elements) {
+  static void mark_unused(T *p, size_t number_elements,
+      std::optional<size_t> localtion_id = std::nullopt, std::optional<size_t> device_id = std::nullopt) {
     std::lock_guard<std::mutex> guard(mut);
     if (recycler_instance) { // if the instance was already destroyed all
                              // buffers are destroyed anyway
       return buffer_manager<T, Host_Allocator>::mark_unused(p, number_elements);
     }
+  }
+
+  template <typename T, typename Host_Allocator>
+  static void register_allocator_counters_with_hpx(void) {
+    std::cerr << "Warning: CPPuddle v0.2.1 does not yet support HPX counters "
+                 "-- this operation will be ignored!"
+              << std::endl;
   }
   /// Increase the reference coutner of a buffer
   template <typename T, typename Host_Allocator>
@@ -590,6 +607,8 @@ std::unique_ptr<buffer_recycler::mutexless_buffer_manager<T, Host_Allocator>>
 
 template <typename T, typename Host_Allocator> struct recycle_allocator {
   using value_type = T;
+  using underlying_allocator_type = Host_Allocator;
+  static_assert(std::is_same_v<value_type, typename underlying_allocator_type::value_type>);
   recycle_allocator() noexcept = default;
   template <typename U>
   explicit recycle_allocator(
@@ -627,6 +646,9 @@ operator!=(recycle_allocator<T, Host_Allocator> const &,
 template <typename T, typename Host_Allocator>
 struct aggressive_recycle_allocator {
   using value_type = T;
+  using underlying_allocator_type = Host_Allocator;
+  static_assert(std::is_same_v<value_type, typename underlying_allocator_type::value_type>);
+
   aggressive_recycle_allocator() noexcept = default;
   template <typename U>
   explicit aggressive_recycle_allocator(
@@ -675,6 +697,10 @@ using aggressive_recycle_std =
 /// Deletes all buffers (even ones still marked as used), delete the buffer
 /// managers and the recycler itself
 inline void force_cleanup() { detail::buffer_recycler::clean_all(); }
+/// Dummy method that maps to clean_all for now - ensures interface
+/// compatabilty with 0.3.0 where finalize is a smarter cleanup that ensures no 
+/// further buffers can be added and static buffers are properly cleaned
+inline void finalize() { detail::buffer_recycler::clean_all(); }
 /// Deletes all buffers currently marked as unused
 inline void cleanup() { detail::buffer_recycler::clean_unused_buffers(); }
 

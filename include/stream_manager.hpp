@@ -13,6 +13,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <stdexcept>
 #include <type_traits>
 
 //#include <cuda_runtime.h>
@@ -221,35 +222,86 @@ public:
     stream_pool_implementation<Interface, Pool>::init(
         number_of_streams, std::forward<Ts>(executor_args)...);
   }
+  // Dummy for interface compatbility with future 0.3.0 release
+  // Works the same as the init method here
+  template <class Interface, class Pool, typename... Ts>
+  static void init_all_executor_pools(size_t number_of_streams, Ts &&... executor_args) {
+    std::lock_guard<std::mutex> guard(mut);
+    if (!access_instance) {
+      // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
+      access_instance.reset(new stream_pool());
+    }
+    assert(access_instance); 
+    stream_pool_implementation<Interface, Pool>::init(
+        number_of_streams, std::forward<Ts>(executor_args)...);
+  }
+  // Dummy for interface compatbility with future 0.3.0 release
+  // Works the same as the init method here
+  template <class Interface, class Pool, typename... Ts>
+  static void init_executor_pool(size_t device_id, size_t number_of_streams, Ts &&... executor_args) {
+    if (device_id > 0)
+      throw std::runtime_error("Got device_id > 0. MultiGPU not yet supported in cppuddle v0.2.1");
+    std::lock_guard<std::mutex> guard(mut);
+    if (!access_instance) {
+      // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
+      access_instance.reset(new stream_pool());
+    }
+    assert(access_instance); 
+    stream_pool_implementation<Interface, Pool>::init(
+        number_of_streams, std::forward<Ts>(executor_args)...);
+  }
   template <class Interface, class Pool> static void cleanup() {
     assert(access_instance); // should already be initialized
     stream_pool_implementation<Interface, Pool>::cleanup();
   }
   template <class Interface, class Pool>
-  static std::tuple<Interface &, size_t> get_interface() {
+  static std::tuple<Interface &, size_t> get_interface(size_t device_id = 0) {
+    if (device_id > 0)
+      throw std::runtime_error("Got device_id > 0. MultiGPU not yet supported in cppuddle v0.2.1");
     assert(access_instance); // should already be initialized
     return stream_pool_implementation<Interface, Pool>::get_interface();
   }
   template <class Interface, class Pool>
-  static void release_interface(size_t index) noexcept {
+  static void release_interface(size_t index, size_t device_id = 0) {
+    if (device_id > 0)
+      throw std::runtime_error("Got device_id > 0. MultiGPU not yet supported in cppuddle v0.2.1");
     assert(access_instance); // should already be initialized
     stream_pool_implementation<Interface, Pool>::release_interface(index);
   }
   template <class Interface, class Pool>
-  static bool interface_available(size_t load_limit) noexcept {
+  static bool interface_available(size_t load_limit, size_t device_id = 0) {
+    if (device_id > 0)
+      throw std::runtime_error("Got device_id > 0. MultiGPU not yet supported in cppuddle v0.2.1");
     assert(access_instance); // should already be initialized
     return stream_pool_implementation<Interface, Pool>::interface_available(
         load_limit);
   }
   template <class Interface, class Pool>
-  static size_t get_current_load() noexcept {
+  static size_t get_current_load(size_t device_id = 0) {
+    if (device_id > 0)
+      throw std::runtime_error("Got device_id > 0. MultiGPU not yet supported in cppuddle v0.2.1");
     assert(access_instance); // should already be initialized
     return stream_pool_implementation<Interface, Pool>::get_current_load();
   }
   template <class Interface, class Pool>
-  static size_t get_next_device_id() noexcept {
+  static size_t get_next_device_id(size_t num_devices = 1) {
+    if (num_devices > 1)
+      throw std::runtime_error("Got num_devices > 1. MultiGPU not yet supported in cppuddle v0.2.1");
     assert(access_instance); // should already be initialized
-    return stream_pool_implementation<Interface, Pool>::get_next_device_id();
+    return 0;
+  }
+
+  template <class Interface, class Pool>
+  static size_t select_device(size_t device_id = 0) {
+    if (device_id > 0)
+      throw std::runtime_error("Got device_id > 0. MultiGPU not yet supported in cppuddle v0.2.1");
+    return 0;
+  }
+
+  // Dummy for interface compatbility with future 0.3.0 release
+  template <class Interface, class Pool>
+  static void set_device_selector(std::function<void(size_t)> select_gpu_function) {
+    
   }
 
 private:
@@ -347,9 +399,12 @@ std::unique_ptr<stream_pool::stream_pool_implementation<Interface, Pool>>
 
 template <class Interface, class Pool> class stream_interface {
 public:
-  explicit stream_interface()
+  explicit stream_interface(size_t device_id = 0)
       : t(stream_pool::get_interface<Interface, Pool>()),
-        interface(std::get<0>(t)), interface_index(std::get<1>(t)) {}
+        interface(std::get<0>(t)), interface_index(std::get<1>(t)) {
+    if (device_id > 0)
+      throw std::runtime_error("Got device_id > 0. MultiGPU not yet supported in cppuddle v0.2.1");
+  }
 
   stream_interface(const stream_interface &other) = delete;
   stream_interface &operator=(const stream_interface &other) = delete;

@@ -155,29 +155,25 @@ struct hip_aggregated_device_buffer {
     device_side_buffer =
         recycle_allocator_hip_device<T>{}.allocate(number_of_elements);
   }
+  explicit hip_aggregated_device_buffer(size_t number_of_elements, Host_Allocator &alloc)
+      : number_of_elements(number_of_elements), alloc(alloc) {
+    device_side_buffer =
+        alloc.allocate(number_of_elements);
+  }
   explicit hip_aggregated_device_buffer(size_t number_of_elements, size_t gpu_id, Host_Allocator &alloc)
       : gpu_id(gpu_id), number_of_elements(number_of_elements), set_id(true), alloc(alloc) {
-#if defined(CPPUDDLE_HAVE_MULTIGPU) 
-    hipSetDevice(gpu_id);
-#else
     // TODO It would be better to have separate method for this but it would change the interface
     // This will have to do for some testing. If it's worth it, add separate method without hipSetDevice
     // Allows for testing without any changes to other projects 
     assert(gpu_id == 0); 
-#endif
     device_side_buffer =
         alloc.allocate(number_of_elements);
   }
   ~hip_aggregated_device_buffer() {
-#if defined(CPPUDDLE_HAVE_MULTIGPU) 
-    if (set_id)
-      hipSetDevice(gpu_id);
-#else
     // TODO It would be better to have separate method for this but it would change the interface
     // This will have to do for some testing. If it's worth it, add separate method without hipSetDevice
     // Allows for testing without any changes to other projects 
     assert(gpu_id == 0); 
-#endif
     alloc.deallocate(device_side_buffer,
                                                   number_of_elements);
   }
