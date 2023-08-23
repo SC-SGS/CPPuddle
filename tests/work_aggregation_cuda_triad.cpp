@@ -28,7 +28,6 @@ __global__ void __launch_bounds__(1024, 2) triad_kernel(float_t *A, const float_
 //===============================================================================
 //===============================================================================
 int hpx_main(int argc, char *argv[]) {
-  static_assert(max_number_gpus == 1, "This test currently does not support MultiGPU builds!");
   // Init parameters
   size_t problem_size{0};
   size_t kernel_size{0};
@@ -209,7 +208,7 @@ int hpx_main(int argc, char *argv[]) {
 
                   recycler::cuda_aggregated_device_buffer<float_t,
                                                           decltype(alloc_device)>
-                      device_A(slice_exec.number_slices * kernel_size, 0,
+                      device_A(slice_exec.number_slices * kernel_size, 
                                alloc_device);
 
                   std::vector<float_t, decltype(alloc_host)> local_B(
@@ -217,7 +216,7 @@ int hpx_main(int argc, char *argv[]) {
                       alloc_host);
                   recycler::cuda_aggregated_device_buffer<float_t,
                                                           decltype(alloc_device)>
-                      device_B(slice_exec.number_slices * kernel_size, 0,
+                      device_B(slice_exec.number_slices * kernel_size, 
                                alloc_device);
                   
                   std::vector<float_t, decltype(alloc_host)> local_C(
@@ -225,7 +224,7 @@ int hpx_main(int argc, char *argv[]) {
                       alloc_host);
                   recycler::cuda_aggregated_device_buffer<float_t,
                                                           decltype(alloc_device)>
-                      device_C(slice_exec.number_slices * kernel_size, 0,
+                      device_C(slice_exec.number_slices * kernel_size,
                                alloc_device);
 
                   for (size_t i = task_id * kernel_size, j = 0;

@@ -62,7 +62,7 @@ static_assert(max_number_gpus > 0);
 /// Uses HPX thread information to determine which GPU should be used
 inline size_t get_device_id(const size_t number_gpus) {
 #if defined(CPPUDDLE_HAVE_HPX) 
-    assert(number_gpus < max_number_gpus);
+    assert(number_gpus <= max_number_gpus);
     return hpx::get_worker_thread_num() % number_gpus; 
 #else
     return 0;
