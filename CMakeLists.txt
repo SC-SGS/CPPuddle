@@ -398,15 +398,10 @@ if (CPPUDDLE_WITH_TESTS)
     )
   endif()
   if (NOT CMAKE_BUILD_TYPE MATCHES "Debug") # Performance tests only make sense with optimizations on
-    add_test(allocator_test.performance.analyse_recycle_performance cat allocator_test.out)
-    set_tests_properties(allocator_test.performance.analyse_recycle_performance PROPERTIES
-      FIXTURES_REQUIRED allocator_test_output
-      PASS_REGULAR_EXPRESSION "Test information: Recycler was faster than default allocator!"
-    )
     add_test(allocator_test.performance.analyse_aggressive_performance cat allocator_test.out)
     set_tests_properties(allocator_test.performance.analyse_aggressive_performance PROPERTIES
       FIXTURES_REQUIRED allocator_test_output
-      PASS_REGULAR_EXPRESSION "Test information: Recycler was faster than default allocator!"
+      PASS_REGULAR_EXPRESSION "Test information: Aggressive recycler was faster than default allocator!"
     )
   endif()
   add_test(allocator_test.fixture_cleanup ${CMAKE_COMMAND} -E remove allocator_test.out)
@@ -465,15 +460,10 @@ if (CPPUDDLE_WITH_TESTS)
     )
   endif()
   if (NOT CMAKE_BUILD_TYPE MATCHES "Debug") # Performance tests only make sense with optimizations on
-    add_test(allocator_aligned_test.performance.analyse_recycle_performance cat allocator_aligned_test.out)
-    set_tests_properties(allocator_aligned_test.performance.analyse_recycle_performance PROPERTIES
-      FIXTURES_REQUIRED allocator_aligned_test_output
-      PASS_REGULAR_EXPRESSION "Test information: Recycler was faster than default allocator!"
-    )
     add_test(allocator_aligned_test.performance.analyse_aggressive_performance cat allocator_aligned_test.out)
     set_tests_properties(allocator_aligned_test.performance.analyse_aggressive_performance PROPERTIES
       FIXTURES_REQUIRED allocator_aligned_test_output
-      PASS_REGULAR_EXPRESSION "Test information: Recycler was faster than default allocator!"
+      PASS_REGULAR_EXPRESSION "Test information: Aggressive recycler was faster than default allocator!"
     )
   endif()
   add_test(allocator_aligned_test.fixture_cleanup ${CMAKE_COMMAND} -E remove allocator_aligned_test.out)
@@ -521,15 +511,10 @@ if (CPPUDDLE_WITH_TESTS)
       )
     endif()
     if (NOT CMAKE_BUILD_TYPE MATCHES "Debug") # Performance tests only make sense with optimizations on
-      add_test(allocator_concurrency_test.performance.analyse_recycle_performance cat allocator_concurrency_test.out)
-      set_tests_properties(allocator_concurrency_test.performance.analyse_recycle_performance PROPERTIES
-        FIXTURES_REQUIRED allocator_concurrency_output
-        PASS_REGULAR_EXPRESSION "Test information: Recycler was faster than default allocator!"
-      )
       add_test(allocator_concurrency_test.performance.analyse_aggressive_performance cat allocator_concurrency_test.out)
       set_tests_properties(allocator_concurrency_test.performance.analyse_aggressive_performance PROPERTIES
         FIXTURES_REQUIRED allocator_concurrency_output
-        PASS_REGULAR_EXPRESSION "Test information: Recycler was faster than default allocator!"
+        PASS_REGULAR_EXPRESSION "Test information: Aggressive recycler was faster than default allocator!"
       )
     endif()
     add_test(allocator_concurrency_test.fixture_cleanup ${CMAKE_COMMAND} -E remove allocator_concurrency_test.out)
