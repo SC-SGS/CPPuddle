@@ -245,6 +245,9 @@ install(EXPORT CPPuddle NAMESPACE CPPuddle:: DESTINATION ${CMAKE_INSTALL_PREFIX}
 
 ## Add target for tests and tests definitions
 if (CPPUDDLE_WITH_TESTS)
+  if(NOT CPPUDDLE_WITH_BUFFER_RECYCLING)
+    message(FATAL_ERROR "The CPPuddle tests only work with CPPUDDLE_WITH_BUFFER_RECYCLING=ON. Turning off buffer recycling is not recommended in general!")
+  endif()
   add_executable(allocator_test tests/allocator_test.cpp)
   if (CPPUDDLE_WITH_HPX)
   target_link_libraries(allocator_test
