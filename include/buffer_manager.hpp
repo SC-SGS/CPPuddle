@@ -52,6 +52,36 @@ void destroy_n(ForwardIt first, Size n) {
 class buffer_recycler {
   // Public interface
 public:
+#if defined(CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING)
+
+// Warn about suboptimal performance without recycling
+#pragma message                                                                \
+"Warning: Building without buffer recycling! Use only for performance testing! \
+For better performance configure CPPuddle with CPPUDDLE_WITH_BUFFER_RECYCLING=ON!"
+
+  template <typename T, typename Host_Allocator>
+  static T *get(size_t number_elements, bool manage_content_lifetime = false,
+      std::optional<size_t> location_hint = std::nullopt, 
+      std::optional<size_t> device_id = std::nullopt) {
+
+    return Host_Allocator{}.allocate(number_elements);
+  }
+  /// Marks an buffer as unused and fit for reusage
+  template <typename T, typename Host_Allocator>
+  static void mark_unused(T *p, size_t number_elements,
+      std::optional<size_t> location_hint = std::nullopt,
+      std::optional<size_t> device_id = std::nullopt) {
+    return Host_Allocator{}.deallocate(p, number_elements);
+  }
+  /// Fail when internal reference counting is used but recylcing is turned off
+  template <typename T, typename Host_Allocator>
+  static void increase_usage_counter(T *p, size_t number_elements) noexcept {
+    std::cerr << "ERROR: CPPuddle v0.2.1 does not support internal reference counting "
+                 "with CPPUDDLE_WITH_BUFFER_RECYCLING=OFF. Please re-enable buffer recycling! Aborting..."
+              << std::endl;
+    abort();
+  }
+#else
   /// Returns and allocated buffer of the requested size - this may be a reused
   /// buffer
   template <typename T, typename Host_Allocator>
@@ -79,13 +109,6 @@ public:
       return buffer_manager<T, Host_Allocator>::mark_unused(p, number_elements);
     }
   }
-
-  template <typename T, typename Host_Allocator>
-  static void register_allocator_counters_with_hpx(void) {
-    std::cerr << "Warning: CPPuddle v0.2.1 does not yet support HPX counters "
-                 "-- this operation will be ignored!"
-              << std::endl;
-  }
   /// Increase the reference coutner of a buffer
   template <typename T, typename Host_Allocator>
   static void increase_usage_counter(T *p, size_t number_elements) noexcept {
@@ -95,6 +118,14 @@ public:
       return buffer_manager<T, Host_Allocator>::increase_usage_counter(
           p, number_elements);
     }
+  }
+#endif
+
+  template <typename T, typename Host_Allocator>
+  static void register_allocator_counters_with_hpx(void) {
+    std::cerr << "Warning: CPPuddle v0.2.1 does not yet support HPX counters "
+                 "-- this operation will be ignored!"
+              << std::endl;
   }
   /// Deallocate all buffers, no matter whether they are marked as used or not
   static void clean_all() {
@@ -661,6 +692,11 @@ struct aggressive_recycle_allocator {
   void deallocate(T *p, std::size_t n) {
     buffer_recycler::mark_unused<T, Host_Allocator>(p, n);
   }
+  void increase_usage_counter(T *p, size_t n) {
+    buffer_recycler::increase_usage_counter<T, Host_Allocator>(p, n);
+  }
+
+#ifndef CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS
   template <typename... Args>
   inline void construct(T *p, Args... args) noexcept {
     // Do nothing here - we reuse the content of the last owner
@@ -669,9 +705,17 @@ struct aggressive_recycle_allocator {
     // Do nothing here - Contents will be destroyed when the buffer manager is
     // destroyed, not before
   }
-  void increase_usage_counter(T *p, size_t n) {
-    buffer_recycler::increase_usage_counter<T, Host_Allocator>(p, n);
+#else
+// Warn about suboptimal performance without recycling
+#pragma message                                                                \
+"Warning: Building without content reusage for aggressive allocators! \
+For better performance configure with CPPUDDLE_WITH_AGGRESSIVE_CONTENT_RECYCLING=ON !"
+  template <typename... Args>
+  inline void construct(T *p, Args... args) noexcept {
+    ::new (static_cast<void *>(p)) T(std::forward<Args>(args)...);
   }
+  void destroy(T *p) { p->~T(); }
+#endif
 };
 template <typename T, typename U, typename Host_Allocator>
 constexpr bool

@@ -29,6 +29,10 @@ option(CPPUDDLE_WITH_KOKKOS "Enable KOKKOS tests/examples" OFF)
 option(CPPUDDLE_WITH_CLANG_TIDY "Enable clang tidy warnings" OFF)
 option(CPPUDDLE_WITH_CLANG_FORMAT "Enable clang format target" OFF)
 
+# backported flags for performance experiments
+option(CPPUDDLE_WITH_BUFFER_RECYCLING "Enables the default recycling behaviour! Turning this off will have a major negative performance impact and is only intended for testing!" ON)
+option(CPPUDDLE_WITH_AGGRESSIVE_CONTENT_RECYCLING "Allows the aggressive allocators variants to reuse contents from previous buffers (and thus skip initializations)" ON)
+
 if (CPPUDDLE_WITH_CUDA)
    enable_language(CUDA) 
 endif ()
@@ -113,6 +117,21 @@ $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 $<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include> 
 )
 
+# Backported flags handling
+if(CPPUDDLE_WITH_BUFFER_RECYCLING)
+  message(INFO " Using default buffer recycling behaviour!")
+else()
+  message(WARNING " Slow Build: Buffer recycling is deactivated. This should only be used for performance tests!")
+  target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING")
+endif()
+
+if(CPPUDDLE_WITH_AGGRESSIVE_CONTENT_RECYCLING)
+  message(INFO " Using default behaviour for aggressive content reusage (only relevant for aggressive allocators)!")
+else()
+  target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS")
+  message(WARNING " Slow Build: Aggressive allocators (and thus content recycling) is disabled. This should only be used for performance tests!")
+endif()
+
 # install libs with the defitions:
 install(TARGETS buffer_manager EXPORT CPPuddle
   LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib 
@@ -130,6 +149,9 @@ install(EXPORT CPPuddle NAMESPACE CPPuddle:: DESTINATION ${CMAKE_INSTALL_PREFIX}
 
 ## Add target for tests and tests definitions
 if (CPPUDDLE_WITH_TESTS)
+  if(NOT CPPUDDLE_WITH_BUFFER_RECYCLING)
+    message(FATAL_ERROR "The CPPuddle tests only work with CPPUDDLE_WITH_BUFFER_RECYCLING=ON. Turning off buffer recycling is not recommended in general!")
+  endif()
   add_executable(allocator_test tests/allocator_test.cpp)
   target_link_libraries(allocator_test
   ${Boost_LIBRARIES} Boost::boost Boost::program_options buffer_manager)
