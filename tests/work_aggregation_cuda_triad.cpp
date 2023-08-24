@@ -208,7 +208,7 @@ int hpx_main(int argc, char *argv[]) {
 
                   recycler::cuda_aggregated_device_buffer<float_t,
                                                           decltype(alloc_device)>
-                      device_A(slice_exec.number_slices * kernel_size, 0,
+                      device_A(slice_exec.number_slices * kernel_size, 
                                alloc_device);
 
                   std::vector<float_t, decltype(alloc_host)> local_B(
@@ -216,7 +216,7 @@ int hpx_main(int argc, char *argv[]) {
                       alloc_host);
                   recycler::cuda_aggregated_device_buffer<float_t,
                                                           decltype(alloc_device)>
-                      device_B(slice_exec.number_slices * kernel_size, 0,
+                      device_B(slice_exec.number_slices * kernel_size, 
                                alloc_device);
                   
                   std::vector<float_t, decltype(alloc_host)> local_C(
@@ -224,7 +224,7 @@ int hpx_main(int argc, char *argv[]) {
                       alloc_host);
                   recycler::cuda_aggregated_device_buffer<float_t,
                                                           decltype(alloc_device)>
-                      device_C(slice_exec.number_slices * kernel_size, 0,
+                      device_C(slice_exec.number_slices * kernel_size,
                                alloc_device);
 
                   for (size_t i = task_id * kernel_size, j = 0;

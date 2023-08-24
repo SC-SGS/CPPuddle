@@ -113,28 +113,18 @@ using recycle_allocator_hip_device =
 // TODO Is this even required? (cuda version should work fine...)
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 struct hip_device_buffer {
-  size_t gpu_id{0};
+  recycle_allocator_hip_device<T> allocator;
   T *device_side_buffer;
   size_t number_of_elements;
-  explicit hip_device_buffer(size_t number_of_elements)
-      : number_of_elements(number_of_elements) {
-    device_side_buffer =
-        recycle_allocator_hip_device<T>{}.allocate(number_of_elements);
-  }
-  explicit hip_device_buffer(size_t number_of_elements, size_t gpu_id)
-      : gpu_id(gpu_id), number_of_elements(number_of_elements), set_id(true) {
 
-    // TODO Fix Multi GPU support
-    // hipSetDevice(gpu_id);
+  hip_device_buffer(size_t number_of_elements, size_t device_id)
+      : allocator{device_id}, number_of_elements(number_of_elements) {
+    assert(device_id < max_number_gpus);
     device_side_buffer =
-        recycle_allocator_hip_device<T>{}.allocate(number_of_elements);
+        allocator.allocate(number_of_elements);
   }
   ~hip_device_buffer() {
-    // TODO Fix Multi GPU support
-    // if (set_id)
-    //   hipSetDevice(gpu_id);
-    recycle_allocator_hip_device<T>{}.deallocate(device_side_buffer,
-                                                  number_of_elements);
+    allocator.deallocate(device_side_buffer, number_of_elements);
   }
   // not yet implemented
   hip_device_buffer(hip_device_buffer const &other) = delete;
@@ -142,45 +132,19 @@ struct hip_device_buffer {
   hip_device_buffer(hip_device_buffer const &&other) = delete;
   hip_device_buffer operator=(hip_device_buffer const &&other) = delete;
 
-private:
-  bool set_id{false};
 };
 
 template <typename T, typename Host_Allocator, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 struct hip_aggregated_device_buffer {
-  size_t gpu_id{0};
   T *device_side_buffer;
   size_t number_of_elements;
-  explicit hip_aggregated_device_buffer(size_t number_of_elements)
-      : number_of_elements(number_of_elements) {
-    device_side_buffer =
-        recycle_allocator_hip_device<T>{}.allocate(number_of_elements);
-  }
-  explicit hip_aggregated_device_buffer(size_t number_of_elements, size_t gpu_id, Host_Allocator &alloc)
-      : gpu_id(gpu_id), number_of_elements(number_of_elements), set_id(true), alloc(alloc) {
-#if defined(CPPUDDLE_HAVE_MULTIGPU) 
-    hipSetDevice(gpu_id);
-#else
-    // TODO It would be better to have separate method for this but it would change the interface
-    // This will have to do for some testing. If it's worth it, add separate method without hipSetDevice
-    // Allows for testing without any changes to other projects 
-    assert(gpu_id == 0); 
-#endif
+  hip_aggregated_device_buffer(size_t number_of_elements, Host_Allocator &alloc)
+      : number_of_elements(number_of_elements), alloc(alloc) {
     device_side_buffer =
         alloc.allocate(number_of_elements);
   }
   ~hip_aggregated_device_buffer() {
-#if defined(CPPUDDLE_HAVE_MULTIGPU) 
-    if (set_id)
-      hipSetDevice(gpu_id);
-#else
-    // TODO It would be better to have separate method for this but it would change the interface
-    // This will have to do for some testing. If it's worth it, add separate method without hipSetDevice
-    // Allows for testing without any changes to other projects 
-    assert(gpu_id == 0); 
-#endif
-    alloc.deallocate(device_side_buffer,
-                                                  number_of_elements);
+    alloc.deallocate(device_side_buffer, number_of_elements);
   }
   // not yet implemented
   hip_aggregated_device_buffer(hip_aggregated_device_buffer const &other) = delete;
@@ -189,9 +153,20 @@ struct hip_aggregated_device_buffer {
   hip_aggregated_device_buffer operator=(hip_aggregated_device_buffer const &&other) = delete;
 
 private:
-  bool set_id{false};
-  Host_Allocator &alloc;
+  Host_Allocator &alloc; // will stay valid for the entire aggregation region and hence
+                         // for the entire lifetime of this buffer
 };
+
+namespace device_selection {
+template <typename T>
+struct select_device_functor<T, detail::hip_pinned_allocator<T>> {
+  void operator()(const size_t device_id) { hipSetDevice(device_id); }
+};
+template <typename T>
+struct select_device_functor<T, detail::hip_device_allocator<T>> {
+  void operator()(const size_t device_id) { hipSetDevice(device_id); }
+};
+} // namespace device_selection
 
 } // end namespace recycler
 #endif

@@ -81,6 +81,7 @@ int main(int argc, char *argv[]) {
   for (size_t pass = 0; pass < passes; pass++) {
     test_view my_wrapper_test1(1000);
     test_view my_wrapper_test2(1000);
+    test_view my_wrapper_test3(0, 1000); // test 1D with explicit device id parameter
     double t = 2.6;
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::Serial>(0, 1000),
                         KOKKOS_LAMBDA(const int n) {
@@ -90,6 +91,7 @@ int main(int argc, char *argv[]) {
                         });
     Kokkos::fence();
   }
+  recycler::print_performance_counters();
 #ifdef CPPUDDLE_HAVE_HPX  
   return hpx::finalize();
 #else

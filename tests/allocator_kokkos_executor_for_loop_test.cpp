@@ -143,6 +143,7 @@ int main(int argc, char *argv[]) {
 
   // otherwise the HPX cuda polling futures won't work
   hpx::cuda::experimental::detail::unregister_polling(hpx::resource::get_thread_pool(0));
+  recycler::print_performance_counters();
   // Cleanup all cuda views 
   // (otherwise the cuda driver might shut down before this gets done automatically at
   // the end of the programm)

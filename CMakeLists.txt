@@ -12,8 +12,8 @@ set(CMAKE_CXX_STANDARD 17)
 # Version
 
 set(CPPUDDLE_VERSION_MAJOR 0)
-set(CPPUDDLE_VERSION_MINOR 1)
-set(CPPUDDLE_VERSION_PATCH 99)
+set(CPPUDDLE_VERSION_MINOR 3)
+set(CPPUDDLE_VERSION_PATCH 0)
 set(CPPUDDLE_VERSION_STRING "${CPPUDDLE_VERSION_MAJOR}.${CPPUDDLE_VERSION_MINOR}.${CPPUDDLE_VERSION_PATCH}.")
 
 #------------------------------------------------------------------------------------------------------------
@@ -23,17 +23,19 @@ set(CPPUDDLE_VERSION_STRING "${CPPUDDLE_VERSION_MAJOR}.${CPPUDDLE_VERSION_MINOR}
 option(CPPUDDLE_WITH_CUDA "Enable CUDA tests/examples" OFF)
 option(CPPUDDLE_WITH_MULTIGPU_SUPPORT "Enables experimental MultiGPU support" OFF)
 option(CPPUDDLE_WITH_KOKKOS "Enable KOKKOS tests/examples" OFF)
+set(CPPUDDLE_WITH_MAX_NUMBER_GPUS "1" CACHE STRING "Number of GPUs that will be used. Should match the number of GPUs used when using the maximum number of HPX worker threads. Should be 1 for non-HPX builds.")
 # HPX-related options
 option(CPPUDDLE_WITH_HPX "Enable basic HPX integration and examples" OFF)
 option(CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS "Enable HPX-aware allocators for even better HPX integration" ON)
 set(CPPUDDLE_WITH_HPX_MUTEX OFF CACHE BOOL
   "Use HPX spinlock mutex instead of std::mutex")
+set(CPPUDDLE_WITH_NUMBER_BUCKETS "128" CACHE STRING "Number of internal recycle buckets buffer type. Should ideally match the intended number of HPX workers or be 1 in non-HPX builds.")
 # Test-related options
 option(CPPUDDLE_WITH_COUNTERS "Turns on allocations counters. Useful for extended testing" OFF)
 option(CPPUDDLE_WITH_TESTS "Build tests/examples" OFF)
 set(CPPUDDLE_WITH_DEADLOCK_TEST_REPETITONS "100000" CACHE STRING "Number of repetitions for the aggregation executor deadlock tests")
-option(CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING "Deactivates the default recycling behaviour" OFF)
-option(CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS "Deactivates the aggressive allocators" OFF)
+option(CPPUDDLE_WITH_BUFFER_RECYCLING "Enables the default recycling behaviour! Turning this off will have a major negative performance impact and is only intended for testing!" ON)
+option(CPPUDDLE_WITH_AGGRESSIVE_CONTENT_RECYCLING "Allows the aggressive allocators variants to reuse contents from previous buffers (and thus skip initializations)" ON)
 # Tooling options
 option(CPPUDDLE_WITH_CLANG_TIDY "Enable clang tidy warnings" OFF)
 option(CPPUDDLE_WITH_CLANG_FORMAT "Enable clang format target" OFF)
@@ -61,6 +63,19 @@ if(CPPUDDLE_WITH_HPX)
   endif()
 endif()
 
+if(CPPUDDLE_WITH_NUMBER_GPUS GREATER 1)
+  if(NOT CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS)
+    message(FATAL_ERROR " CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS=ON is required Multi-GPU builds!")
+  endif()
+endif()
+
+if(CPPUDDLE_WITH_NUMBER_BUCKETS GREATER 1)
+  if(NOT CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS)
+    message(FATAL_ERROR " CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS=ON is required for Multi-Worker build! \
+    Either turn it on or configure with CPPUDDLE_WITH_NUMBER_BUCKETS=1 !")
+  endif()
+endif()
+
 # HPX-aware allocators require HPX-Support. Warn if HPX support is disabled as we fallback on non-aware
 # allocators
 if(NOT CPPUDDLE_WITH_HPX)
@@ -80,7 +95,7 @@ if (CPPUDDLE_WITH_KOKKOS)
   find_package(Kokkos 3.0.0 REQUIRED)
   find_package(HPXKokkos REQUIRED) 
 
-  # Check that everything required is actyivated
+  # Check that everything required is activated
   if (NOT CPPUDDLE_WITH_HPX)
     message(FATAL_ERROR " KOKKOS support requires HPX flag to be turned on")
   endif()
@@ -149,7 +164,15 @@ if (CPPUDDLE_WITH_HPX)
   if(CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS)
     message(INFO " Compiling with HPX-aware allocators!")
     target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS")
+    target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_MAX_NUMBER_GPUS=${CPPUDDLE_WITH_MAX_NUMBER_GPUS}")
+    target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_NUMBER_BUCKETS=${CPPUDDLE_WITH_NUMBER_BUCKETS}")
+  else()
+    target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_MAX_NUMBER_GPUS=1")
+    target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_NUMBER_BUCKETS=1")
   endif()
+else()
+  target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_MAX_NUMBER_GPUS=1")
+  target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_NUMBER_BUCKETS=1")
 endif()
 if (CPPUDDLE_WITH_COUNTERS)
   target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_HAVE_COUNTERS")
@@ -164,7 +187,15 @@ if (CPPUDDLE_WITH_HPX)
   target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_HAVE_HPX")
   if(CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS)
     target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_HAVE_HPX_AWARE_ALLOCATORS")
+    target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_HAVE_MAX_NUMBER_GPUS=${CPPUDDLE_WITH_MAX_NUMBER_GPUS}")
+    target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_HAVE_NUMBER_BUCKETS=${CPPUDDLE_WITH_NUMBER_BUCKETS}")
+  else()
+    target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_HAVE_MAX_NUMBER_GPUS=1")
+    target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_HAVE_NUMBER_BUCKETS=1")
   endif()
+else()
+  target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_HAVE_MAX_NUMBER_GPUS=1")
+  target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_HAVE_NUMBER_BUCKETS=1")
 endif()
 if (CPPUDDLE_WITH_COUNTERS)
   target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_HAVE_COUNTERS")
@@ -182,16 +213,18 @@ else()
   message(INFO " Compiling with std::mutex!")
 endif()
 
-if(CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING)
-  target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING")
-  message(WARNING " Slow Build: Buffer recycling is deactivated. This should only be used for performance tests!")
-else()
+if(CPPUDDLE_WITH_BUFFER_RECYCLING)
   message(INFO " Using default buffer recycling behaviour!")
+else()
+  message(WARNING " Slow Build: Buffer recycling is deactivated. This should only be used for performance tests!")
+  target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING")
 endif()
 
-if(CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS)
+if(CPPUDDLE_WITH_AGGRESSIVE_CONTENT_RECYCLING)
+  message(INFO " Using default behaviour for aggressive content reusage (only relevant for aggressive allocators)!")
+else()
   target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS")
-  message(WARNING " Slow Build: Aggressive allocators disabled. This should only be used for performance tests!")
+  message(WARNING " Slow Build: Aggressive allocators (and thus content recycling) is disabled. This should only be used for performance tests!")
 endif()
 
 # install libs with the defitions:
@@ -212,6 +245,9 @@ install(EXPORT CPPuddle NAMESPACE CPPuddle:: DESTINATION ${CMAKE_INSTALL_PREFIX}
 
 ## Add target for tests and tests definitions
 if (CPPUDDLE_WITH_TESTS)
+  if(NOT CPPUDDLE_WITH_BUFFER_RECYCLING)
+    message(FATAL_ERROR "The CPPuddle tests only work with CPPUDDLE_WITH_BUFFER_RECYCLING=ON. Turning off buffer recycling is not recommended in general!")
+  endif()
   add_executable(allocator_test tests/allocator_test.cpp)
   if (CPPUDDLE_WITH_HPX)
   target_link_libraries(allocator_test
@@ -362,15 +398,10 @@ if (CPPUDDLE_WITH_TESTS)
     )
   endif()
   if (NOT CMAKE_BUILD_TYPE MATCHES "Debug") # Performance tests only make sense with optimizations on
-    add_test(allocator_test.performance.analyse_recycle_performance cat allocator_test.out)
-    set_tests_properties(allocator_test.performance.analyse_recycle_performance PROPERTIES
-      FIXTURES_REQUIRED allocator_test_output
-      PASS_REGULAR_EXPRESSION "Test information: Recycler was faster than default allocator!"
-    )
     add_test(allocator_test.performance.analyse_aggressive_performance cat allocator_test.out)
     set_tests_properties(allocator_test.performance.analyse_aggressive_performance PROPERTIES
       FIXTURES_REQUIRED allocator_test_output
-      PASS_REGULAR_EXPRESSION "Test information: Recycler was faster than default allocator!"
+      PASS_REGULAR_EXPRESSION "Test information: Aggressive recycler was faster than default allocator!"
     )
   endif()
   add_test(allocator_test.fixture_cleanup ${CMAKE_COMMAND} -E remove allocator_test.out)
@@ -384,12 +415,12 @@ if (CPPUDDLE_WITH_TESTS)
     find_program(VALGRIND_COMMAND valgrind)
     if (VALGRIND_COMMAND)
       add_test(allocator_memcheck.valgrind
-      ${VALGRIND_COMMAND} --trace-children=yes --leak-check=full ./allocator_test --arraysize 5000000 --passes 200)
+      ${VALGRIND_COMMAND} --trace-children=yes --leak-check=full --undef-value-errors=no --show-error-list=yes ./allocator_test --arraysize 5000000 --passes 200)
       set_tests_properties(allocator_memcheck.valgrind PROPERTIES
         PASS_REGULAR_EXPRESSION "ERROR SUMMARY: 0 errors from 0 contexts"
       )
       add_test(allocator_aligned_memcheck.valgrind
-      ${VALGRIND_COMMAND} --trace-children=yes --leak-check=full ./allocator_aligned_test --arraysize 5000000 --passes 200)
+      ${VALGRIND_COMMAND} --trace-children=yes --leak-check=full --undef-value-errors=no --show-error-list=yes ./allocator_aligned_test --arraysize 5000000 --passes 200)
       set_tests_properties(allocator_aligned_memcheck.valgrind PROPERTIES
         PASS_REGULAR_EXPRESSION "ERROR SUMMARY: 0 errors from 0 contexts"
       )
@@ -429,15 +460,10 @@ if (CPPUDDLE_WITH_TESTS)
     )
   endif()
   if (NOT CMAKE_BUILD_TYPE MATCHES "Debug") # Performance tests only make sense with optimizations on
-    add_test(allocator_aligned_test.performance.analyse_recycle_performance cat allocator_aligned_test.out)
-    set_tests_properties(allocator_aligned_test.performance.analyse_recycle_performance PROPERTIES
-      FIXTURES_REQUIRED allocator_aligned_test_output
-      PASS_REGULAR_EXPRESSION "Test information: Recycler was faster than default allocator!"
-    )
     add_test(allocator_aligned_test.performance.analyse_aggressive_performance cat allocator_aligned_test.out)
     set_tests_properties(allocator_aligned_test.performance.analyse_aggressive_performance PROPERTIES
       FIXTURES_REQUIRED allocator_aligned_test_output
-      PASS_REGULAR_EXPRESSION "Test information: Recycler was faster than default allocator!"
+      PASS_REGULAR_EXPRESSION "Test information: Aggressive recycler was faster than default allocator!"
     )
   endif()
   add_test(allocator_aligned_test.fixture_cleanup ${CMAKE_COMMAND} -E remove allocator_aligned_test.out)
@@ -485,15 +511,10 @@ if (CPPUDDLE_WITH_TESTS)
       )
     endif()
     if (NOT CMAKE_BUILD_TYPE MATCHES "Debug") # Performance tests only make sense with optimizations on
-      add_test(allocator_concurrency_test.performance.analyse_recycle_performance cat allocator_concurrency_test.out)
-      set_tests_properties(allocator_concurrency_test.performance.analyse_recycle_performance PROPERTIES
-        FIXTURES_REQUIRED allocator_concurrency_output
-        PASS_REGULAR_EXPRESSION "Test information: Recycler was faster than default allocator!"
-      )
       add_test(allocator_concurrency_test.performance.analyse_aggressive_performance cat allocator_concurrency_test.out)
       set_tests_properties(allocator_concurrency_test.performance.analyse_aggressive_performance PROPERTIES
         FIXTURES_REQUIRED allocator_concurrency_output
-        PASS_REGULAR_EXPRESSION "Test information: Recycler was faster than default allocator!"
+        PASS_REGULAR_EXPRESSION "Test information: Aggressive recycler was faster than default allocator!"
       )
     endif()
     add_test(allocator_concurrency_test.fixture_cleanup ${CMAKE_COMMAND} -E remove allocator_concurrency_test.out)
@@ -530,12 +551,12 @@ if (CPPUDDLE_WITH_TESTS)
         add_test(allocator_kokkos_test.analyse_cleaned_buffers cat allocator_kokkos_test.out)
         set_tests_properties(allocator_kokkos_test.analyse_cleaned_buffers PROPERTIES
           FIXTURES_REQUIRED allocator_kokkos_output
-          PASS_REGULAR_EXPRESSION "--> Number cleaned up buffers:[ ]* 2"
+          PASS_REGULAR_EXPRESSION "--> Number cleaned up buffers:[ ]* 3"
         )
         add_test(allocator_kokkos_test.analyse_created_buffers cat allocator_kokkos_test.out)
         set_tests_properties(allocator_kokkos_test.analyse_created_buffers PROPERTIES
           FIXTURES_REQUIRED allocator_kokkos_output
-          PASS_REGULAR_EXPRESSION "--> Number of times a new buffer had to be created for a request:[ ]* 2"
+          PASS_REGULAR_EXPRESSION "--> Number of times a new buffer had to be created for a request:[ ]* 3"
         )
         add_test(allocator_kokkos_test.analyse_bad_allocs cat allocator_kokkos_test.out)
         set_tests_properties(allocator_kokkos_test.analyse_bad_allocs PROPERTIES

@@ -16,6 +16,8 @@ namespace recycler {
 
 namespace detail {
 
+static_assert(max_number_gpus == 1, "CPPuddle currently does not support MultiGPU SYCL builds!");
+
 template <class T> struct sycl_host_default_allocator {
   using value_type = T;
   sycl_host_default_allocator() noexcept = default;
