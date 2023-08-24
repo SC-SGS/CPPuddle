@@ -177,8 +177,8 @@ int hpx_main(int argc, char *argv[]) {
                    "recycler!"
                 << std::endl;
     }
-    if (recycle_duration < default_duration) {
-      std::cout << "Test information: Recycler was faster than default allocator!"
+    if (aggressive_duration < default_duration) {
+      std::cout << "Test information: Aggressive recycler was faster than default allocator!"
                 << std::endl;
     }
   }
