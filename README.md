@@ -28,7 +28,10 @@ The submodules can be used to obtain the optional dependencies which are require
 
 #### Build / Install
 
-Basic build
+- Spack package
+A spack package for CPPuddle is available in the [octotiger-spack repository](https://github.com/G-071/octotiger-spack)
+
+- Basic CMake build
 
 ```
   cmake -H/path/to/source -B$/path/to/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/path/to/install/cppuddle -DCPPUDDLE_WITH_TESTS=OFF -DCPPUDDLE_WITH_COUNTERS=OFF                                                             
@@ -39,7 +42,7 @@ If installed correctly, CPPuddle can be used in other CMake-based projects via
 find_package(CPPuddle REQUIRED)
 ```
 
-Recommended build:
+- Recommended CMake build:
 ```
   cmake -H/path/to/source -B$/path/to/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/path/to/install/cppuddle -DCPPUDDLE_WITH_HPX=ON -DCPPUDDLE_WITH_HPX_AWARE_ALLOCATORS=ON -DCPPUDDLE_WITH_TESTS=OFF -DCPPUDDLE_WITH_COUNTERS=OFF                                                             
 ```
