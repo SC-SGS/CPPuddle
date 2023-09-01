@@ -28,8 +28,7 @@ The submodules can be used to obtain the optional dependencies which are require
 
 #### Build / Install
 
-- Spack package
-A spack package for CPPuddle is available in the [octotiger-spack repository](https://github.com/G-071/octotiger-spack)
+- A spack package for CPPuddle is available in the [octotiger-spack repository](https://github.com/G-071/octotiger-spack)
 
 - Basic CMake build
 
