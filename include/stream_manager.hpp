@@ -315,6 +315,10 @@ public:
     return interface.async_execute(std::forward<F>(f), std::forward<Ts>(ts)...);
   }
 
+  inline decltype(auto) get_future() {
+    return interface.get_future();
+  }
+
   // allow implict conversion
   operator Interface &() { // NOLINT
     return interface;
