@@ -18,6 +18,13 @@
 #include <type_traits>
 
 #include "../include/detail/config.hpp"
+#include <hpx/async_cuda/cuda_executor.hpp>
+
+#ifndef KOKKOS_ENABLE_SERIAL
+namespace hpx { namespace kokkos {
+enum class execution_space_mode { global, independent };
+}}
+#endif
 
 /// Turns a std::array_mutex into an scoped lock
 template<typename mutex_array_t>
@@ -293,16 +300,20 @@ public:
 
 template <class Interface, class Pool> class stream_interface {
 public:
-  explicit stream_interface(size_t gpu_id)
-      : t(stream_pool::get_interface<Interface, Pool>(gpu_id)),
-        interface(std::get<0>(t)), interface_index(std::get<1>(t)), gpu_id(gpu_id) {}
+
+  template <class Dummy = Interface>
+  explicit stream_interface(size_t gpu_id,
+      std::enable_if_t<std::is_same<hpx::cuda::experimental::cuda_executor, Dummy>::value, int> = 0)
+      : gpu_id(gpu_id), interface(gpu_id) {}
+  template <class Dummy = Interface>
+  explicit stream_interface(std::enable_if_t<!std::is_same<hpx::cuda::experimental::cuda_executor, Dummy>::value, int> = 0)
+      : gpu_id(gpu_id), interface(hpx::kokkos::execution_space_mode::independent) {}
 
   stream_interface(const stream_interface &other) = delete;
   stream_interface &operator=(const stream_interface &other) = delete;
   stream_interface(stream_interface &&other) = delete;
   stream_interface &operator=(stream_interface &&other) = delete;
   ~stream_interface() {
-    stream_pool::release_interface<Interface, Pool>(interface_index, gpu_id);
   }
 
   template <typename F, typename... Ts>
@@ -325,12 +336,10 @@ public:
   }
 
 private:
-  std::tuple<Interface &, size_t> t;
-  size_t interface_index;
   size_t gpu_id;
 
 public:
-  Interface &interface;
+  Interface interface;
 };
 
 #endif
