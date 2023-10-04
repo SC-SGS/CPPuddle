@@ -20,10 +20,15 @@
 #include "../include/detail/config.hpp"
 #include <hpx/async_cuda/cuda_executor.hpp>
 
+// Redefintion required for non-recycling executors
+// Without it, default constructing the executors (independent) would not work
+#if defined(CPPUDDLE_DEACTIVATE_EXECUTOR_RECYCLING)
+// Do only define if Kokkos is not found
 #ifndef KOKKOS_ENABLE_SERIAL
 namespace hpx { namespace kokkos {
 enum class execution_space_mode { global, independent };
 }}
+#endif
 #endif
 
 /// Turns a std::array_mutex into an scoped lock
