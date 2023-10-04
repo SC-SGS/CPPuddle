@@ -36,6 +36,7 @@ option(CPPUDDLE_WITH_TESTS "Build tests/examples" OFF)
 set(CPPUDDLE_WITH_DEADLOCK_TEST_REPETITONS "100000" CACHE STRING "Number of repetitions for the aggregation executor deadlock tests")
 option(CPPUDDLE_WITH_BUFFER_RECYCLING "Enables the default recycling behaviour! Turning this off will have a major negative performance impact and is only intended for testing!" ON)
 option(CPPUDDLE_WITH_AGGRESSIVE_CONTENT_RECYCLING "Allows the aggressive allocators variants to reuse contents from previous buffers (and thus skip initializations)" ON)
+option(CPPUDDLE_WITH_EXECUTOR_RECYCLING "Enables the default executor recycling behaviour! Turning this off will have a major negative performance impact and is only intended for testing!" ON)
 # Tooling options
 option(CPPUDDLE_WITH_CLANG_TIDY "Enable clang tidy warnings" OFF)
 option(CPPUDDLE_WITH_CLANG_FORMAT "Enable clang format target" OFF)
@@ -225,6 +226,13 @@ if(CPPUDDLE_WITH_AGGRESSIVE_CONTENT_RECYCLING)
 else()
   target_compile_definitions(buffer_manager INTERFACE "CPPUDDLE_DEACTIVATE_AGGRESSIVE_ALLOCATORS")
   message(WARNING " Slow Build: Aggressive allocators (and thus content recycling) is disabled. This should only be used for performance tests!")
+endif()
+
+if(CPPUDDLE_WITH_EXECUTOR_RECYCLING)
+  message(INFO " Using default executor recycling behaviour!")
+else()
+  message(WARNING " Slow Build: executor recycling is deactivated. This should only be used for performance tests!")
+  target_compile_definitions(stream_manager INTERFACE "CPPUDDLE_DEACTIVATE_EXECUTOR_RECYCLING")
 endif()
 
 # install libs with the defitions:

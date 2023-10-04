@@ -298,6 +298,16 @@ public:
   stream_pool &operator=(stream_pool &&other) = delete;
 };
 
+#if defined(CPPUDDLE_DEACTIVATE_EXECUTOR_RECYCLING)
+
+// Warn about suboptimal performance without recycling
+#pragma message                                                                \
+"Warning: Building without executor recycling! Use only for performance testing! \
+For better performance configure CPPuddle with CPPUDDLE_WITH_EXECUTOR_RECYCLING=ON!"
+
+/// Slow version of the stream_interface that does not draw its
+/// executors (Interface) from the pool but creates them instead.
+/// Only meant for performance comparisons and only works with cuda/kokkos executors
 template <class Interface, class Pool> class stream_interface {
 public:
 
@@ -341,5 +351,51 @@ private:
 public:
   Interface interface;
 };
+#else
+/// Stream interface for RAII purposes
+/// Draws executor from the stream pool and releases it upon
+/// destruction
+template <class Interface, class Pool> class stream_interface {
+public:
+  explicit stream_interface(size_t gpu_id)
+      : t(stream_pool::get_interface<Interface, Pool>(gpu_id)),
+        interface(std::get<0>(t)), interface_index(std::get<1>(t)), gpu_id(gpu_id) {}
+
+  stream_interface(const stream_interface &other) = delete;
+  stream_interface &operator=(const stream_interface &other) = delete;
+  stream_interface(stream_interface &&other) = delete;
+  stream_interface &operator=(stream_interface &&other) = delete;
+  ~stream_interface() {
+    stream_pool::release_interface<Interface, Pool>(interface_index, gpu_id);
+  }
+
+  template <typename F, typename... Ts>
+  inline decltype(auto) post(F &&f, Ts &&... ts) {
+    return interface.post(std::forward<F>(f), std::forward<Ts>(ts)...);
+  }
+
+  template <typename F, typename... Ts>
+  inline decltype(auto) async_execute(F &&f, Ts &&... ts) {
+    return interface.async_execute(std::forward<F>(f), std::forward<Ts>(ts)...);
+  }
+
+  inline decltype(auto) get_future() {
+    return interface.get_future();
+  }
+
+  // allow implict conversion
+  operator Interface &() { // NOLINT
+    return interface;
+  }
+
+private:
+  std::tuple<Interface &, size_t> t;
+  size_t interface_index;
+  size_t gpu_id;
+
+public:
+  Interface &interface;
+};
+#endif
 
 #endif
