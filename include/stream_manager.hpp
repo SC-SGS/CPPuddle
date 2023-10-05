@@ -18,7 +18,15 @@
 #include <type_traits>
 
 #include "../include/detail/config.hpp"
+
+// Need to cuda/hip definitions for default params when NOT
+// drawing from an executor pool
+#if defined(CPPUDDLE_DEACTIVATE_EXECUTOR_RECYCLING)
+#include <hpx/config.hpp>
+#if defined(HPX_HAVE_CUDA) || defined(HPX_HAVE_HIP)
 #include <hpx/async_cuda/cuda_executor.hpp>
+#endif
+#endif
 
 // Redefintion required for non-recycling executors
 // Without it, default constructing the executors (independent) would not work
