@@ -19,6 +19,26 @@
 
 #include "../include/detail/config.hpp"
 
+// Need to cuda/hip definitions for default params when NOT
+// drawing from an executor pool
+#if defined(CPPUDDLE_DEACTIVATE_EXECUTOR_RECYCLING)
+#include <hpx/config.hpp>
+#if defined(HPX_HAVE_CUDA) || defined(HPX_HAVE_HIP)
+#include <hpx/async_cuda/cuda_executor.hpp>
+#endif
+#endif
+
+// Redefintion required for non-recycling executors
+// Without it, default constructing the executors (independent) would not work
+#if defined(CPPUDDLE_DEACTIVATE_EXECUTOR_RECYCLING)
+// Do only define if Kokkos is not found
+#ifndef KOKKOS_ENABLE_SERIAL
+namespace hpx { namespace kokkos {
+enum class execution_space_mode { global, independent };
+}}
+#endif
+#endif
+
 /// Turns a std::array_mutex into an scoped lock
 template<typename mutex_array_t>
 auto make_scoped_lock_from_array(mutex_array_t& mutexes)
@@ -291,6 +311,63 @@ public:
   stream_pool &operator=(stream_pool &&other) = delete;
 };
 
+#if defined(CPPUDDLE_DEACTIVATE_EXECUTOR_RECYCLING)
+
+// Warn about suboptimal performance without recycling
+#pragma message                                                                \
+"Warning: Building without executor recycling! Use only for performance testing! \
+For better performance configure CPPuddle with CPPUDDLE_WITH_EXECUTOR_RECYCLING=ON!"
+
+/// Slow version of the stream_interface that does not draw its
+/// executors (Interface) from the pool but creates them instead.
+/// Only meant for performance comparisons and only works with cuda/kokkos executors
+template <class Interface, class Pool> class stream_interface {
+public:
+
+  template <class Dummy = Interface>
+  explicit stream_interface(size_t gpu_id,
+      std::enable_if_t<std::is_same<hpx::cuda::experimental::cuda_executor, Dummy>::value, int> = 0)
+      : gpu_id(gpu_id), interface(gpu_id) {}
+  template <class Dummy = Interface>
+  explicit stream_interface(std::enable_if_t<!std::is_same<hpx::cuda::experimental::cuda_executor, Dummy>::value, int> = 0)
+      : gpu_id(gpu_id), interface(hpx::kokkos::execution_space_mode::independent) {}
+
+  stream_interface(const stream_interface &other) = delete;
+  stream_interface &operator=(const stream_interface &other) = delete;
+  stream_interface(stream_interface &&other) = delete;
+  stream_interface &operator=(stream_interface &&other) = delete;
+  ~stream_interface() {
+  }
+
+  template <typename F, typename... Ts>
+  inline decltype(auto) post(F &&f, Ts &&... ts) {
+    return interface.post(std::forward<F>(f), std::forward<Ts>(ts)...);
+  }
+
+  template <typename F, typename... Ts>
+  inline decltype(auto) async_execute(F &&f, Ts &&... ts) {
+    return interface.async_execute(std::forward<F>(f), std::forward<Ts>(ts)...);
+  }
+
+  inline decltype(auto) get_future() {
+    return interface.get_future();
+  }
+
+  // allow implict conversion
+  operator Interface &() { // NOLINT
+    return interface;
+  }
+
+private:
+  size_t gpu_id;
+
+public:
+  Interface interface;
+};
+#else
+/// Stream interface for RAII purposes
+/// Draws executor from the stream pool and releases it upon
+/// destruction
 template <class Interface, class Pool> class stream_interface {
 public:
   explicit stream_interface(size_t gpu_id)
@@ -332,5 +409,6 @@ private:
 public:
   Interface &interface;
 };
+#endif
 
 #endif
