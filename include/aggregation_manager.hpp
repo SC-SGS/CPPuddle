@@ -6,6 +6,10 @@
 #ifndef WORK_AGGREGATION_MANAGER
 #define WORK_AGGREGATION_MANAGER
 
+#ifndef CPPUDDLE_HAVE_HPX
+#error "Work aggregation allocators/executors require CPPUDDLE_WITH_HPX=ON"
+#endif
+
 #include <stdexcept>
 #define DEBUG_AGGREGATION_CALLS 1
 
@@ -47,6 +51,16 @@
 #include "../include/buffer_manager.hpp"
 #include "../include/stream_manager.hpp"
 #include "../include/detail/config.hpp"
+
+#ifndef CPPUDDLE_HAVE_HPX_MUTEX
+#pragma message                                                                \
+    "Work aggregation will use hpx::mutex internally, despite CPPUDDLE_WITH_HPX_MUTEX=OFF"
+#pragma message                                                                \
+    "Consider using CPPUDDLE_WITH_HPX_MUTEX=ON, to make the rest of CPPuddle also use hpx::mutex"
+#endif
+namespace recycler {
+  using aggregation_mutex_t = hpx::mutex;
+}
 
 //===============================================================================
 //===============================================================================

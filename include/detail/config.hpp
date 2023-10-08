@@ -32,10 +32,8 @@ namespace recycler {
 
 #if defined(CPPUDDLE_HAVE_HPX) && defined(CPPUDDLE_HAVE_HPX_MUTEX)
 using mutex_t = hpx::spinlock_no_backoff;
-using aggregation_mutex_t = hpx::mutex;
 #else
 using mutex_t = std::mutex;
-using aggregation_mutex_t = std::mutex;
 #endif
 
 // Recycling configuration
