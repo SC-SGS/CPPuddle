@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(CPPUDDLE_VERSION_MAJOR 0)
 set(CPPUDDLE_VERSION_MINOR 3)
-set(CPPUDDLE_VERSION_PATCH 0)
+set(CPPUDDLE_VERSION_PATCH 1)
 set(CPPUDDLE_VERSION_STRING "${CPPUDDLE_VERSION_MAJOR}.${CPPUDDLE_VERSION_MINOR}.${CPPUDDLE_VERSION_PATCH}.")
 
 #------------------------------------------------------------------------------------------------------------
@@ -27,7 +27,7 @@ set(CPPUDDLE_WITH_MAX_NUMBER_GPUS "1" CACHE STRING "Number of GPUs that will be 
 # HPX-related options
 option(CPPUDDLE_WITH_HPX "Enable basic HPX integration and examples" OFF)
 option(CPPUDDLE_WITH_HPX_AWARE_ALLOCATORS "Enable HPX-aware allocators for even better HPX integration" ON)
-set(CPPUDDLE_WITH_HPX_MUTEX OFF CACHE BOOL
+set(CPPUDDLE_WITH_HPX_MUTEX ON CACHE BOOL
   "Use HPX spinlock mutex instead of std::mutex")
 set(CPPUDDLE_WITH_NUMBER_BUCKETS "128" CACHE STRING "Number of internal recycle buckets buffer type. Should ideally match the intended number of HPX workers or be 1 in non-HPX builds.")
 # Test-related options
@@ -47,13 +47,6 @@ option(CPPUDDLE_WITH_CLANG_FORMAT "Enable clang format target" OFF)
 # Find HPX for HPX-enabled builds
 if (CPPUDDLE_WITH_HPX)
   find_package(HPX 1.8.0 REQUIRED) # older versions might work but are untested with the current cppuddle
-endif()
-
-# HPX mutex requires HPX-Support
-if(CPPUDDLE_WITH_HPX_MUTEX)
-  if(NOT CPPUDDLE_WITH_HPX)
-    message(FATAL_ERROR " CPPUDDLE_WITH_HPX_MUTEX requires a build with HPX (CPPUDDLE_WITH_HPX=ON)")
-  endif()
 endif()
 
 # HPX build are really better with HPX-aware allocators: Warn if disabled
