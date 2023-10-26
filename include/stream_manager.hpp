@@ -326,10 +326,10 @@ public:
 
   template <class Dummy = Interface>
   explicit stream_interface(size_t gpu_id,
-      std::enable_if_t<std::is_same<hpx::cuda::experimental::cuda_executor, Dummy>::value, int> = 0)
+      std::enable_if_t<std::is_same<hpx::cuda::experimental::cuda_executor, Dummy>::value, size_t> = 0)
       : gpu_id(gpu_id), interface(gpu_id) {}
   template <class Dummy = Interface>
-  explicit stream_interface(std::enable_if_t<!std::is_same<hpx::cuda::experimental::cuda_executor, Dummy>::value, int> = 0)
+  explicit stream_interface(std::enable_if_t<!std::is_same<hpx::cuda::experimental::cuda_executor, Dummy>::value, size_t> = 0)
       : gpu_id(gpu_id), interface(hpx::kokkos::execution_space_mode::independent) {}
 
   stream_interface(const stream_interface &other) = delete;
