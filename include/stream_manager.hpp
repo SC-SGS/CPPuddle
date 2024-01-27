@@ -265,7 +265,6 @@ private:
 
     static void set_device_selector(std::function<void(size_t)> select_gpu_function) {
       auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
-      assert(instance().streampools.size() == recycler::max_number_gpus);
       instance().select_gpu_function = select_gpu_function;
     }
 
