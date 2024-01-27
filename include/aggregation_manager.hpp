@@ -11,7 +11,7 @@
 #endif
 
 #include <stdexcept>
-#define DEBUG_AGGREGATION_CALLS 1
+//#define DEBUG_AGGREGATION_CALLS 1
 
 #include <stdio.h>
 
