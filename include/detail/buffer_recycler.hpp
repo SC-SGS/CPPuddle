@@ -42,9 +42,9 @@ For better performance configure CPPuddle with CPPUDDLE_WITH_HPX_AWARE_ALLOCATOR
 #endif
 #endif
 
-#include "../include/detail/config.hpp"
+#include "config.hpp"
 
-namespace recycler {
+namespace cppuddle {
 
 namespace device_selection {
 template <typename T, typename Allocator> struct select_device_functor {
@@ -63,7 +63,7 @@ template <typename T> struct select_device_functor<T, std::allocator<T>> {
 namespace detail {
 
 
-class buffer_recycler {
+class buffer_interface {
 public:
 #if defined(CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING)
 
@@ -172,8 +172,8 @@ For better performance configure CPPuddle with CPPUDDLE_WITH_BUFFER_RECYCLING=ON
 private:
 
   /// Singleton instance access
-  static buffer_recycler& instance() {
-    static buffer_recycler singleton{};
+  static buffer_interface& instance() {
+    static buffer_interface singleton{};
     return singleton;
   }
   /// Callbacks for printing the performance counter data
@@ -189,7 +189,7 @@ private:
   std::list<std::function<void()>> partial_cleanup_callbacks;
   /// default, private constructor - not automatically constructed due to the
   /// deleted constructors
-  buffer_recycler() = default;
+  buffer_interface() = default;
 
   mutex_t callback_protection_mut;
   /// Add a callback function that gets executed upon cleanup and destruction
@@ -217,7 +217,7 @@ private:
   }
 
 public:
-  ~buffer_recycler() = default; 
+  ~buffer_interface() = default; 
 
   // Subclasses
 private:
@@ -408,7 +408,7 @@ private:
 
       // No unused buffer found -> Create new one and return it
       try {
-        recycler::device_selection::select_device_functor<T, Host_Allocator>{}(
+        cppuddle::device_selection::select_device_functor<T, Host_Allocator>{}(
             device_id);
         Host_Allocator alloc;
         T *buffer = alloc.allocate(number_of_elements);
@@ -428,13 +428,13 @@ private:
         std::cerr 
           << "Not enough memory left. Cleaning up unused buffers now..." 
           << std::endl;
-        buffer_recycler::clean_unused_buffers();
+        buffer_interface::clean_unused_buffers();
         std::cerr << "Buffers cleaned! Try allocation again..." << std::endl;
 
         // If there still isn't enough memory left, the caller has to handle it
         // We've done all we can in here
         Host_Allocator alloc;
-        recycler::device_selection::select_device_functor<T, Host_Allocator>{}(
+        cppuddle::device_selection::select_device_functor<T, Host_Allocator>{}(
             device_id);
         T *buffer = alloc.allocate(number_of_elements);
         instance()[location_id].buffer_map.insert(
@@ -649,13 +649,13 @@ private:
       std::call_once(flag, []() {
 #endif
         is_finalized = false;
-        buffer_recycler::add_total_cleanup_callback(clean);
-        buffer_recycler::add_partial_cleanup_callback(
+        buffer_interface::add_total_cleanup_callback(clean);
+        buffer_interface::add_partial_cleanup_callback(
             clean_unused_buffers_only);
-        buffer_recycler::add_finalize_callback(
+        buffer_interface::add_finalize_callback(
             finalize);
 #ifdef CPPUDDLE_HAVE_COUNTERS
-        buffer_recycler::add_print_callback(
+        buffer_interface::add_print_callback(
             print_performance_counters);
 #endif
           });
@@ -753,10 +753,10 @@ private:
 public:
   // Putting deleted constructors in public gives more useful error messages
   // Bunch of constructors we don't need
-  buffer_recycler(buffer_recycler const &other) = delete;
-  buffer_recycler& operator=(buffer_recycler const &other) = delete;
-  buffer_recycler(buffer_recycler &&other) = delete;
-  buffer_recycler& operator=(buffer_recycler &&other) = delete;
+  buffer_interface(buffer_interface const &other) = delete;
+  buffer_interface& operator=(buffer_interface const &other) = delete;
+  buffer_interface(buffer_interface &&other) = delete;
+  buffer_interface& operator=(buffer_interface &&other) = delete;
 };
 
 template <typename T, typename Host_Allocator> struct recycle_allocator {
@@ -775,11 +775,11 @@ template <typename T, typename Host_Allocator> struct recycle_allocator {
       recycle_allocator<T, Host_Allocator> const &other) noexcept
       : dealloc_hint(std::nullopt), device_id(std::nullopt) {}
   T *allocate(std::size_t n) {
-    T *data = buffer_recycler::get<T, Host_Allocator>(n);
+    T *data = buffer_interface::get<T, Host_Allocator>(n);
     return data;
   }
   void deallocate(T *p, std::size_t n) {
-    buffer_recycler::mark_unused<T, Host_Allocator>(p, n);
+    buffer_interface::mark_unused<T, Host_Allocator>(p, n);
   }
 #else
   recycle_allocator() noexcept
@@ -792,12 +792,12 @@ template <typename T, typename Host_Allocator> struct recycle_allocator {
       recycle_allocator<T, Host_Allocator> const &other) noexcept
   : dealloc_hint(other.dealloc_hint), device_id(other.device_id) {}
   T *allocate(std::size_t n) {
-    T *data = buffer_recycler::get<T, Host_Allocator>(
+    T *data = buffer_interface::get<T, Host_Allocator>(
         n, false, hpx::get_worker_thread_num() % number_instances, device_id);
     return data;
   }
   void deallocate(T *p, std::size_t n) {
-    buffer_recycler::mark_unused<T, Host_Allocator>(p, n, dealloc_hint,
+    buffer_interface::mark_unused<T, Host_Allocator>(p, n, dealloc_hint,
                                                     device_id);
   }
 #endif
@@ -845,12 +845,12 @@ struct aggressive_recycle_allocator {
       aggressive_recycle_allocator<T, Host_Allocator> const &) noexcept 
   : dealloc_hint(std::nullopt), device_id(std::nullopt) {}
   T *allocate(std::size_t n) {
-    T *data = buffer_recycler::get<T, Host_Allocator>(
+    T *data = buffer_interface::get<T, Host_Allocator>(
         n, true); // also initializes the buffer if it isn't reused
     return data;
   }
   void deallocate(T *p, std::size_t n) {
-    buffer_recycler::mark_unused<T, Host_Allocator>(p, n);
+    buffer_interface::mark_unused<T, Host_Allocator>(p, n);
   }
 #else
   aggressive_recycle_allocator() noexcept
@@ -863,13 +863,13 @@ struct aggressive_recycle_allocator {
       recycle_allocator<T, Host_Allocator> const &other) noexcept 
     : dealloc_hint(other.dealloc_hint), device_id(other.device_id) {}
   T *allocate(std::size_t n) {
-    T *data = buffer_recycler::get<T, Host_Allocator>(
+    T *data = buffer_interface::get<T, Host_Allocator>(
         n, true, dealloc_hint, device_id); // also initializes the buffer
                                                 // if it isn't reused
     return data;
   }
   void deallocate(T *p, std::size_t n) {
-    buffer_recycler::mark_unused<T, Host_Allocator>(p, n, dealloc_hint,
+    buffer_interface::mark_unused<T, Host_Allocator>(p, n, dealloc_hint,
                                                     device_id);
   }
 #endif
@@ -914,7 +914,6 @@ operator!=(aggressive_recycle_allocator<T, Host_Allocator> const &,
   else 
     return true;
 }
-
 } // namespace detail
 
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
@@ -923,16 +922,16 @@ template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using aggressive_recycle_std =
     detail::aggressive_recycle_allocator<T, std::allocator<T>>;
 
-inline void print_performance_counters() { detail::buffer_recycler::print_performance_counters(); }
+inline void print_performance_counters() { detail::buffer_interface::print_performance_counters(); }
 /// Deletes all buffers (even ones still marked as used), delete the buffer
 /// managers and the recycler itself
-inline void force_cleanup() { detail::buffer_recycler::clean_all(); }
+inline void force_cleanup() { detail::buffer_interface::clean_all(); }
 /// Deletes all buffers currently marked as unused
-inline void cleanup() { detail::buffer_recycler::clean_unused_buffers(); }
+inline void cleanup() { detail::buffer_interface::clean_unused_buffers(); }
 /// Deletes all buffers (even ones still marked as used), delete the buffer
 /// managers and the recycler itself. Disallows further usage.
-inline void finalize() { detail::buffer_recycler::finalize(); }
+inline void finalize() { detail::buffer_interface::finalize(); }
 
-} // end namespace recycler
+} // end namespace cppuddle
 
 #endif

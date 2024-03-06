@@ -15,7 +15,7 @@
 
 #include <boost/program_options.hpp>
 
-#include "../include/buffer_manager.hpp"
+#include "../include/detail/buffer_recycler.hpp"
 
 int hpx_main(int argc, char *argv[]) {
 
@@ -112,7 +112,7 @@ int hpx_main(int argc, char *argv[]) {
       for (size_t pass = 0; pass < passes; pass++) {
         for (size_t i = 0; i < number_futures; i++) {
           futs[i] = futs[i].then([&](hpx::shared_future<void> &&predecessor) {
-            std::vector<double, recycler::recycle_std<double>> test6(array_size,
+            std::vector<double, cppuddle::recycle_std<double>> test6(array_size,
                                                                      double{});
           });
         }
@@ -126,20 +126,20 @@ int hpx_main(int argc, char *argv[]) {
       std::cout << "\n==> Recycle allocation test took " << recycle_duration
                 << "ms" << std::endl;
     }
-    recycler::print_performance_counters();
-    recycler::force_cleanup(); // Cleanup all buffers and the managers for better
+    cppuddle::print_performance_counters();
+    cppuddle::force_cleanup(); // Cleanup all buffers and the managers for better
                                // comparison
 
 
     // ensure that at least 4 buffers have to created for unit testing
     {
-      std::vector<double, recycler::aggressive_recycle_std<double>> buffer1(
+      std::vector<double, cppuddle::aggressive_recycle_std<double>> buffer1(
           array_size, double{});
-      std::vector<double, recycler::aggressive_recycle_std<double>> buffer2(
+      std::vector<double, cppuddle::aggressive_recycle_std<double>> buffer2(
           array_size, double{});
-      std::vector<double, recycler::aggressive_recycle_std<double>> buffer3(
+      std::vector<double, cppuddle::aggressive_recycle_std<double>> buffer3(
           array_size, double{});
-      std::vector<double, recycler::aggressive_recycle_std<double>> buffer4(
+      std::vector<double, cppuddle::aggressive_recycle_std<double>> buffer4(
           array_size, double{});
     }
 
@@ -153,7 +153,7 @@ int hpx_main(int argc, char *argv[]) {
       for (size_t pass = 0; pass < passes; pass++) {
         for (size_t i = 0; i < number_futures; i++) {
           futs[i] = futs[i].then([&](hpx::shared_future<void> &&predecessor) {
-            std::vector<double, recycler::aggressive_recycle_std<double>> test6(
+            std::vector<double, cppuddle::aggressive_recycle_std<double>> test6(
                 array_size, double{});
           });
         }
@@ -167,8 +167,8 @@ int hpx_main(int argc, char *argv[]) {
       std::cout << "\n==> Aggressive recycle allocation test took "
                 << aggressive_duration << "ms" << std::endl;
     }
-    recycler::print_performance_counters();
-    recycler::force_cleanup(); // Cleanup all buffers and the managers for better
+    cppuddle::print_performance_counters();
+    cppuddle::force_cleanup(); // Cleanup all buffers and the managers for better
                                // comparison
 
 

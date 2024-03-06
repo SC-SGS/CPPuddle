@@ -592,9 +592,9 @@ public:
 #endif
         // Get shiny and new buffer that will be shared between all slices
         // Buffer might be recycled from previous allocations by the
-        // buffer_recycler...
+        // buffer_interface...
         T *aggregated_buffer =
-            recycler::detail::buffer_recycler::get<T, Host_Allocator>(
+            recycler::detail::buffer_interface::get<T, Host_Allocator>(
                 size, manage_content_lifetime, location_id, gpu_id);
         // Create buffer entry for this buffer
         buffer_allocations.emplace_back(static_cast<void *>(aggregated_buffer),
@@ -670,7 +670,7 @@ public:
       // it as invalid)
       if (valid) {
         assert(buffers_in_use == true);
-        recycler::detail::buffer_recycler::mark_unused<T, Host_Allocator>(
+        recycler::detail::buffer_interface::mark_unused<T, Host_Allocator>(
             buffer_pointer, buffer_size, location_id, gpu_id);
         // mark buffer as invalid to prevent any other slice from marking the
         // buffer as unused

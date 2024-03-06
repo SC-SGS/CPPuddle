@@ -1,23 +1,20 @@
-// Copyright (c) 2020-2023 Gregor Daiß
+// Copyright (c) 2020-2024 Gregor Daiß
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef CUDA_BUFFER_UTIL_HPP
-#define CUDA_BUFFER_UTIL_HPP
+#ifndef CUDA_RECYCLING_ALLOCATORS_HPP
+#define CUDA_RECYCLING_ALLOCATORS_HPP
 
-#include "buffer_manager.hpp"
+#include "detail/buffer_recycler.hpp"
 #include "detail/config.hpp"
 
 #include <cuda_runtime.h>
 #include <stdexcept>
 #include <string>
 
-namespace recycler {
-
+namespace cppuddle {
 namespace detail {
-
-
 
 template <class T> struct cuda_pinned_allocator {
   using value_type = T;
@@ -98,9 +95,19 @@ constexpr bool operator!=(cuda_device_allocator<T> const &,
                           cuda_device_allocator<U> const &) noexcept {
   return false;
 }
-
-
 } // end namespace detail
+
+
+namespace device_selection {
+template <typename T>
+struct select_device_functor<T, detail::cuda_pinned_allocator<T>> {
+  void operator()(const size_t device_id) { cudaSetDevice(device_id); }
+};
+template <typename T>
+struct select_device_functor<T, detail::cuda_device_allocator<T>> {
+  void operator()(const size_t device_id) { cudaSetDevice(device_id); }
+};
+} // namespace device_selection
 
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_cuda_host =
@@ -154,17 +161,5 @@ private:
   Host_Allocator &alloc; // will stay valid for the entire aggregation region and hence
                          // for the entire lifetime of this buffer
 };
-
-namespace device_selection {
-template <typename T>
-struct select_device_functor<T, detail::cuda_pinned_allocator<T>> {
-  void operator()(const size_t device_id) { cudaSetDevice(device_id); }
-};
-template <typename T>
-struct select_device_functor<T, detail::cuda_device_allocator<T>> {
-  void operator()(const size_t device_id) { cudaSetDevice(device_id); }
-};
-} // namespace device_selection
-
-} // end namespace recycler
+} // end namespace cppuddle
 #endif

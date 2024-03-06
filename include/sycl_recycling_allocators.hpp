@@ -3,17 +3,17 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef SYCL_BUFFER_UTIL_HPP
-#define SYCL_BUFFER_UTIL_HPP
+#ifndef SYCL_RECYCLING_ALLOCATORS_HPP
+#define SYCL_RECYCLING_ALLOCATORS_HPP
 
-#include "buffer_manager.hpp"
+#include "detail/buffer_recycler.hpp"
+#include "detail/config.hpp"
 
 #include <CL/sycl.hpp>
 #include <stdexcept>
 #include <string>
 
-namespace recycler {
-
+namespace cppuddle {
 namespace detail {
 
 static_assert(max_number_gpus == 1, "CPPuddle currently does not support MultiGPU SYCL builds!");
@@ -79,5 +79,5 @@ template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_sycl_device =
     detail::recycle_allocator<T, detail::sycl_device_default_allocator<T>>;
 
-} // end namespace recycler
+} // end namespace cppuddle
 #endif

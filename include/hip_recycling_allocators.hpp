@@ -3,16 +3,17 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef HIP_BUFFER_UTIL_HPP
-#define HIP_BUFFER_UTIL_HPP
+#ifndef HIP_RECYCLING_ALLOCATORS_HPP
+#define HIP_RECYCLING_ALLOCATORS_HPP
 
-#include "buffer_manager.hpp"
+#include "detail/buffer_recycler.hpp"
+#include "detail/config.hpp"
 
 #include <hip/hip_runtime.h>
 #include <stdexcept>
 #include <string>
 
-namespace recycler {
+namespace cppuddle {
 
 namespace detail {
 
@@ -103,6 +104,18 @@ constexpr bool operator!=(hip_device_allocator<T> const &,
 
 } // end namespace detail
 
+
+namespace device_selection {
+template <typename T>
+struct select_device_functor<T, detail::hip_pinned_allocator<T>> {
+  void operator()(const size_t device_id) { hipSetDevice(device_id); }
+};
+template <typename T>
+struct select_device_functor<T, detail::hip_device_allocator<T>> {
+  void operator()(const size_t device_id) { hipSetDevice(device_id); }
+};
+} // namespace device_selection
+
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_hip_host =
     detail::aggressive_recycle_allocator<T, detail::hip_pinned_allocator<T>>;
@@ -110,7 +123,6 @@ template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_hip_device =
     detail::recycle_allocator<T, detail::hip_device_allocator<T>>;
 
-// TODO Is this even required? (cuda version should work fine...)
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 struct hip_device_buffer {
   recycle_allocator_hip_device<T> allocator;
@@ -157,16 +169,5 @@ private:
                          // for the entire lifetime of this buffer
 };
 
-namespace device_selection {
-template <typename T>
-struct select_device_functor<T, detail::hip_pinned_allocator<T>> {
-  void operator()(const size_t device_id) { hipSetDevice(device_id); }
-};
-template <typename T>
-struct select_device_functor<T, detail::hip_device_allocator<T>> {
-  void operator()(const size_t device_id) { hipSetDevice(device_id); }
-};
-} // namespace device_selection
-
-} // end namespace recycler
+} // end namespace cppuddle
 #endif
