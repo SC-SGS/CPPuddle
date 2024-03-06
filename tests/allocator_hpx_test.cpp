@@ -15,7 +15,7 @@
 
 #include <boost/program_options.hpp>
 
-#include "../include/detail/buffer_recycler.hpp"
+#include "std_recycling_allocators.hpp"
 
 int hpx_main(int argc, char *argv[]) {
 
@@ -126,8 +126,8 @@ int hpx_main(int argc, char *argv[]) {
       std::cout << "\n==> Recycle allocation test took " << recycle_duration
                 << "ms" << std::endl;
     }
-    cppuddle::print_performance_counters();
-    cppuddle::force_cleanup(); // Cleanup all buffers and the managers for better
+    cppuddle::print_buffer_counters();
+    cppuddle::force_buffer_cleanup(); // Cleanup all buffers and the managers for better
                                // comparison
 
 
@@ -167,8 +167,8 @@ int hpx_main(int argc, char *argv[]) {
       std::cout << "\n==> Aggressive recycle allocation test took "
                 << aggressive_duration << "ms" << std::endl;
     }
-    cppuddle::print_performance_counters();
-    cppuddle::force_cleanup(); // Cleanup all buffers and the managers for better
+    cppuddle::print_buffer_counters();
+    cppuddle::force_buffer_cleanup(); // Cleanup all buffers and the managers for better
                                // comparison
 
 

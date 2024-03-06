@@ -18,11 +18,11 @@
 #include <cstdio>
 #include <typeinfo>
 
-#include "../include/buffer_manager.hpp"
-#include "../include/cuda_buffer_util.hpp"
-#include "../include/kokkos_buffer_util.hpp"
 #include <hpx/timing/high_resolution_timer.hpp>
 #include <memory>
+
+#include "cuda_recycling_allocators.hpp"
+#include "recycling_kokkos_view.hpp"
 
 // Assert during Release builds as well for this file:
 #undef NDEBUG
@@ -37,7 +37,7 @@ using kokkos_um_array =
     Kokkos::View<T **, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
 using recycled_host_view =
-    recycler::recycled_view<kokkos_um_array<T>, recycler::recycle_std<T>, T>;
+    cppuddle::recycled_view<kokkos_um_array<T>, cppuddle::recycle_std<T>, T>;
 
 
 // Device views using recycle allocators
@@ -46,8 +46,8 @@ using kokkos_um_device_array =
     Kokkos::View<T **, Kokkos::CudaSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
 using recycled_device_view =
-    recycler::recycled_view<kokkos_um_device_array<T>,
-                            recycler::recycle_allocator_cuda_device<T>, T>;
+    cppuddle::recycled_view<kokkos_um_device_array<T>,
+                            cppuddle::recycle_allocator_cuda_device<T>, T>;
 
 // Host views using pinned memory recycle allocators
 template <class T>
@@ -56,8 +56,8 @@ using kokkos_um_pinned_array =
                  Kokkos::CudaHostPinnedSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
 using recycled_pinned_view =
-    recycler::recycled_view<kokkos_um_pinned_array<T>,
-                            recycler::recycle_allocator_cuda_host<T>, T>;
+    cppuddle::recycled_view<kokkos_um_pinned_array<T>,
+                            cppuddle::recycle_allocator_cuda_host<T>, T>;
 
 template <typename Executor, typename ViewType>
 auto get_iteration_policy(const Executor &&executor,
@@ -143,11 +143,11 @@ int main(int argc, char *argv[]) {
 
   // otherwise the HPX cuda polling futures won't work
   hpx::cuda::experimental::detail::unregister_polling(hpx::resource::get_thread_pool(0));
-  recycler::print_performance_counters();
+  cppuddle::print_buffer_counters();
   // Cleanup all cuda views 
   // (otherwise the cuda driver might shut down before this gets done automatically at
   // the end of the programm)
-  recycler::force_cleanup();
+  cppuddle::force_buffer_cleanup();
   return hpx::finalize();
 }
 

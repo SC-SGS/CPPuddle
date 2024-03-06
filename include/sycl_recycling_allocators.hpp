@@ -6,18 +6,21 @@
 #ifndef SYCL_RECYCLING_ALLOCATORS_HPP
 #define SYCL_RECYCLING_ALLOCATORS_HPP
 
-#include "detail/buffer_recycler.hpp"
-#include "detail/config.hpp"
-
 #include <CL/sycl.hpp>
 #include <stdexcept>
 #include <string>
 
+#include "buffer_management_interface.hpp"
+
 namespace cppuddle {
-namespace detail {
 
+namespace device_selection {
+// No MutliGPU support yet, hence no select_device_function required
 static_assert(max_number_gpus == 1, "CPPuddle currently does not support MultiGPU SYCL builds!");
+} // namespace device_selection
 
+namespace detail {
+/// Underlying host allocator for SYCL pinned memory (using the sycl::default_selector{})
 template <class T> struct sycl_host_default_allocator {
   using value_type = T;
   sycl_host_default_allocator() noexcept = default;
@@ -44,6 +47,7 @@ constexpr bool operator!=(sycl_host_default_allocator<T> const &,
   return false;
 }
 
+/// Underlying allocator for SYCL device memory (using the sycl::default_selector{})
 template <class T> struct sycl_device_default_allocator {
   using value_type = T;
   sycl_device_default_allocator() noexcept = default;
@@ -72,9 +76,11 @@ constexpr bool operator!=(sycl_device_default_allocator<T> const &,
 
 } // end namespace detail
 
+/// Recycling allocator for SYCL pinned host memory (default device)
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_sycl_host =
     detail::aggressive_recycle_allocator<T, detail::sycl_host_default_allocator<T>>;
+/// Recycling allocator for SYCL device memory (default device)
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_sycl_device =
     detail::recycle_allocator<T, detail::sycl_device_default_allocator<T>>;

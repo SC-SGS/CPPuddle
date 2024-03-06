@@ -7,8 +7,10 @@
 #define KOKKOS_BUFFER_UTIL_HPP
 #include <Kokkos_Core.hpp>
 #include <memory>
-#include <detail/buffer_recycler.hpp>
 #include <type_traits>
+
+#include "buffer_management_interface.hpp"
+
 
 namespace cppuddle {
 

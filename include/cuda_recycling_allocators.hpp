@@ -6,16 +6,16 @@
 #ifndef CUDA_RECYCLING_ALLOCATORS_HPP
 #define CUDA_RECYCLING_ALLOCATORS_HPP
 
-#include "detail/buffer_recycler.hpp"
-#include "detail/config.hpp"
-
 #include <cuda_runtime.h>
 #include <stdexcept>
 #include <string>
 
+#include "buffer_management_interface.hpp"
+
 namespace cppuddle {
 namespace detail {
 
+/// Underlying host allocator for CUDA pinned memory
 template <class T> struct cuda_pinned_allocator {
   using value_type = T;
   cuda_pinned_allocator() noexcept = default;
@@ -57,6 +57,7 @@ constexpr bool operator!=(cuda_pinned_allocator<T> const &,
   return false;
 }
 
+/// Underlying allocator for CUDA device memory
 template <class T> struct cuda_device_allocator {
   using value_type = T;
   cuda_device_allocator() noexcept = default;
@@ -99,23 +100,28 @@ constexpr bool operator!=(cuda_device_allocator<T> const &,
 
 
 namespace device_selection {
+/// GPU device selector using the CUDA API for pinned host allocations
 template <typename T>
 struct select_device_functor<T, detail::cuda_pinned_allocator<T>> {
   void operator()(const size_t device_id) { cudaSetDevice(device_id); }
 };
+/// GPU selector using the CUDA API for pinned host allocations
 template <typename T>
 struct select_device_functor<T, detail::cuda_device_allocator<T>> {
   void operator()(const size_t device_id) { cudaSetDevice(device_id); }
 };
 } // namespace device_selection
 
+/// Recycling allocator for CUDA pinned host memory
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_cuda_host =
     detail::aggressive_recycle_allocator<T, detail::cuda_pinned_allocator<T>>;
+/// Recycling allocator for CUDA device memory
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_cuda_device =
     detail::recycle_allocator<T, detail::cuda_device_allocator<T>>;
 
+/// RAII wrapper for CUDA device memory
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 struct cuda_device_buffer {
   recycle_allocator_cuda_device<T> allocator;
@@ -139,6 +145,7 @@ struct cuda_device_buffer {
 
 };
 
+/// RAII wrapper for CUDA device memory using a passed aggregated allocator
 template <typename T, typename Host_Allocator, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 struct cuda_aggregated_device_buffer {
   T *device_side_buffer;

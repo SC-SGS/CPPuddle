@@ -6,17 +6,16 @@
 #ifndef HIP_RECYCLING_ALLOCATORS_HPP
 #define HIP_RECYCLING_ALLOCATORS_HPP
 
-#include "detail/buffer_recycler.hpp"
-#include "detail/config.hpp"
-
 #include <hip/hip_runtime.h>
 #include <stdexcept>
 #include <string>
 
-namespace cppuddle {
+#include "buffer_management_interface.hpp"
 
+namespace cppuddle {
 namespace detail {
 
+/// Underlying host allocator for HIP pinned memory
 template <class T> struct hip_pinned_allocator {
   using value_type = T;
   hip_pinned_allocator() noexcept = default;
@@ -63,6 +62,7 @@ constexpr bool operator!=(hip_pinned_allocator<T> const &,
   return false;
 }
 
+/// Underlying allocator for HIP device memory
 template <class T> struct hip_device_allocator {
   using value_type = T;
   hip_device_allocator() noexcept = default;
@@ -106,23 +106,28 @@ constexpr bool operator!=(hip_device_allocator<T> const &,
 
 
 namespace device_selection {
+/// GPU device selector using the HIP API for pinned host allocations
 template <typename T>
 struct select_device_functor<T, detail::hip_pinned_allocator<T>> {
   void operator()(const size_t device_id) { hipSetDevice(device_id); }
 };
+/// GPU selector using the HIP API for pinned host allocations
 template <typename T>
 struct select_device_functor<T, detail::hip_device_allocator<T>> {
   void operator()(const size_t device_id) { hipSetDevice(device_id); }
 };
 } // namespace device_selection
 
+/// Recycling allocator for HIP pinned host memory
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_hip_host =
     detail::aggressive_recycle_allocator<T, detail::hip_pinned_allocator<T>>;
+/// Recycling allocator for HIP device memory
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_hip_device =
     detail::recycle_allocator<T, detail::hip_device_allocator<T>>;
 
+/// RAII wrapper for HIP device memory
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 struct hip_device_buffer {
   recycle_allocator_hip_device<T> allocator;
@@ -146,6 +151,7 @@ struct hip_device_buffer {
 
 };
 
+/// RAII wrapper for CUDA device memory using a passed aggregated allocator
 template <typename T, typename Host_Allocator, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 struct hip_aggregated_device_buffer {
   T *device_side_buffer;

@@ -13,9 +13,6 @@
 #include <cstdio>
 #include <typeinfo>
 
-#include "../include/buffer_manager.hpp"
-#include "../include/cuda_buffer_util.hpp"
-#include "../include/kokkos_buffer_util.hpp"
 #ifdef CPPUDDLE_HAVE_HPX  
 #include <hpx/hpx_init.hpp>
 #endif
@@ -23,6 +20,9 @@
 #include <hpx/timing/high_resolution_timer.hpp>
 #include <boost/program_options.hpp>
 #include <memory>
+
+#include "cuda_recycling_allocators.hpp"
+#include "recycling_kokkos_view.hpp"
 
 using kokkos_array =
     Kokkos::View<float[1000], Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
@@ -33,7 +33,7 @@ using kokkos_um_array =
     Kokkos::View<T *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
 using recycled_host_view =
-    recycler::recycled_view<kokkos_um_array<T>, recycler::recycle_std<T>, T>;
+    cppuddle::recycled_view<kokkos_um_array<T>, cppuddle::recycle_std<T>, T>;
 
 #ifdef CPPUDDLE_HAVE_HPX
 int hpx_main(int argc, char *argv[]) {
@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
                         });
     Kokkos::fence();
   }
-  recycler::print_performance_counters();
+  cppuddle::print_buffer_counters();
 #ifdef CPPUDDLE_HAVE_HPX  
   return hpx::finalize();
 #else

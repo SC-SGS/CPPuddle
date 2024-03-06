@@ -3,7 +3,6 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
-#include "../include/detail/buffer_recycler.hpp"
 #ifdef CPPUDDLE_HAVE_HPX  
 #include <hpx/hpx_init.hpp>
 #endif
@@ -16,6 +15,8 @@
 #include <iostream>
 #include <string>
 #include <typeinfo>
+
+#include "std_recycling_allocators.hpp"
 
 #ifdef CPPUDDLE_HAVE_HPX
 int hpx_main(int argc, char *argv[]) {
@@ -88,9 +89,9 @@ int main(int argc, char *argv[]) {
     std::cout << "\n\n==> Aggressive recycle allocation test took "
               << aggressive_duration << "ms" << std::endl;
   }
-  cppuddle::print_performance_counters();
-  cppuddle::force_cleanup(); // Cleanup all buffers and the managers for better
-                             // comparison
+  cppuddle::print_buffer_counters();
+  cppuddle::force_buffer_cleanup(); // Cleanup all buffers and the managers for
+                                    // better comparison
 
   // Recycle Test:
   {
@@ -108,9 +109,9 @@ int main(int argc, char *argv[]) {
     std::cout << "\n\n==> Recycle allocation test took " << recycle_duration
               << "ms" << std::endl;
   }
-  cppuddle::print_performance_counters();
-  cppuddle::force_cleanup(); // Cleanup all buffers and the managers for better
-                             // comparison
+  cppuddle::print_buffer_counters();
+  cppuddle::force_buffer_cleanup(); // Cleanup all buffers and the managers for
+                                    // better comparison
 
   // Same test using std::allocator:
   {
@@ -138,7 +139,7 @@ int main(int argc, char *argv[]) {
     std::cout << "Test information: Aggressive recycler was faster than default allocator!"
               << std::endl;
   }
-  cppuddle::print_performance_counters();
+  cppuddle::print_buffer_counters();
 #ifdef CPPUDDLE_HAVE_HPX  
   return hpx::finalize();
 #else

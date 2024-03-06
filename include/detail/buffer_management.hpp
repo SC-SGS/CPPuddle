@@ -3,8 +3,8 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef BUFFER_MANAGER_HPP
-#define BUFFER_MANAGER_HPP
+#ifndef BUFFER_MANAGEMENT_HPP
+#define BUFFER_MANAGEMENT_HPP
 
 #include <atomic>
 #include <cassert>
@@ -47,6 +47,10 @@ For better performance configure CPPuddle with CPPUDDLE_WITH_HPX_AWARE_ALLOCATOR
 namespace cppuddle {
 
 namespace device_selection {
+/// Default device selector - No MultGPU support
+/** Throws a runtime error if max_number_gpus > 1 (defined by cmake variable
+ * CPPUDDLE_WITH_MAX_NUMBER_GPUS). Needs to be specialized for an allocator to
+ * provide MultiGPU support (see CPPuddle CUDA/HIP allocators for examples) **/
 template <typename T, typename Allocator> struct select_device_functor {
   void operator()(const size_t device_id) {
     if constexpr (max_number_gpus > 1)
@@ -55,14 +59,11 @@ template <typename T, typename Allocator> struct select_device_functor {
           "(by having a select_device_functor overload");
   }
 };
-template <typename T> struct select_device_functor<T, std::allocator<T>> {
-  void operator()(const size_t device_id) {}
-};
 } // namespace device_selection
 
 namespace detail {
 
-
+/// Singleton interface to all buffer_managers
 class buffer_interface {
 public:
 #if defined(CPPUDDLE_DEACTIVATE_BUFFER_RECYCLING)
@@ -87,12 +88,14 @@ For better performance configure CPPuddle with CPPUDDLE_WITH_BUFFER_RECYCLING=ON
     return Host_Allocator{}.deallocate(p, number_elements);
   }
 #else
-  /// Returns and allocated buffer of the requested size - this may be a reused
-  /// buffer
+  /// Primary method to allocate a buffer with CPPuddle: Returns and allocated /
+  /// buffer of the requested size - this may be a reused buffer. The method
+  /// figures out the correct buffer_manager and gets such a buffer from it.
+  /// Should be called from an allocator implementation, not directly
   template <typename T, typename Host_Allocator>
   static T *get(size_t number_elements, bool manage_content_lifetime = false,
-      std::optional<size_t> location_hint = std::nullopt, 
-      std::optional<size_t> device_id = std::nullopt) {
+                std::optional<size_t> location_hint = std::nullopt,
+                std::optional<size_t> device_id = std::nullopt) {
     try {
       return buffer_manager<T, Host_Allocator>::get(
           number_elements, manage_content_lifetime, location_hint, device_id);
@@ -102,11 +105,14 @@ For better performance configure CPPuddle with CPPUDDLE_WITH_BUFFER_RECYCLING=ON
       throw;
     }
   }
-  /// Marks an buffer as unused and fit for reusage
+  /// Primary method to deallocate a buffer with CPPuddle:Marks an buffer as /
+  /// unused and fit for reusage. The method figures out the correct buffer
+  /// manager and marks the buffer there. Should be called from an allocator
+  /// implementation, not directly
   template <typename T, typename Host_Allocator>
   static void mark_unused(T *p, size_t number_elements,
-      std::optional<size_t> location_hint = std::nullopt, 
-      std::optional<size_t> device_id = std::nullopt) {
+                          std::optional<size_t> location_hint = std::nullopt,
+                          std::optional<size_t> device_id = std::nullopt) {
     try {
       return buffer_manager<T, Host_Allocator>::mark_unused(p, number_elements,
           location_hint, device_id);
@@ -117,6 +123,7 @@ For better performance configure CPPuddle with CPPUDDLE_WITH_BUFFER_RECYCLING=ON
     }
   }
 #endif
+  /// Register all CPPuddle counters as HPX performance counters
   template <typename T, typename Host_Allocator>
     static void register_allocator_counters_with_hpx(void) {
 #ifdef CPPUDDLE_HAVE_COUNTERS
@@ -915,23 +922,6 @@ operator!=(aggressive_recycle_allocator<T, Host_Allocator> const &,
     return true;
 }
 } // namespace detail
-
-template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
-using recycle_std = detail::recycle_allocator<T, std::allocator<T>>;
-template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
-using aggressive_recycle_std =
-    detail::aggressive_recycle_allocator<T, std::allocator<T>>;
-
-inline void print_performance_counters() { detail::buffer_interface::print_performance_counters(); }
-/// Deletes all buffers (even ones still marked as used), delete the buffer
-/// managers and the recycler itself
-inline void force_cleanup() { detail::buffer_interface::clean_all(); }
-/// Deletes all buffers currently marked as unused
-inline void cleanup() { detail::buffer_interface::clean_unused_buffers(); }
-/// Deletes all buffers (even ones still marked as used), delete the buffer
-/// managers and the recycler itself. Disallows further usage.
-inline void finalize() { detail::buffer_interface::finalize(); }
-
 } // end namespace cppuddle
 
 #endif
