@@ -33,8 +33,8 @@ template <class T>
 using kokkos_um_array =
     Kokkos::View<T *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
-using recycle_host_view =
-    cppuddle::recycle_view<kokkos_um_array<T>, cppuddle::recycle_std<T>, T>;
+using recycle_host_view = cppuddle::memory_recycling::recycling_view<
+    kokkos_um_array<T>, cppuddle::memory_recycling::recycle_std<T>, T>;
 
 #ifdef CPPUDDLE_HAVE_HPX
 int hpx_main(int argc, char *argv[]) {
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
                         });
     Kokkos::fence();
   }
-  cppuddle::print_buffer_counters();
+  cppuddle::memory_recycling::print_buffer_counters();
 #ifdef CPPUDDLE_HAVE_HPX  
   return hpx::finalize();
 #else

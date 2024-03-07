@@ -594,8 +594,9 @@ public:
         // Buffer might be recycled from previous allocations by the
         // buffer_interface...
         T *aggregated_buffer =
-            cppuddle::detail::buffer_interface::get<T, Host_Allocator>(
-                size, manage_content_lifetime, location_id, gpu_id);
+            cppuddle::memory_recycling::detail::buffer_interface::get<
+                T, Host_Allocator>(size, manage_content_lifetime, location_id,
+                                   gpu_id);
         // Create buffer entry for this buffer
         buffer_allocations.emplace_back(static_cast<void *>(aggregated_buffer),
                                         size, 1, true, location_id, gpu_id);
@@ -670,8 +671,9 @@ public:
       // it as invalid)
       if (valid) {
         assert(buffers_in_use == true);
-        cppuddle::detail::buffer_interface::mark_unused<T, Host_Allocator>(
-            buffer_pointer, buffer_size, location_id, gpu_id);
+        cppuddle::memory_recycling::detail::buffer_interface::mark_unused<
+            T, Host_Allocator>(buffer_pointer, buffer_size, location_id,
+                               gpu_id);
         // mark buffer as invalid to prevent any other slice from marking the
         // buffer as unused
         valid = false;

@@ -45,6 +45,7 @@ For better performance configure CPPuddle with CPPUDDLE_WITH_HPX_AWARE_ALLOCATOR
 #include "config.hpp"
 
 namespace cppuddle {
+namespace memory_recycling {
 
 namespace device_selection {
 /// Default device selector - No MultGPU support
@@ -415,8 +416,8 @@ private:
 
       // No unused buffer found -> Create new one and return it
       try {
-        cppuddle::device_selection::select_device_functor<T, Host_Allocator>{}(
-            device_id);
+        cppuddle::memory_recycling::device_selection::select_device_functor<
+            T, Host_Allocator>{}(device_id);
         Host_Allocator alloc;
         T *buffer = alloc.allocate(number_of_elements);
         instance()[location_id].buffer_map.insert(
@@ -441,8 +442,8 @@ private:
         // If there still isn't enough memory left, the caller has to handle it
         // We've done all we can in here
         Host_Allocator alloc;
-        cppuddle::device_selection::select_device_functor<T, Host_Allocator>{}(
-            device_id);
+        cppuddle::memory_recycling::device_selection::select_device_functor<
+            T, Host_Allocator>{}(device_id);
         T *buffer = alloc.allocate(number_of_elements);
         instance()[location_id].buffer_map.insert(
             {buffer, std::make_tuple(buffer, number_of_elements, 1,
@@ -922,6 +923,7 @@ operator!=(aggressive_recycle_allocator<T, Host_Allocator> const &,
     return true;
 }
 } // namespace detail
+} // namespace memory_recycling
 } // end namespace cppuddle
 
 #endif

@@ -37,18 +37,17 @@ template <class T>
 using kokkos_um_array =
     Kokkos::View<T **, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
-using recycle_host_view =
-    cppuddle::recycle_view<kokkos_um_array<T>, cppuddle::recycle_std<T>, T>;
-
+using recycle_host_view = cppuddle::memory_recycling::recycling_view<
+    kokkos_um_array<T>, cppuddle::memory_recycling::recycle_std<T>, T>;
 
 // Device views using recycle allocators
 template <class T>
 using kokkos_um_device_array =
     Kokkos::View<T **, Kokkos::CudaSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
-using recycle_device_view =
-    cppuddle::recycle_view<kokkos_um_device_array<T>,
-                            cppuddle::recycle_allocator_cuda_device<T>, T>;
+using recycle_device_view = cppuddle::memory_recycling::recycling_view<
+    kokkos_um_device_array<T>,
+    cppuddle::memory_recycling::recycle_allocator_cuda_device<T>, T>;
 
 // Host views using pinned memory recycle allocators
 template <class T>
@@ -56,9 +55,9 @@ using kokkos_um_pinned_array =
     Kokkos::View<T **, typename kokkos_um_device_array<T>::array_layout,
                  Kokkos::CudaHostPinnedSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
-using recycle_pinned_view =
-    cppuddle::recycle_view<kokkos_um_pinned_array<T>,
-                            cppuddle::recycle_allocator_cuda_host<T>, T>;
+using recycle_pinned_view = cppuddle::memory_recycling::recycling_view<
+    kokkos_um_pinned_array<T>,
+    cppuddle::memory_recycling::recycle_allocator_cuda_host<T>, T>;
 
 template <typename Executor, typename ViewType>
 auto get_iteration_policy(const Executor &&executor,
@@ -144,11 +143,11 @@ int main(int argc, char *argv[]) {
 
   // otherwise the HPX cuda polling futures won't work
   hpx::cuda::experimental::detail::unregister_polling(hpx::resource::get_thread_pool(0));
-  cppuddle::print_buffer_counters();
+  cppuddle::memory_recycling::print_buffer_counters();
   // Cleanup all cuda views 
   // (otherwise the cuda driver might shut down before this gets done automatically at
   // the end of the programm)
-  cppuddle::force_buffer_cleanup();
+  cppuddle::memory_recycling::force_buffer_cleanup();
   return hpx::finalize();
 }
 

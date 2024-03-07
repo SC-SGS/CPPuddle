@@ -13,6 +13,8 @@
 
 
 namespace cppuddle {
+namespace memory_recycling {
+
 
 template<typename element_type, typename alloc_type>
 struct view_deleter {
@@ -26,7 +28,7 @@ struct view_deleter {
 };
 
 template <typename kokkos_type, typename alloc_type, typename element_type>
-class aggregated_recycle_view : public kokkos_type {
+class aggregated_recycling_view : public kokkos_type {
 private:
   alloc_type allocator;
   size_t total_elements{0};
@@ -36,7 +38,7 @@ private:
 public:
   using view_type = kokkos_type;
   template <class... Args>
-  explicit aggregated_recycle_view(alloc_type &alloc, Args... args)
+  explicit aggregated_recycling_view(alloc_type &alloc, Args... args)
       : kokkos_type(
             alloc.allocate(kokkos_type::required_allocation_size(args...) /
                            sizeof(element_type)),
@@ -47,15 +49,15 @@ public:
         data_ref_counter(this->data(), view_deleter<element_type, alloc_type>(
                                            alloc, total_elements)) {}
 
-  aggregated_recycle_view(
-      const aggregated_recycle_view<kokkos_type, alloc_type, element_type> &other)
+  aggregated_recycling_view(
+      const aggregated_recycling_view<kokkos_type, alloc_type, element_type> &other)
       : kokkos_type(other), allocator(other.allocator) {
     data_ref_counter = other.data_ref_counter;
     total_elements = other.total_elements;
   }
 
-  aggregated_recycle_view<kokkos_type, alloc_type, element_type> &
-  operator=(const aggregated_recycle_view<kokkos_type, alloc_type, element_type> &other) {
+  aggregated_recycling_view<kokkos_type, alloc_type, element_type> &
+  operator=(const aggregated_recycling_view<kokkos_type, alloc_type, element_type> &other) {
     data_ref_counter = other.data_ref_counter;
     allocator = other.allocator;
     kokkos_type::operator=(other);
@@ -63,15 +65,15 @@ public:
     return *this;
   }
 
-  aggregated_recycle_view(
-      aggregated_recycle_view<kokkos_type, alloc_type, element_type> &&other) noexcept
+  aggregated_recycling_view(
+      aggregated_recycling_view<kokkos_type, alloc_type, element_type> &&other) noexcept
       : kokkos_type(other), allocator(other.allocator) {
     data_ref_counter = other.data_ref_counter;
     total_elements = other.total_elements;
   }
 
-  aggregated_recycle_view<kokkos_type, alloc_type, element_type> &operator=(
-      aggregated_recycle_view<kokkos_type, alloc_type, element_type> &&other) noexcept {
+  aggregated_recycling_view<kokkos_type, alloc_type, element_type> &operator=(
+      aggregated_recycling_view<kokkos_type, alloc_type, element_type> &&other) noexcept {
     data_ref_counter = other.data_ref_counter;
     allocator = other.allocator;
     kokkos_type::operator=(other);
@@ -79,12 +81,12 @@ public:
     return *this;
   }
 
-  ~aggregated_recycle_view() {}
+  ~aggregated_recycling_view() {}
 };
 
 
 template <typename kokkos_type, typename alloc_type, typename element_type>
-class recycle_view : public kokkos_type {
+class recycling_view : public kokkos_type {
 private:
   size_t total_elements{0};
   std::shared_ptr<element_type> data_ref_counter;
@@ -94,7 +96,7 @@ public:
   static_assert(std::is_same_v<element_type, typename alloc_type::value_type>);
   template <typename... Args,
             std::enable_if_t<sizeof...(Args) == kokkos_type::rank, bool> = true>
-  recycle_view(Args... args)
+  recycling_view(Args... args)
       : kokkos_type(
             alloc_type{}.allocate(kokkos_type::required_allocation_size(args...) /
                                sizeof(element_type)),
@@ -106,7 +108,7 @@ public:
 
   template <typename... Args,
             std::enable_if_t<sizeof...(Args) == kokkos_type::rank, bool> = true>
-  recycle_view(const size_t device_id, Args... args)
+  recycling_view(const size_t device_id, Args... args)
       : kokkos_type(
             alloc_type{device_id}.allocate(kokkos_type::required_allocation_size(args...) /
                                sizeof(element_type)),
@@ -119,7 +121,7 @@ public:
   template <
       typename layout_t,
       std::enable_if_t<Kokkos::is_array_layout<layout_t>::value, bool> = true>
-  recycle_view(std::size_t device_id, layout_t layout)
+  recycling_view(std::size_t device_id, layout_t layout)
       : kokkos_type(
             alloc_type{device_id}.allocate(kokkos_type::required_allocation_size(layout) /
                                sizeof(element_type)),
@@ -129,41 +131,41 @@ public:
         data_ref_counter(this->data(), view_deleter<element_type, alloc_type>(
                                            alloc_type{device_id}, total_elements)) {}
 
-  recycle_view(
-      const recycle_view<kokkos_type, alloc_type, element_type> &other)
+  recycling_view(
+      const recycling_view<kokkos_type, alloc_type, element_type> &other)
       : kokkos_type(other) {
     total_elements = other.total_elements;
     data_ref_counter = other.data_ref_counter;
 
   }
 
-  recycle_view<kokkos_type, alloc_type, element_type> &
-  operator=(const recycle_view<kokkos_type, alloc_type, element_type> &other) {
+  recycling_view<kokkos_type, alloc_type, element_type> &
+  operator=(const recycling_view<kokkos_type, alloc_type, element_type> &other) {
     data_ref_counter = other.data_ref_counter;
     kokkos_type::operator=(other);
     total_elements = other.total_elements;
     return *this;
   }
 
-  recycle_view(
-      recycle_view<kokkos_type, alloc_type, element_type> &&other) noexcept
+  recycling_view(
+      recycling_view<kokkos_type, alloc_type, element_type> &&other) noexcept
       : kokkos_type(other) {
     data_ref_counter = other.data_ref_counter;
     total_elements = other.total_elements;
   }
 
-  recycle_view<kokkos_type, alloc_type, element_type> &operator=(
-      recycle_view<kokkos_type, alloc_type, element_type> &&other) noexcept {
+  recycling_view<kokkos_type, alloc_type, element_type> &operator=(
+      recycling_view<kokkos_type, alloc_type, element_type> &&other) noexcept {
     data_ref_counter = other.data_ref_counter;
     kokkos_type::operator=(other);
     total_elements = other.total_elements;
     return *this;
   }
 
-  ~recycle_view() {  }
+  ~recycling_view() {  }
 };
 
-
+} // namespace memory_recycling
 } // end namespace cppuddle
 
 #endif

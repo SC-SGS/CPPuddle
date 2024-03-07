@@ -13,8 +13,9 @@
 #include "buffer_management_interface.hpp"
 
 namespace cppuddle {
-namespace detail {
+namespace memory_recycling {
 
+namespace detail {
 /// Underlying host allocator for HIP pinned memory
 template <class T> struct hip_pinned_allocator {
   using value_type = T;
@@ -175,5 +176,6 @@ private:
                          // for the entire lifetime of this buffer
 };
 
+} // namespace memory_recycling
 } // end namespace cppuddle
 #endif

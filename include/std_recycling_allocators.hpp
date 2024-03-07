@@ -9,6 +9,7 @@
 #include "buffer_management_interface.hpp"
 
 namespace cppuddle {
+namespace memory_recycling {
 namespace device_selection {
 /// Dummy GPU selector. Needs to be defined for MultiGPU builds as the default /
 /// select_device_functor does not compile for > 1 GPU (to make sure all /
@@ -27,6 +28,7 @@ template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using aggressive_recycle_std =
     detail::aggressive_recycle_allocator<T, std::allocator<T>>;
 
+} // namespace memory_recycling
 } // namespace cppuddle
 
 #endif

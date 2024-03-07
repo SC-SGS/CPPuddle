@@ -14,35 +14,35 @@ namespace detail {
 template <class T>
 using cuda_pinned_allocator
     [[deprecated("Use from header cuda_recycling_allocators.hpp instead")]] =
-        cppuddle::detail::cuda_pinned_allocator<T>;
+        cppuddle::memory_recycling::detail::cuda_pinned_allocator<T>;
 
 template <class T>
 using cuda_device_allocator
     [[deprecated("Use from header cuda_recycling_allocators.hpp instead")]] =
-        cppuddle::detail::cuda_device_allocator<T>;
+        cppuddle::memory_recycling::detail::cuda_device_allocator<T>;
 
 } // end namespace detail
 
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_cuda_host
     [[deprecated("Use from header cuda_recycling_allocators.hpp instead")]] =
-        cppuddle::recycle_allocator_cuda_host<T>;
+        cppuddle::memory_recycling::recycle_allocator_cuda_host<T>;
 
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_cuda_device
     [[deprecated("Use from header cuda_recycling_allocators.hpp instead")]] =
-        cppuddle::recycle_allocator_cuda_device<T>;
+        cppuddle::memory_recycling::recycle_allocator_cuda_device<T>;
 
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using cuda_device_buffer
     [[deprecated("Use from header cuda_recycling_allocators.hpp instead")]] =
-        cppuddle::cuda_device_buffer<T>;
+        cppuddle::memory_recycling::cuda_device_buffer<T>;
 
 template <typename T, typename Host_Allocator,
           std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using cuda_aggregated_device_buffer
     [[deprecated("Use from header cuda_recycling_allocators.hpp instead")]] =
-        cppuddle::cuda_aggregated_device_buffer<T, Host_Allocator>;
+        cppuddle::memory_recycling::cuda_aggregated_device_buffer<T, Host_Allocator>;
 
 } // end namespace recycler
 #endif

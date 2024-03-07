@@ -13,6 +13,7 @@
 #include "buffer_management_interface.hpp"
 
 namespace cppuddle {
+namespace memory_recycling {
 
 namespace device_selection {
 // No MutliGPU support yet, hence no select_device_function required
@@ -85,5 +86,6 @@ template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_sycl_device =
     detail::recycle_allocator<T, detail::sycl_device_default_allocator<T>>;
 
+} // namespace memory_recycling
 } // end namespace cppuddle
 #endif

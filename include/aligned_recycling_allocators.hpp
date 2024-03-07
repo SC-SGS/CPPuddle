@@ -10,6 +10,7 @@
 #include "buffer_management_interface.hpp"
 
 namespace cppuddle {
+namespace memory_recycling {
 namespace device_selection {
 template <typename T, size_t alignement>
 /// Dummy GPU selector. Needs to be defined for MultiGPU builds as the default /
@@ -31,6 +32,8 @@ template <typename T, std::size_t alignement,
           std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using aggressive_recycle_aligned = detail::aggressive_recycle_allocator<
     T, boost::alignment::aligned_allocator<T, alignement>>;
+
+} // namespace memory_recycling
 } // namespace cppuddle
 
 #endif
