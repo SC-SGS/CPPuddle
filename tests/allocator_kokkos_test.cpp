@@ -21,6 +21,7 @@
 #include <boost/program_options.hpp>
 #include <memory>
 
+#include "std_recycling_allocators.hpp"
 #include "cuda_recycling_allocators.hpp"
 #include "recycling_kokkos_view.hpp"
 
@@ -32,8 +33,8 @@ template <class T>
 using kokkos_um_array =
     Kokkos::View<T *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
-using recycled_host_view =
-    cppuddle::recycled_view<kokkos_um_array<T>, cppuddle::recycle_std<T>, T>;
+using recycle_host_view =
+    cppuddle::recycle_view<kokkos_um_array<T>, cppuddle::recycle_std<T>, T>;
 
 #ifdef CPPUDDLE_HAVE_HPX
 int hpx_main(int argc, char *argv[]) {
@@ -74,8 +75,8 @@ int main(int argc, char *argv[]) {
   hpx::kokkos::ScopeGuard scopeGuard(argc, argv);
   Kokkos::print_configuration(std::cout);
 
-  using test_view = recycled_host_view<float>;
-  using test_double_view = recycled_host_view<double>;
+  using test_view = recycle_host_view<float>;
+  using test_double_view = recycle_host_view<double>;
 
   constexpr size_t passes = 100;
   for (size_t pass = 0; pass < passes; pass++) {

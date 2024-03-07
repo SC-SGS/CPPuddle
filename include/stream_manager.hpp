@@ -173,7 +173,7 @@ public:
   template <class Interface, class Pool>
   static size_t get_next_device_id(const size_t number_gpus) noexcept {
     // TODO add round robin and min strategy
-    return recycler::get_device_id(number_gpus);
+    return cppuddle::get_device_id(number_gpus);
   }
 
   template <class Interface, class Pool>
@@ -195,11 +195,11 @@ private:
     /// Deprecated! Use init_on_all_gpu or init_on_gpu
     template <typename... Ts>
     static void init(size_t number_of_streams, Ts ... executor_args) {
-      /* static_assert(sizeof...(Ts) == sizeof...(Ts) && recycler::max_number_gpus == 1, */
+      /* static_assert(sizeof...(Ts) == sizeof...(Ts) && cppuddle::max_number_gpus == 1, */
       /*               "deprecated stream_pool::init does not support multigpu"); */
       auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
       instance().streampools.emplace_back(number_of_streams, executor_args...);
-      assert(instance().streampools.size() <= recycler::max_number_gpus);
+      assert(instance().streampools.size() <= cppuddle::max_number_gpus);
     }
 
     /// Multi-GPU init where executors / interfaces on all GPUs are initialized with the same arguments
@@ -207,13 +207,13 @@ private:
     static void init_all_executor_pools(size_t number_of_streams, Ts ... executor_args) {
       auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
       if (number_of_streams > 0) {
-        for (size_t gpu_id = 0; gpu_id < recycler::max_number_gpus; gpu_id++) {
+        for (size_t gpu_id = 0; gpu_id < cppuddle::max_number_gpus; gpu_id++) {
           instance().select_gpu_function(gpu_id);
           instance().streampools.emplace_back(number_of_streams,
                                               executor_args...);
         }
       }
-      assert(instance().streampools.size() <= recycler::max_number_gpus);
+      assert(instance().streampools.size() <= cppuddle::max_number_gpus);
     }
 
     /// Per-GPU init allowing for different init parameters depending on the GPU 
@@ -226,40 +226,40 @@ private:
         instance().streampools.emplace_back(number_of_streams, 
                                             executor_args...);
       }
-      assert(instance().streampools.size() <= recycler::max_number_gpus);
+      assert(instance().streampools.size() <= cppuddle::max_number_gpus);
     }
 
     // TODO add/rename into finalize?
     static void cleanup() {
       auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
-      assert(instance().streampools.size() == recycler::max_number_gpus);
+      assert(instance().streampools.size() == cppuddle::max_number_gpus);
       instance().streampools.clear();
     }
 
     static std::tuple<Interface &, size_t> get_interface(const size_t gpu_id = 0) {
-      std::lock_guard<recycler::mutex_t> guard(instance().gpu_mutexes[gpu_id]);
+      std::lock_guard<cppuddle::mutex_t> guard(instance().gpu_mutexes[gpu_id]);
       assert(gpu_id < instance().streampools.size());
       return instance().streampools[gpu_id].get_interface();
     }
     static void release_interface(size_t index, const size_t gpu_id = 0) {
-      std::lock_guard<recycler::mutex_t> guard(instance().gpu_mutexes[gpu_id]);
+      std::lock_guard<cppuddle::mutex_t> guard(instance().gpu_mutexes[gpu_id]);
       assert(gpu_id < instance().streampools.size());
       instance().streampools[gpu_id].release_interface(index);
     }
     static bool interface_available(size_t load_limit, const size_t gpu_id = 0) {
-      std::lock_guard<recycler::mutex_t> guard(instance().gpu_mutexes[gpu_id]);
+      std::lock_guard<cppuddle::mutex_t> guard(instance().gpu_mutexes[gpu_id]);
       assert(gpu_id < instance().streampools.size());
       return instance().streampools[gpu_id].interface_available(load_limit);
     }
     static size_t get_current_load(const size_t gpu_id = 0) {
-      std::lock_guard<recycler::mutex_t> guard(instance().gpu_mutexes[gpu_id]);
+      std::lock_guard<cppuddle::mutex_t> guard(instance().gpu_mutexes[gpu_id]);
       assert(gpu_id < instance().streampools.size());
       return instance().streampools[gpu_id].get_current_load();
     }
     // TODO deprecated! Remove...
     /* static size_t get_next_device_id(const size_t gpu_id = 0) { */
-    /*   std::lock_guard<recycler::mutex_t> guard(instance().gpu_mutexes[gpu_id]); */
-    /*   assert(instance().streampools.size() == recycler::max_number_gpus); */
+    /*   std::lock_guard<cppuddle::mutex_t> guard(instance().gpu_mutexes[gpu_id]); */
+    /*   assert(instance().streampools.size() == cppuddle::max_number_gpus); */
     /*   return instance().streampools[gpu_id].get_next_device_id(); */
     /* } */
 
@@ -274,15 +274,15 @@ private:
 
   private:
     stream_pool_implementation() = default;
-    recycler::mutex_t pool_mut{};
+    cppuddle::mutex_t pool_mut{};
     std::function<void(size_t)> select_gpu_function = [](size_t gpu_id) {
       // By default no multi gpu support
-      assert(recycler::max_number_gpus == 1 || instance().streampools.size() == 1);
+      assert(cppuddle::max_number_gpus == 1 || instance().streampools.size() == 1);
       assert(gpu_id == 0);
     };
 
     std::deque<Pool> streampools{};
-    std::array<recycler::mutex_t, recycler::max_number_gpus> gpu_mutexes;
+    std::array<cppuddle::mutex_t, cppuddle::max_number_gpus> gpu_mutexes;
 
     static stream_pool_implementation& instance(void) {
       static stream_pool_implementation pool_instance{};

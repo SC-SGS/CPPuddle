@@ -12,22 +12,27 @@ namespace recycler {
 
 namespace detail {
 
-[[deprecated("Use from header sycl_recycling_allocators.hpp instead")]]
-template <class T> 
-using sycl_host_default_allocator = cppuddle::detail::sycl_host_default_allocator<T>;
+template <class T>
+using sycl_host_default_allocator
+    [[deprecated("Use from header sycl_recycling_allocators.hpp instead")]] =
+        cppuddle::detail::sycl_host_default_allocator<T>;
 
-[[deprecated("Use from header sycl_recycling_allocators.hpp instead")]]
-template <class T> 
-using sycl_device_default_allocator = cppuddle::detail::sycl_device_default_allocator<T>;
+template <class T>
+using sycl_device_default_allocator
+    [[deprecated("Use from header sycl_recycling_allocators.hpp instead")]] =
+        cppuddle::detail::sycl_device_default_allocator<T>;
 
 } // end namespace detail
 
-[[deprecated("Use from header sycl_recycling_allocators.hpp instead")]]
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
-using recycle_allocator_sycl_host = cppuddle::recycle_allocator_sycl_host<T>;
-[[deprecated("Use from header sycl_recycling_allocators.hpp instead")]]
+using recycle_allocator_sycl_host
+    [[deprecated("Use from header sycl_recycling_allocators.hpp instead")]] =
+        cppuddle::recycle_allocator_sycl_host<T>;
+
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
-using recycle_allocator_sycl_device = cppuddle::recycle_allocator_sycl_device<T>;
+using recycle_allocator_sycl_device
+    [[deprecated("Use from header sycl_recycling_allocators.hpp instead")]] =
+        cppuddle::recycle_allocator_sycl_device<T>;
 
 } // end namespace recycler
 #endif

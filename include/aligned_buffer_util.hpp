@@ -10,14 +10,17 @@
 
 namespace recycler {
 
-[[deprecated("Use from header aligned_recycling_allocators.hpp instead")]]
 template <typename T, std::size_t alignement,
           std::enable_if_t<std::is_trivial<T>::value, int> = 0>
-using recycle_aligned = cppuddle::recycle_aligned<T,alignement>;
-[[deprecated("Use from header aligned_recycling_allocators.hpp instead")]]
+using recycle_aligned
+    [[deprecated("Use from header aligned_recycling_allocators.hpp instead")]] =
+        cppuddle::recycle_aligned<T, alignement>;
+
 template <typename T, std::size_t alignement,
           std::enable_if_t<std::is_trivial<T>::value, int> = 0>
-using aggressive_recycle_aligned = cppuddle::aggressive_recycle_aligned<T, alignement>;
+using aggressive_recycle_aligned
+    [[deprecated("Use from header aligned_recycling_allocators.hpp instead")]] =
+        cppuddle::aggressive_recycle_aligned<T, alignement>;
 
 } // namespace recycler
 

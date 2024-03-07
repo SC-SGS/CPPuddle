@@ -21,6 +21,7 @@
 #include <hpx/timing/high_resolution_timer.hpp>
 #include <memory>
 
+#include "std_recycling_allocators.hpp"
 #include "cuda_recycling_allocators.hpp"
 #include "recycling_kokkos_view.hpp"
 
@@ -36,8 +37,8 @@ template <class T>
 using kokkos_um_array =
     Kokkos::View<T **, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
-using recycled_host_view =
-    cppuddle::recycled_view<kokkos_um_array<T>, cppuddle::recycle_std<T>, T>;
+using recycle_host_view =
+    cppuddle::recycle_view<kokkos_um_array<T>, cppuddle::recycle_std<T>, T>;
 
 
 // Device views using recycle allocators
@@ -45,8 +46,8 @@ template <class T>
 using kokkos_um_device_array =
     Kokkos::View<T **, Kokkos::CudaSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
-using recycled_device_view =
-    cppuddle::recycled_view<kokkos_um_device_array<T>,
+using recycle_device_view =
+    cppuddle::recycle_view<kokkos_um_device_array<T>,
                             cppuddle::recycle_allocator_cuda_device<T>, T>;
 
 // Host views using pinned memory recycle allocators
@@ -55,8 +56,8 @@ using kokkos_um_pinned_array =
     Kokkos::View<T **, typename kokkos_um_device_array<T>::array_layout,
                  Kokkos::CudaHostPinnedSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
-using recycled_pinned_view =
-    cppuddle::recycled_view<kokkos_um_pinned_array<T>,
+using recycle_pinned_view =
+    cppuddle::recycle_view<kokkos_um_pinned_array<T>,
                             cppuddle::recycle_allocator_cuda_host<T>, T>;
 
 template <typename Executor, typename ViewType>
@@ -81,7 +82,7 @@ int main(int argc, char *argv[]) {
   // Host run
   for (size_t pass = 0; pass < passes; pass++) {
     // Create view
-    recycled_host_view<double> hostView(view_size_0, view_size_1);
+    recycle_host_view<double> hostView(view_size_0, view_size_1);
 
     // Create executor
     hpx::kokkos::serial_executor executor;
@@ -109,7 +110,7 @@ int main(int argc, char *argv[]) {
   // Device run
   for (size_t pass = 0; pass < passes; pass++) {
     // Create and init host view
-    recycled_pinned_view<double> hostView(view_size_0, view_size_1);
+    recycle_pinned_view<double> hostView(view_size_0, view_size_1);
     for(size_t i = 0; i < view_size_0; i++) {
       for(size_t j = 0; j < view_size_1; j++) {
         hostView(i, j) = 1.0;
@@ -120,7 +121,7 @@ int main(int argc, char *argv[]) {
     hpx::kokkos::cuda_executor executor(hpx::kokkos::execution_space_mode::independent);
 
     // Use executor to move the host data to the device
-   recycled_device_view<double> deviceView(view_size_0, view_size_1);
+   recycle_device_view<double> deviceView(view_size_0, view_size_1);
    Kokkos::deep_copy(executor.instance(), deviceView, hostView); 
 
     auto policy_1 = Kokkos::Experimental::require(
