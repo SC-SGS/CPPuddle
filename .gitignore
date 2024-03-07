@@ -7,3 +7,5 @@ spack.lock
 .clangd
 docs
 compile_commands.json
+spack-build*
+spack-configure-args.txt
