@@ -3,8 +3,8 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef KERNEL_AGGREGATION_MANAGEMENT_HPP
-#define KERNEL_AGGREGATION_MANAGEMENT_HPP
+#ifndef AGGREGATION_EXECUTOR_AND_ALLOCATOR_HPP
+#define AGGREGATION_EXECUTOR_AND_ALLOCATOR_HPP
 
 #ifndef CPPUDDLE_HAVE_HPX
 #error "Work aggregation allocators/executors require CPPUDDLE_WITH_HPX=ON"
@@ -60,6 +60,7 @@
 #endif
 namespace cppuddle {
 namespace kernel_aggregation {
+namespace detail {
   using aggregation_mutex_t = hpx::mutex;
 
 //===============================================================================
@@ -381,10 +382,10 @@ class allocator_slice;
 /// Executor Class that aggregates function calls for specific kernels
 /** Executor is not meant to be used directly. Instead it yields multiple
  * executor_slice objects. These serve as interfaces. Slices from the same
- * Aggregated_Executor are meant to execute the same function calls but on
+ * aggregated_executor are meant to execute the same function calls but on
  * different data (i.e. different tasks)
  */
-template <typename Executor> class Aggregated_Executor {
+template <typename Executor> class aggregated_executor {
 private:
   //===============================================================================
   // Misc private avariables:
@@ -410,7 +411,7 @@ public:
   /// Slice class - meant as a scope interface to the aggregated executor
   class executor_slice {
   public:
-    Aggregated_Executor<Executor> &parent;
+    aggregated_executor<Executor> &parent;
   private:
     /// Executor is a slice of this aggregated_executor
     /// How many functions have been called - required to enforce sequential
@@ -425,7 +426,7 @@ public:
     const size_t number_slices;
     const size_t id;
     using executor_t = Executor;
-    executor_slice(Aggregated_Executor &parent, const size_t slice_id,
+    executor_slice(aggregated_executor &parent, const size_t slice_id,
                    const size_t number_slices)
         : parent(parent), notify_parent_about_destruction(true),
           number_slices(number_slices), id(slice_id) {
@@ -536,7 +537,7 @@ public:
   };
 
   // deprecated name...
-  /* using Executor_Slice = executor_slice; */
+  using Executor_Slice [[deprectated("Renamed: Use executor_slice instead")]] = executor_slice;
 
   //===============================================================================
 
@@ -922,7 +923,7 @@ public:
       }
     }
   }
-  ~Aggregated_Executor(void) {
+  ~aggregated_executor(void) {
 
     assert(current_slices == 0);
     assert(executor_slices_alive == false);
@@ -950,7 +951,7 @@ public:
     assert(buffer_allocations_map.empty());
   }
 
-  Aggregated_Executor(const size_t number_slices,
+  aggregated_executor(const size_t number_slices,
                       aggregated_executor_modes mode, const size_t gpu_id = 0)
       : max_slices(number_slices), current_slices(0), slices_exhausted(false),
         dealloc_counter(0), mode(mode), executor_slices_alive(false),
@@ -959,22 +960,22 @@ public:
         current_continuation(hpx::make_ready_future()),
         last_stream_launch_done(hpx::make_ready_future()) {}
   // Not meant to be copied or moved
-  Aggregated_Executor(const Aggregated_Executor &other) = delete;
-  Aggregated_Executor &operator=(const Aggregated_Executor &other) = delete;
-  Aggregated_Executor(Aggregated_Executor &&other) = delete;
-  Aggregated_Executor &operator=(Aggregated_Executor &&other) = delete;
+  aggregated_executor(const aggregated_executor &other) = delete;
+  aggregated_executor &operator=(const aggregated_executor &other) = delete;
+  aggregated_executor(aggregated_executor &&other) = delete;
+  aggregated_executor &operator=(aggregated_executor &&other) = delete;
 };
 
 template <typename T, typename Host_Allocator, typename Executor>
 class allocator_slice {
 private:
-  typename Aggregated_Executor<Executor>::executor_slice &executor_reference;
-  Aggregated_Executor<Executor> &executor_parent;
+  typename aggregated_executor<Executor>::executor_slice &executor_reference;
+  aggregated_executor<Executor> &executor_parent;
 
 public:
   using value_type = T;
   allocator_slice(
-      typename Aggregated_Executor<Executor>::executor_slice &executor)
+      typename aggregated_executor<Executor>::executor_slice &executor)
       : executor_reference(executor), executor_parent(executor.parent) {}
   template <typename U>
   explicit allocator_slice(
@@ -1009,137 +1010,21 @@ operator!=(allocator_slice<T, Host_Allocator, Executor> const &,
   return true;
 }
 
-//===============================================================================
-//===============================================================================
-// Pool Strategy:
-
-template <const char *kernelname, class Interface, class Pool>
-class aggregation_pool {
-public:
-  /// interface
-  template <typename... Ts>
-  static void init(size_t number_of_executors, size_t slices_per_executor,
-                   aggregated_executor_modes mode, size_t num_devices = 1) {
-    if (is_initialized) {
-      throw std::runtime_error(
-          std::string("Trying to initialize cppuddle aggregation pool twice") +
-          " Agg pool name: " + std::string(kernelname));
-    }
-    if (num_devices > cppuddle::max_number_gpus) {
-      throw std::runtime_error(
-          std::string(
-              "Trying to initialize aggregation with more devices than the "
-              "maximum number of GPUs given at compiletime") +
-          " Agg pool name: " + std::string(kernelname));
-    }
-    number_devices = num_devices;
-    for (size_t gpu_id = 0; gpu_id < number_devices; gpu_id++) {
-
-      std::lock_guard<aggregation_mutex_t> guard(instance()[gpu_id].pool_mutex);
-      assert(instance()[gpu_id].aggregation_executor_pool.empty());
-      for (int i = 0; i < number_of_executors; i++) {
-        instance()[gpu_id].aggregation_executor_pool.emplace_back(slices_per_executor,
-                                                        mode, gpu_id);
-      }
-      instance()[gpu_id].slices_per_executor = slices_per_executor;
-      instance()[gpu_id].mode = mode;
-    }
-    is_initialized = true;
-  }
-
-  /// Will always return a valid executor slice
-  static decltype(auto) request_executor_slice(void) {
-    if (!is_initialized) {
-      throw std::runtime_error(
-          std::string("Trying to use cppuddle aggregation pool without first calling init") +
-          " Agg poolname: " + std::string(kernelname));
-    }
-    const size_t gpu_id = cppuddle::get_device_id(number_devices);
-    /* const size_t gpu_id = 1; */
-    std::lock_guard<aggregation_mutex_t> guard(instance()[gpu_id].pool_mutex);
-    assert(!instance()[gpu_id].aggregation_executor_pool.empty());
-    std::optional<hpx::lcos::future<
-        typename Aggregated_Executor<Interface>::executor_slice>>
-        ret;
-    size_t local_id = (instance()[gpu_id].current_interface) %
-                      instance()[gpu_id].aggregation_executor_pool.size();
-    ret = instance()[gpu_id].aggregation_executor_pool[local_id].request_executor_slice();
-    // Expected case: current aggregation executor is free
-    if (ret.has_value()) {
-      return ret;
-    }
-    // current interface is bad -> find free one
-    size_t abort_counter = 0;
-    const size_t abort_number = instance()[gpu_id].aggregation_executor_pool.size() + 1;
-    do {
-      local_id = (++(instance()[gpu_id].current_interface)) % // increment interface
-                 instance()[gpu_id].aggregation_executor_pool.size();
-      ret =
-          instance()[gpu_id].aggregation_executor_pool[local_id].request_executor_slice();
-      if (ret.has_value()) {
-        return ret;
-      }
-      abort_counter++;
-    } while (abort_counter <= abort_number);
-    // Everything's busy -> create new aggregation executor (growing pool) OR
-    // return empty optional
-    if (instance()[gpu_id].growing_pool) {
-      instance()[gpu_id].aggregation_executor_pool.emplace_back(
-          instance()[gpu_id].slices_per_executor, instance()[gpu_id].mode, gpu_id);
-      instance()[gpu_id].current_interface =
-          instance()[gpu_id].aggregation_executor_pool.size() - 1;
-      assert(instance()[gpu_id].aggregation_executor_pool.size() < 20480);
-      ret = instance()[gpu_id]
-                .aggregation_executor_pool[instance()[gpu_id].current_interface]
-                .request_executor_slice();
-      assert(ret.has_value()); // fresh executor -- should always have slices
-                               // available
-    }
-    return ret;
-  }
-
-private:
-  std::deque<Aggregated_Executor<Interface>> aggregation_executor_pool;
-  std::atomic<size_t> current_interface{0};
-  size_t slices_per_executor;
-  aggregated_executor_modes mode;
-  bool growing_pool{true};
-
-private:
-  /// Required for dealing with adding elements to the deque of
-  /// aggregated_executors
-  aggregation_mutex_t pool_mutex;
-  /// Global access instance
-  static std::unique_ptr<aggregation_pool[]>& instance(void) {
-    static std::unique_ptr<aggregation_pool[]> pool_instances{
-        new aggregation_pool[cppuddle::max_number_gpus]};
-    return pool_instances;
-  }
-  static inline size_t number_devices = 1;
-  static inline bool is_initialized = false;
-  aggregation_pool() = default;
-
-public:
-  ~aggregation_pool() = default;
-  // Bunch of constructors we don't need
-  aggregation_pool(aggregation_pool const &other) = delete;
-  aggregation_pool &operator=(aggregation_pool const &other) = delete;
-  aggregation_pool(aggregation_pool &&other) = delete;
-  aggregation_pool &operator=(aggregation_pool &&other) = delete;
-};
-
+} // namespace detail
 } // namespace kernel_aggregation
 } // namespace cppuddle
+
+
 
 namespace hpx { namespace parallel { namespace execution {
    // TODO Unfortunately does not work that way! Create trait that works for Executor Slices with 
    // compatible unlying executor types
     /* template<typename E> */
-    /* struct is_one_way_executor<typename Aggregated_Executor<E>::executor_slice> */
+    /* struct is_one_way_executor<typename aggregated_executor<E>::executor_slice> */
     /*   : std::true_type */
     /* {}; */
     /* template<typename E> */
-    /* struct is_two_way_executor<typename Aggregated_Executor<E>::executor_slice> */
+    /* struct is_two_way_executor<typename aggregated_executor<E>::executor_slice> */
     /*   : std::true_type */
     /* {}; */
 
@@ -1147,12 +1032,12 @@ namespace hpx { namespace parallel { namespace execution {
     // Workaround for the meantime: Manually create traits for compatible types:
 template <>
 struct is_one_way_executor<
-    typename cppuddle::kernel_aggregation::Aggregated_Executor<
+    typename cppuddle::kernel_aggregation::detail::aggregated_executor<
         hpx::cuda::experimental::cuda_executor>::executor_slice>
     : std::true_type {};
 template <>
 struct is_two_way_executor<
-    typename cppuddle::kernel_aggregation::Aggregated_Executor<
+    typename cppuddle::kernel_aggregation::detail::aggregated_executor<
         hpx::cuda::experimental::cuda_executor>::executor_slice>
     : std::true_type {};
 #endif

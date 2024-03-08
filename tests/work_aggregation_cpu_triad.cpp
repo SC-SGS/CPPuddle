@@ -5,9 +5,8 @@
 #include <hpx/futures/future.hpp>
 #undef NDEBUG
 
-
-#include "../include/aggregation_manager.hpp"
-#include "../include/cuda_buffer_util.hpp"
+#include "cppuddle/memory_recycling/cuda_recycling_allocators.hpp"
+#include "cppuddle/kernel_aggregation/kernel_aggregation_interface.hpp"
 
 #include <boost/program_options.hpp>
 
@@ -101,7 +100,8 @@ int hpx_main(int argc, char *argv[]) {
   size_t number_underlying_executors{0};
   bool print_launch_counter{false};
   std::string executor_type_string{};
-  Aggregated_Executor_Modes executor_mode{Aggregated_Executor_Modes::EAGER};
+  cppuddle::kernel_aggregation::aggregated_executor_modes executor_mode{
+      cppuddle::kernel_aggregation::aggregated_executor_modes::EAGER};
   std::string filename{};
   {
     try {
@@ -161,11 +161,11 @@ int hpx_main(int argc, char *argv[]) {
         return hpx::finalize();
       }
       if (executor_type_string == "EAGER") {
-        executor_mode = Aggregated_Executor_Modes::EAGER;
+        executor_mode = cppuddle::kernel_aggregation::aggregated_executor_modes::EAGER;
       } else if (executor_type_string == "STRICT") {
-        executor_mode = Aggregated_Executor_Modes::STRICT;
+        executor_mode = cppuddle::kernel_aggregation::aggregated_executor_modes::STRICT;
       } else if (executor_type_string == "ENDLESS") {
-        executor_mode = Aggregated_Executor_Modes::ENDLESS;
+        executor_mode = cppuddle::kernel_aggregation::aggregated_executor_modes::ENDLESS;
       } else {
         std::cerr << "ERROR: Unknown executor mode " << executor_type_string
                   << "\n Valid choices are: EAGER,STRICT,ENDLESS" << std::endl;
@@ -183,7 +183,7 @@ int hpx_main(int argc, char *argv[]) {
   stream_pool::init<Dummy_Executor, round_robin_pool<Dummy_Executor>>(
       number_underlying_executors);
   static const char kernelname[] = "cpu_triad";
-  using executor_pool = aggregation_pool<kernelname, Dummy_Executor,
+  using executor_pool = cppuddle::kernel_aggregation::aggregation_pool<kernelname, Dummy_Executor,
                                          round_robin_pool<Dummy_Executor>>;
   executor_pool::init(number_aggregation_executors, max_slices, executor_mode);
 
