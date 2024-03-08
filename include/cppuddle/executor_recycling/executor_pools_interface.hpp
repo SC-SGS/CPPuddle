@@ -26,7 +26,7 @@ template <typename Interface, typename Pool>
 using executor_interface =
         detail::executor_interface<Interface, Pool>;
 
-}
-}
+} // end namespace executor_recycling
+} // end namespace cppuddle
 
 #endif
