@@ -15,7 +15,7 @@
 
 #include <boost/program_options.hpp>
 
-#include "std_recycling_allocators.hpp"
+#include "cppuddle/memory_recycling/std_recycling_allocators.hpp"
 
 int hpx_main(int argc, char *argv[]) {
 

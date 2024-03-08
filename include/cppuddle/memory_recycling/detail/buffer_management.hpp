@@ -42,7 +42,7 @@ For better performance configure CPPuddle with CPPUDDLE_WITH_HPX_AWARE_ALLOCATOR
 #endif
 #endif
 
-#include "config.hpp"
+#include "cppuddle/common/config.hpp"
 
 namespace cppuddle {
 namespace memory_recycling {

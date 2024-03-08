@@ -5,7 +5,7 @@
 
 #ifndef KOKKOS_BUFFER_UTIL_HPP
 #define KOKKOS_BUFFER_UTIL_HPP
-#include "recycling_kokkos_view.hpp"
+#include "cppuddle/memory_recycling/recycling_kokkos_view.hpp"
 
 
 namespace recycler {

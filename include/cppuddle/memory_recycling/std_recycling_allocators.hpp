@@ -10,6 +10,7 @@
 
 namespace cppuddle {
 namespace memory_recycling {
+
 namespace device_selection {
 /// Dummy GPU selector. Needs to be defined for MultiGPU builds as the default /
 /// select_device_functor does not compile for > 1 GPU (to make sure all /

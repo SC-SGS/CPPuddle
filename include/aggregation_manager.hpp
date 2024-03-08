@@ -50,7 +50,7 @@
 
 #include "../include/buffer_manager.hpp"
 #include "../include/stream_manager.hpp"
-#include "../include/detail/config.hpp"
+#include "cppuddle/common/config.hpp"
 
 #ifndef CPPUDDLE_HAVE_HPX_MUTEX
 #pragma message                                                                \

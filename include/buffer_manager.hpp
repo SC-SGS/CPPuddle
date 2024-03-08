@@ -1,8 +1,8 @@
-#ifndef BUFFER_MANAGER_INTERFACE_HPP
+#ifndef BUFFER_MANAGER_HPP
 #define BUFFER_MANAGER_HPP
 
-#include "buffer_management_interface.hpp"
-#include "std_recycling_allocators.hpp"
+#include "cppuddle/memory_recycling/buffer_management_interface.hpp"
+#include "cppuddle/memory_recycling/std_recycling_allocators.hpp"
 
 namespace recycler {
 

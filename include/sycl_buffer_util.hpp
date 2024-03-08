@@ -6,7 +6,7 @@
 #ifndef SYCL_BUFFER_UTIL_HPP
 #define SYCL_BUFFER_UTIL_HPP
 
-#include "sycl_recycling_allocators.hpp"
+#include "cppuddle/memory_recycling/sycl_recycling_allocators.hpp"
 
 namespace recycler {
 

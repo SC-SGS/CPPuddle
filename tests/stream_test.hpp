@@ -9,8 +9,8 @@
 #include <hpx/async_base/async.hpp>
 #include <hpx/execution_base/execution.hpp>
 #include <hpx/async_cuda/cuda_executor.hpp>
-#include "../include/buffer_manager.hpp"
-#include "../include/cuda_buffer_util.hpp"
+#include "cppuddle/memory_recycling/cuda_recycling_allocators.hpp"
+#include "cuda_buffer_util.hpp"
 
 template <typename Interface, typename Pool, typename... Ts>
 void test_pool_memcpy(const size_t stream_parameter, Ts &&... ts) {

@@ -6,7 +6,8 @@
 #ifndef CUDA_BUFFER_UTIL_HPP
 #define CUDA_BUFFER_UTIL_HPP
 
-#include "cuda_recycling_allocators.hpp"
+#include "buffer_manager.hpp"
+#include "cppuddle/memory_recycling/cuda_recycling_allocators.hpp"
 
 namespace recycler {
 namespace detail {

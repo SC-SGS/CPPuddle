@@ -3,7 +3,6 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
-#include "../include/aligned_recycling_allocators.hpp"
 #ifdef CPPUDDLE_HAVE_HPX  
 #include <hpx/hpx_init.hpp>
 #endif
@@ -16,6 +15,8 @@
 #include <iostream>
 #include <string>
 #include <typeinfo>
+
+#include "cppuddle/memory_recycling/aligned_recycling_allocators.hpp"
 
 #ifdef CPPUDDLE_HAVE_HPX
 int hpx_main(int argc, char *argv[]) {

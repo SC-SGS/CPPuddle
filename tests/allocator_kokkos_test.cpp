@@ -21,9 +21,9 @@
 #include <boost/program_options.hpp>
 #include <memory>
 
-#include "std_recycling_allocators.hpp"
-#include "cuda_recycling_allocators.hpp"
-#include "recycling_kokkos_view.hpp"
+#include "cppuddle/memory_recycling/std_recycling_allocators.hpp"
+#include "cppuddle/memory_recycling/cuda_recycling_allocators.hpp"
+#include "cppuddle/memory_recycling/recycling_kokkos_view.hpp"
 
 using kokkos_array =
     Kokkos::View<float[1000], Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;

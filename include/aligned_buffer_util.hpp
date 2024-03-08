@@ -6,7 +6,7 @@
 #ifndef ALIGNED_BUFFER_UTIL_HPP
 #define ALIGNED_BUFFER_UTIL_HPP
 
-#include "aligned_recycling_allocators.hpp"
+#include "cppuddle/memory_recycling/aligned_recycling_allocators.hpp"
 
 namespace recycler {
 

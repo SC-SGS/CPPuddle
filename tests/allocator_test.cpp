@@ -16,7 +16,7 @@
 #include <string>
 #include <typeinfo>
 
-#include "std_recycling_allocators.hpp"
+#include "cppuddle/memory_recycling/std_recycling_allocators.hpp"
 
 #ifdef CPPUDDLE_HAVE_HPX
 int hpx_main(int argc, char *argv[]) {

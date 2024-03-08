@@ -11,6 +11,7 @@
 
 namespace cppuddle {
 namespace memory_recycling {
+
 namespace device_selection {
 template <typename T, size_t alignement>
 /// Dummy GPU selector. Needs to be defined for MultiGPU builds as the default /
