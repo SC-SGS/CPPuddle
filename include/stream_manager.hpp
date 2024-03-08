@@ -6,7 +6,7 @@
 #ifndef STREAM_MANAGER_HPP
 #define STREAM_MANAGER_HPP
 
-#include "cppuddle/executor_recycling/executor_pools_management.hpp"
+#include "cppuddle/executor_recycling/executor_pools_interface.hpp"
 
 template <typename Interface>
 using round_robin_pool

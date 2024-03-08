@@ -10,7 +10,7 @@
 #include <hpx/execution_base/execution.hpp>
 #include <hpx/async_cuda/cuda_executor.hpp>
 #include "cppuddle/memory_recycling/cuda_recycling_allocators.hpp"
-#include "cppuddle/executor_recycling/executor_pools_management.hpp""
+#include "cppuddle/executor_recycling/executor_pools_interface.hpp""
 
 template <typename Interface, typename Pool, typename... Ts>
 void test_pool_memcpy(const size_t executor_parameter, Ts &&...ts) {

@@ -41,8 +41,8 @@ enum class execution_space_mode { global, independent };
 
 namespace cppuddle {
 namespace executor_recycling {
-
 namespace detail {
+
 /// Turns a std::array_mutex into an scoped lock
 template<typename mutex_array_t>
 auto make_scoped_lock_from_array(mutex_array_t& mutexes)
@@ -50,7 +50,6 @@ auto make_scoped_lock_from_array(mutex_array_t& mutexes)
     return std::apply([](auto&... mutexes) { return std::scoped_lock{mutexes...}; }, 
                       mutexes);
 }
-} // namespace detail
 
 template <typename Interface> class round_robin_pool_impl {
 private:
@@ -202,7 +201,7 @@ private:
     static void init(size_t number_of_executors, Ts ... executor_args) {
       /* static_assert(sizeof...(Ts) == sizeof...(Ts) && cppuddle::max_number_gpus == 1, */
       /*               "deprecated executor_pool::init does not support multigpu"); */
-      auto guard = detail::make_scoped_lock_from_array(instance().gpu_mutexes);
+      auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
       instance().executorpools.emplace_back(number_of_executors, executor_args...);
       assert(instance().executorpools.size() <= cppuddle::max_number_gpus);
     }
@@ -210,7 +209,7 @@ private:
     /// Multi-GPU init where executors / interfaces on all GPUs are initialized with the same arguments
     template <typename... Ts>
     static void init_all_executor_pools(size_t number_of_executors, Ts ... executor_args) {
-      auto guard = detail::make_scoped_lock_from_array(instance().gpu_mutexes);
+      auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
       if (number_of_executors > 0) {
         for (size_t gpu_id = 0; gpu_id < cppuddle::max_number_gpus; gpu_id++) {
           instance().select_gpu_function(gpu_id);
@@ -225,7 +224,7 @@ private:
     /// (useful for executor that expect an GPU-id during construction)
     template <typename... Ts>
     static void init_executor_pool(size_t gpu_id, size_t number_of_executors, Ts ... executor_args) {
-      auto guard = detail::make_scoped_lock_from_array(instance().gpu_mutexes);
+      auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
       if (number_of_executors > 0) {
         instance().select_gpu_function(gpu_id);
         instance().executorpools.emplace_back(number_of_executors, 
@@ -236,7 +235,7 @@ private:
 
     // TODO add/rename into finalize?
     static void cleanup() {
-      auto guard = detail::make_scoped_lock_from_array(instance().gpu_mutexes);
+      auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
       assert(instance().executorpools.size() == cppuddle::max_number_gpus);
       instance().executorpools.clear();
     }
@@ -269,7 +268,7 @@ private:
     /* } */
 
     static void set_device_selector(std::function<void(size_t)> select_gpu_function) {
-      auto guard = detail::make_scoped_lock_from_array(instance().gpu_mutexes);
+      auto guard = make_scoped_lock_from_array(instance().gpu_mutexes);
       instance().select_gpu_function = select_gpu_function;
     }
 
@@ -415,6 +414,7 @@ public:
 };
 #endif
 
+} // namespace detail
 } // namespace executor_recycling
 } // namespace cppuddle
 
