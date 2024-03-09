@@ -7,10 +7,10 @@
 //#undef NDEBUG
 
 #include <hpx/async_cuda/cuda_executor.hpp>
-#include "../include/aggregation_manager.hpp"
-#include "../include/cuda_buffer_util.hpp"
-
 #include <boost/program_options.hpp>
+
+#include "cppuddle/memory_recycling/cuda_recycling_allocators.hpp"
+#include "cppuddle/kernel_aggregation/kernel_aggregation_interface.hpp"
 
 
 
@@ -19,11 +19,13 @@
 // Stream benchmark
 
 template <typename float_t>
-__global__ void __launch_bounds__(1024, 2) triad_kernel(float_t *A, const float_t *B, const float_t *C, const float_t scalar, const size_t start_id, const size_t kernel_size, const size_t problem_size) {
+__global__ void __launch_bounds__(1024, 2)
+    triad_kernel(float_t *A, const float_t *B, const float_t *C,
+                 const float_t scalar, const size_t start_id,
+                 const size_t kernel_size, const size_t problem_size) {
   const size_t i = start_id + blockIdx.x * blockDim.x + threadIdx.x;
   A[i] = B[i] + scalar * C[i];
 }
-
 
 //===============================================================================
 //===============================================================================
@@ -37,7 +39,8 @@ int hpx_main(int argc, char *argv[]) {
   size_t number_underlying_executors{0};
   bool print_launch_counter{false};
   std::string executor_type_string{};
-  Aggregated_Executor_Modes executor_mode{Aggregated_Executor_Modes::EAGER};
+  cppuddle::kernel_aggregation::aggregated_executor_modes executor_mode{
+      cppuddle::kernel_aggregation::aggregated_executor_modes::EAGER};
   std::string filename{};
   {
     try {
@@ -97,11 +100,11 @@ int hpx_main(int argc, char *argv[]) {
         return hpx::finalize();
       }
       if (executor_type_string == "EAGER") {
-        executor_mode = Aggregated_Executor_Modes::EAGER;
+        executor_mode = cppuddle::kernel_aggregation::aggregated_executor_modes::EAGER;
       } else if (executor_type_string == "STRICT") {
-        executor_mode = Aggregated_Executor_Modes::STRICT;
+        executor_mode = cppuddle::kernel_aggregation::aggregated_executor_modes::STRICT;
       } else if (executor_type_string == "ENDLESS") {
-        executor_mode = Aggregated_Executor_Modes::ENDLESS;
+        executor_mode = cppuddle::kernel_aggregation::aggregated_executor_modes::ENDLESS;
       } else {
         std::cerr << "ERROR: Unknown executor mode " << executor_type_string
                   << "\n Valid choices are: EAGER,STRICT,ENDLESS" << std::endl;
@@ -122,7 +125,7 @@ int hpx_main(int argc, char *argv[]) {
   stream_pool::init<executor_t, round_robin_pool<executor_t>>(
       number_underlying_executors, 0, true);
   static const char kernelname2[] = "cuda_triad";
-  using executor_pool = aggregation_pool<kernelname2, executor_t,
+  using executor_pool = cppuddle::kernel_aggregation::aggregation_pool<kernelname2, executor_t,
                                          round_robin_pool<executor_t>>;
   executor_pool::init(number_aggregation_executors, max_slices, executor_mode);
 
@@ -147,9 +150,9 @@ int hpx_main(int argc, char *argv[]) {
     std::vector<float_t> A(problem_size, 0.0);
     std::vector<float_t> B(problem_size, 2.0);
     std::vector<float_t> C(problem_size, 1.0);
-    recycler::cuda_device_buffer<float_t> device_A(problem_size, 0);
-    recycler::cuda_device_buffer<float_t> device_B(problem_size, 0);
-    recycler::cuda_device_buffer<float_t> device_C(problem_size, 0);
+    cppuddle::memory_recycling::cuda_device_buffer<float_t> device_A(problem_size, 0);
+    cppuddle::memory_recycling::cuda_device_buffer<float_t> device_B(problem_size, 0);
+    cppuddle::memory_recycling::cuda_device_buffer<float_t> device_C(problem_size, 0);
     cudaMemcpy(device_A.device_side_buffer, A.data(),
                problem_size * sizeof(float_t), cudaMemcpyHostToDevice);
     cudaMemcpy(device_B.device_side_buffer, B.data(),
@@ -196,17 +199,16 @@ int hpx_main(int argc, char *argv[]) {
                   auto slice_exec = fut.get();
 
                   auto alloc_host = slice_exec.template make_allocator<
-                      float_t, recycler::detail::cuda_pinned_allocator<float_t>>();
+                      float_t, cppuddle::memory_recycling::detail::cuda_pinned_allocator<float_t>>();
                   auto alloc_device = slice_exec.template make_allocator<
-                      float_t, recycler::detail::cuda_device_allocator<float_t>>();
+                      float_t, cppuddle::memory_recycling::detail::cuda_device_allocator<float_t>>();
 
                   // Start the actual task
 
-                  // todo -- one slice gets a buffer that's not vaild anymore
                   std::vector<float_t, decltype(alloc_host)> local_A(
                       slice_exec.number_slices * kernel_size, float_t{}, alloc_host);
 
-                  recycler::cuda_aggregated_device_buffer<float_t,
+                  cppuddle::memory_recycling::cuda_aggregated_device_buffer<float_t,
                                                           decltype(alloc_device)>
                       device_A(slice_exec.number_slices * kernel_size, 
                                alloc_device);
@@ -214,7 +216,7 @@ int hpx_main(int argc, char *argv[]) {
                   std::vector<float_t, decltype(alloc_host)> local_B(
                       slice_exec.number_slices * kernel_size, float_t{},
                       alloc_host);
-                  recycler::cuda_aggregated_device_buffer<float_t,
+                  cppuddle::memory_recycling::cuda_aggregated_device_buffer<float_t,
                                                           decltype(alloc_device)>
                       device_B(slice_exec.number_slices * kernel_size, 
                                alloc_device);
@@ -222,7 +224,7 @@ int hpx_main(int argc, char *argv[]) {
                   std::vector<float_t, decltype(alloc_host)> local_C(
                       slice_exec.number_slices * kernel_size, float_t{},
                       alloc_host);
-                  recycler::cuda_aggregated_device_buffer<float_t,
+                  cppuddle::memory_recycling::cuda_aggregated_device_buffer<float_t,
                                                           decltype(alloc_device)>
                       device_C(slice_exec.number_slices * kernel_size,
                                alloc_device);
@@ -317,9 +319,9 @@ int hpx_main(int argc, char *argv[]) {
     std::vector<float_t> A(problem_size, 0.0);
     std::vector<float_t> B(problem_size, 2.0);
     std::vector<float_t> C(problem_size, 1.0);
-    recycler::cuda_device_buffer<float_t> device_A(problem_size, 0);
-    recycler::cuda_device_buffer<float_t> device_B(problem_size, 0);
-    recycler::cuda_device_buffer<float_t> device_C(problem_size, 0);
+    cppuddle::memory_recycling::cuda_device_buffer<float_t> device_A(problem_size, 0);
+    cppuddle::memory_recycling::cuda_device_buffer<float_t> device_B(problem_size, 0);
+    cppuddle::memory_recycling::cuda_device_buffer<float_t> device_C(problem_size, 0);
     cudaMemcpy(device_A.device_side_buffer, A.data(),
                problem_size * sizeof(float_t), cudaMemcpyHostToDevice);
     cudaMemcpy(device_B.device_side_buffer, B.data(),

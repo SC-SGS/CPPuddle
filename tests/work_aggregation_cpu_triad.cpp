@@ -5,7 +5,6 @@
 #include <hpx/futures/future.hpp>
 #undef NDEBUG
 
-#include "cppuddle/memory_recycling/cuda_recycling_allocators.hpp"
 #include "cppuddle/kernel_aggregation/kernel_aggregation_interface.hpp"
 
 #include <boost/program_options.hpp>
