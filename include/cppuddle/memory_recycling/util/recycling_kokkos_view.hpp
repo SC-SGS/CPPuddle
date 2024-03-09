@@ -9,7 +9,7 @@
 #include <memory>
 #include <type_traits>
 
-#include "buffer_management_interface.hpp"
+#include "cppuddle/memory_recycling/buffer_management_interface.hpp"
 
 
 namespace cppuddle {

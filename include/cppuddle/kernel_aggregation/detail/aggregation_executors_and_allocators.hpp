@@ -11,6 +11,10 @@
 #endif
 
 #include <stdexcept>
+// When defined, CPPuddle will run more checks
+// about the order of aggregated method calls. 
+// Best defined before including this header when needed
+// (hence commented out here)
 //#define DEBUG_AGGREGATION_CALLS 1
 
 #include <stdio.h>

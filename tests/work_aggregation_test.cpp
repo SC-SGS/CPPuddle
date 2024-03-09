@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2022 Gregor Daiß
+// Copyright (c) 2022-2024 Gregor Daiß
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -9,11 +9,15 @@
 #include <hpx/async_base/async.hpp>
 #include <hpx/execution_base/execution.hpp>
 #include <hpx/async_cuda/cuda_executor.hpp>
-#include "../include/aggregation_manager.hpp"
-#include "../include/cuda_buffer_util.hpp"
 
 #include <boost/program_options.hpp>
 
+#include "cppuddle/memory_recycling/cuda_recycling_allocators.hpp"
+#include "cppuddle/memory_recycling/util/cuda_recycling_device_buffer.hpp"
+#define DEBUG_AGGREGATION_CALLS 1 // enables checks if aggregated function calls are 
+                                  // compatible across all participating tasks
+                                  // Must be defined before including the aggregation:
+#include "cppuddle/kernel_aggregation/kernel_aggregation_interface.hpp"
 
 //===============================================================================
 //===============================================================================
@@ -114,9 +118,9 @@ namespace hpx { namespace parallel { namespace execution {
 
 void sequential_test(void) {
   static const char kernelname[] = "kernel1";
-  using kernel_pool1 = aggregation_pool<kernelname, Dummy_Executor,
+  using kernel_pool1 = cppuddle::kernel_aggregation::aggregation_pool<kernelname, Dummy_Executor,
                                         round_robin_pool<Dummy_Executor>>;
-  kernel_pool1::init(8, 2, Aggregated_Executor_Modes::STRICT);
+  kernel_pool1::init(8, 2, cppuddle::kernel_aggregation::aggregated_executor_modes::STRICT);
   // Sequential test
   hpx::cout << "Sequential test with all executor slices" << std::endl;
   hpx::cout << "----------------------------------------" << std::endl;
@@ -260,8 +264,8 @@ void interruption_test(void) {
   hpx::cout << "Sequential test with interruption:" << std::endl;
   hpx::cout << "----------------------------------" << std::endl;
   {
-    Aggregated_Executor<Dummy_Executor> agg_exec{
-        4, Aggregated_Executor_Modes::EAGER};
+    cppuddle::kernel_aggregation::aggregated_executor<Dummy_Executor> agg_exec{
+        4, cppuddle::kernel_aggregation::aggregated_executor_modes::EAGER};
     std::vector<hpx::lcos::future<void>> slices_done_futs;
 
     auto slice_fut1 = agg_exec.request_executor_slice();
@@ -326,8 +330,8 @@ void failure_test(bool type_error) {
   hpx::cout << "------------------------------------------------------"
             << std::endl;
   {
-    Aggregated_Executor<Dummy_Executor> agg_exec{
-        4, Aggregated_Executor_Modes::STRICT};
+    cppuddle::kernel_aggregation::aggregated_executor<Dummy_Executor> agg_exec{
+        4, cppuddle::kernel_aggregation::aggregated_executor_modes::STRICT};
 
     auto slice_fut1 = agg_exec.request_executor_slice();
 
@@ -405,9 +409,10 @@ void pointer_add_test(void) {
   hpx::cout << "--------------------------------------------------------"
             << std::endl;
   static const char kernelname2[] = "kernel2";
-  using kernel_pool2 = aggregation_pool<kernelname2, Dummy_Executor,
-                                        round_robin_pool<Dummy_Executor>>;
-  kernel_pool2::init(8, 2, Aggregated_Executor_Modes::STRICT);
+  using kernel_pool2 = cppuddle::kernel_aggregation::aggregation_pool<
+      kernelname2, Dummy_Executor, round_robin_pool<Dummy_Executor>>;
+  kernel_pool2::init(
+      8, 2, cppuddle::kernel_aggregation::aggregated_executor_modes::STRICT);
   {
     std::vector<float> erg(512);
     std::vector<hpx::lcos::future<void>> slices_done_futs;
@@ -602,10 +607,11 @@ void references_add_test(void) {
   {
     /*Aggregated_Executor<decltype(executor1)> agg_exec{
         4, Aggregated_Executor_Modes::STRICT};*/
-    auto &agg_exec =
-        std::get<0>(stream_pool::get_interface<
-                    Aggregated_Executor<Dummy_Executor>,
-                    round_robin_pool<Aggregated_Executor<Dummy_Executor>>>(0));
+    auto &agg_exec = std::get<0>(
+        stream_pool::get_interface<
+            cppuddle::kernel_aggregation::aggregated_executor<Dummy_Executor>,
+            round_robin_pool<cppuddle::kernel_aggregation::aggregated_executor<
+                Dummy_Executor>>>(0));
     std::vector<float> erg(512);
     std::vector<hpx::lcos::future<void>> slices_done_futs;
 
@@ -831,9 +837,11 @@ int hpx_main(int argc, char *argv[]) {
       8, 0, false);
   stream_pool::init<Dummy_Executor, round_robin_pool<Dummy_Executor>>(8);
 
-  stream_pool::init<Aggregated_Executor<Dummy_Executor>,
-                    round_robin_pool<Aggregated_Executor<Dummy_Executor>>>(
-      8, 4, Aggregated_Executor_Modes::STRICT);
+  stream_pool::init<
+      cppuddle::kernel_aggregation::aggregated_executor<Dummy_Executor>,
+      round_robin_pool<
+          cppuddle::kernel_aggregation::aggregated_executor<Dummy_Executor>>>(
+      8, 4, cppuddle::kernel_aggregation::aggregated_executor_modes::STRICT);
   /*hpx::cuda::experimental::cuda_executor executor1 =
       std::get<0>(stream_pool::get_interface<
                   hpx::cuda::experimental::cuda_executor,

@@ -10,9 +10,8 @@
 #include <boost/program_options.hpp>
 
 #include "cppuddle/memory_recycling/cuda_recycling_allocators.hpp"
+#include "cppuddle/memory_recycling/util/cuda_recycling_device_buffer.hpp"
 #include "cppuddle/kernel_aggregation/kernel_aggregation_interface.hpp"
-
-
 
 //===============================================================================
 //===============================================================================

@@ -23,7 +23,7 @@
 
 #include "cppuddle/memory_recycling/std_recycling_allocators.hpp"
 #include "cppuddle/memory_recycling/cuda_recycling_allocators.hpp"
-#include "cppuddle/memory_recycling/recycling_kokkos_view.hpp"
+#include "cppuddle/memory_recycling/util/recycling_kokkos_view.hpp"
 
 using kokkos_array =
     Kokkos::View<float[1000], Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;

@@ -6,7 +6,8 @@
 #ifndef HIP_BUFFER_UTIL_HPP
 #define HIP_BUFFER_UTIL_HPP
 
-#include "/cppuddle/memory_recycling/hip_recycling_allocators.hpp"
+#include "cppuddle/memory_recycling/hip_recycling_allocators.hpp"
+#include "cppuddle/memory_recycling/util/hip_recycling_device_buffer.hpp"
 
 namespace recycler {
 

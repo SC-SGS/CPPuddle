@@ -8,6 +8,7 @@
 
 #include "buffer_manager.hpp"
 #include "cppuddle/memory_recycling/cuda_recycling_allocators.hpp"
+#include "cppuddle/memory_recycling/util/cuda_recycling_device_buffer.hpp"
 
 namespace recycler {
 namespace detail {

@@ -10,6 +10,7 @@
 #include <hpx/execution_base/execution.hpp>
 #include <hpx/async_cuda/cuda_executor.hpp>
 #include "cppuddle/memory_recycling/cuda_recycling_allocators.hpp"
+#include "cppuddle/memory_recycling/util/cuda_recycling_device_buffer.hpp"
 #include "cppuddle/executor_recycling/executor_pools_interface.hpp""
 
 template <typename Interface, typename Pool, typename... Ts>
