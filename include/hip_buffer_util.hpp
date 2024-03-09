@@ -3,6 +3,10 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
+// DEPRECATED: Do not use this file
+// Only intended to make the old interface work a bit longer.
+// See deprecation warnings for the new location of the functionality
+
 #ifndef HIP_BUFFER_UTIL_HPP
 #define HIP_BUFFER_UTIL_HPP
 
