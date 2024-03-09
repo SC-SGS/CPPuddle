@@ -10,10 +10,19 @@
 #ifndef BUFFER_MANAGER_HPP
 #define BUFFER_MANAGER_HPP
 
+#include "cppuddle/common/config.hpp"
 #include "cppuddle/memory_recycling/buffer_management_interface.hpp"
+#include "cppuddle/memory_recycling/detail/buffer_management.hpp"
 #include "cppuddle/memory_recycling/std_recycling_allocators.hpp"
 
 namespace recycler {
+
+namespace detail {
+using buffer_recycler [[deprecated(
+    "Use buffer_interface from header "
+    "cppuddle/memory_recycling/detail/buffer_management.hpp instead")]] =
+    cppuddle::memory_recycling::detail::buffer_interface;
+}
 
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_std
@@ -21,7 +30,7 @@ using recycle_std
         cppuddle::memory_recycling::recycle_std<T>;
 
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
-using aggressive_recycle_aligned
+using aggressive_recycle_std
     [[deprecated("Use from header std_recycling_allocators.hpp instead")]] =
         cppuddle::memory_recycling::aggressive_recycle_std<T>;
 
@@ -40,6 +49,11 @@ inline void cleanup() { cppuddle::memory_recycling::unused_buffer_cleanup(); }
 /// managers and the recycler itself. Disallows further usage.
 [[deprecated("Use cppuddle::memory_recycling::finalize() instead")]]
 inline void finalize() { cppuddle::memory_recycling::finalize(); }
+
+[[deprecated("Use cppuddle::max_number_gpus instead")]] constexpr auto max_number_gpus =
+    cppuddle::max_number_gpus;
+[[deprecated("Use cppuddle::number_instances instead")]] constexpr auto number_instances =
+    cppuddle::number_instances;
 
 } // namespace recycler
 

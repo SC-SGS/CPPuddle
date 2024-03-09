@@ -3,8 +3,8 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
-#ifndef KOKKOS_BUFFER_UTIL_HPP
-#define KOKKOS_BUFFER_UTIL_HPP
+#ifndef RECYCLING_KOKKOS_VIEW_HPP
+#define RECYCLING_KOKKOS_VIEW_HPP
 #include <Kokkos_Core.hpp>
 #include <memory>
 #include <type_traits>
