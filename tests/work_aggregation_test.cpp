@@ -14,6 +14,7 @@
 
 #include "cppuddle/memory_recycling/cuda_recycling_allocators.hpp"
 #include "cppuddle/memory_recycling/util/cuda_recycling_device_buffer.hpp"
+#include "cppuddle/executor_recycling/executor_pools_interface.hpp""
 #define DEBUG_AGGREGATION_CALLS 1 // enables checks if aggregated function calls are 
                                   // compatible across all participating tasks
                                   // Must be defined before including the aggregation:
@@ -118,9 +119,11 @@ namespace hpx { namespace parallel { namespace execution {
 
 void sequential_test(void) {
   static const char kernelname[] = "kernel1";
-  using kernel_pool1 = cppuddle::kernel_aggregation::aggregation_pool<kernelname, Dummy_Executor,
-                                        round_robin_pool<Dummy_Executor>>;
-  kernel_pool1::init(8, 2, cppuddle::kernel_aggregation::aggregated_executor_modes::STRICT);
+  using kernel_pool1 = cppuddle::kernel_aggregation::aggregation_pool<
+      kernelname, Dummy_Executor,
+      cppuddle::executor_recycling::round_robin_pool_impl<Dummy_Executor>>;
+  kernel_pool1::init(
+      8, 2, cppuddle::kernel_aggregation::aggregated_executor_modes::STRICT);
   // Sequential test
   hpx::cout << "Sequential test with all executor slices" << std::endl;
   hpx::cout << "----------------------------------------" << std::endl;
@@ -410,7 +413,8 @@ void pointer_add_test(void) {
             << std::endl;
   static const char kernelname2[] = "kernel2";
   using kernel_pool2 = cppuddle::kernel_aggregation::aggregation_pool<
-      kernelname2, Dummy_Executor, round_robin_pool<Dummy_Executor>>;
+      kernelname2, Dummy_Executor,
+      cppuddle::executor_recycling::round_robin_pool_impl<Dummy_Executor>>;
   kernel_pool2::init(
       8, 2, cppuddle::kernel_aggregation::aggregated_executor_modes::STRICT);
   {
@@ -608,10 +612,11 @@ void references_add_test(void) {
     /*Aggregated_Executor<decltype(executor1)> agg_exec{
         4, Aggregated_Executor_Modes::STRICT};*/
     auto &agg_exec = std::get<0>(
-        stream_pool::get_interface<
+        cppuddle::executor_recycling::executor_pool::get_interface<
             cppuddle::kernel_aggregation::aggregated_executor<Dummy_Executor>,
-            round_robin_pool<cppuddle::kernel_aggregation::aggregated_executor<
-                Dummy_Executor>>>(0));
+            cppuddle::executor_recycling::round_robin_pool_impl<
+                cppuddle::kernel_aggregation::aggregated_executor<
+                    Dummy_Executor>>>(0));
     std::vector<float> erg(512);
     std::vector<hpx::lcos::future<void>> slices_done_futs;
 
@@ -832,14 +837,17 @@ int hpx_main(int argc, char *argv[]) {
     return hpx::finalize();
   }
 
-  stream_pool::init<hpx::cuda::experimental::cuda_executor,
-                    round_robin_pool<hpx::cuda::experimental::cuda_executor>>(
-      8, 0, false);
-  stream_pool::init<Dummy_Executor, round_robin_pool<Dummy_Executor>>(8);
+  cppuddle::executor_recycling::executor_pool::init<
+      hpx::cuda::experimental::cuda_executor,
+      cppuddle::executor_recycling::round_robin_pool_impl<
+          hpx::cuda::experimental::cuda_executor>>(8, 0, false);
+  cppuddle::executor_recycling::executor_pool::init<
+      Dummy_Executor,
+      cppuddle::executor_recycling::round_robin_pool_impl<Dummy_Executor>>(8);
 
-  stream_pool::init<
+  cppuddle::executor_recycling::executor_pool::init<
       cppuddle::kernel_aggregation::aggregated_executor<Dummy_Executor>,
-      round_robin_pool<
+      cppuddle::executor_recycling::round_robin_pool_impl<
           cppuddle::kernel_aggregation::aggregated_executor<Dummy_Executor>>>(
       8, 4, cppuddle::kernel_aggregation::aggregated_executor_modes::STRICT);
   /*hpx::cuda::experimental::cuda_executor executor1 =
@@ -871,8 +879,8 @@ int hpx_main(int argc, char *argv[]) {
   std::flush(hpx::cout);
   sleep(1);
 
-  recycler::print_performance_counters();
-  recycler::force_cleanup(); // Cleanup all buffers and the managers
+  cppuddle::memory_recycling::print_buffer_counters();
+  cppuddle::memory_recycling::force_buffer_cleanup(); // Cleanup all buffers and the managers
   return hpx::finalize();
 }
 

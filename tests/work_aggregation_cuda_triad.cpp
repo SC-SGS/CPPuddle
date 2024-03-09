@@ -121,11 +121,14 @@ int hpx_main(int argc, char *argv[]) {
   hpx::cuda::experimental::detail::register_polling(hpx::resource::get_thread_pool(0));
 
   using executor_t = hpx::cuda::experimental::cuda_executor;
-  stream_pool::init<executor_t, round_robin_pool<executor_t>>(
+  cppuddle::executor_recycling::executor_pool::init<
+      executor_t,
+      cppuddle::executor_recycling::round_robin_pool_impl<executor_t>>(
       number_underlying_executors, 0, true);
   static const char kernelname2[] = "cuda_triad";
-  using executor_pool = cppuddle::kernel_aggregation::aggregation_pool<kernelname2, executor_t,
-                                         round_robin_pool<executor_t>>;
+  using executor_pool = cppuddle::kernel_aggregation::aggregation_pool<
+      kernelname2, executor_t,
+      cppuddle::executor_recycling::round_robin_pool_impl<executor_t>>;
   executor_pool::init(number_aggregation_executors, max_slices, executor_mode);
 
   using float_t = float;
@@ -418,7 +421,7 @@ int hpx_main(int argc, char *argv[]) {
   /* sleep(1); */
 
   hpx::cuda::experimental::detail::unregister_polling(hpx::resource::get_thread_pool(0));
-  recycler::force_cleanup(); // Cleanup all buffers and the managers
+  cppuddle::memory_recycling::force_buffer_cleanup(); // Cleanup all buffers and the managers
   return hpx::finalize();
 }
 

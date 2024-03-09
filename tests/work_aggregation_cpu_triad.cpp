@@ -5,6 +5,7 @@
 #include <hpx/futures/future.hpp>
 #undef NDEBUG
 
+#include "cppuddle/memory_recycling/std_recycling_allocators.hpp"
 #include "cppuddle/kernel_aggregation/kernel_aggregation_interface.hpp"
 
 #include <boost/program_options.hpp>
@@ -179,11 +180,14 @@ int hpx_main(int argc, char *argv[]) {
     }
   }
 
-  stream_pool::init<Dummy_Executor, round_robin_pool<Dummy_Executor>>(
+  cppuddle::executor_recycling::executor_pool::init<
+      Dummy_Executor,
+      cppuddle::executor_recycling::round_robin_pool_impl<Dummy_Executor>>(
       number_underlying_executors);
   static const char kernelname[] = "cpu_triad";
-  using executor_pool = cppuddle::kernel_aggregation::aggregation_pool<kernelname, Dummy_Executor,
-                                         round_robin_pool<Dummy_Executor>>;
+  using executor_pool = cppuddle::kernel_aggregation::aggregation_pool<
+      kernelname, Dummy_Executor,
+      cppuddle::executor_recycling::round_robin_pool_impl<Dummy_Executor>>;
   executor_pool::init(number_aggregation_executors, max_slices, executor_mode);
 
   using float_t = float;
@@ -289,7 +293,7 @@ int hpx_main(int argc, char *argv[]) {
   std::flush(hpx::cout);
   sleep(1);
 
-  recycler::force_cleanup(); // Cleanup all buffers and the managers
+  cppuddle::memory_recycling::force_buffer_cleanup(); // Cleanup all buffers and the managers
   return hpx::finalize();
 }
 
