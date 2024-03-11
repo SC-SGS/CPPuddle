@@ -10,6 +10,11 @@
 // import hip_pinned_allocator and hip_device_allocator
 #include "detail/hip_underlying_allocators.hpp"
 
+/// \file
+/// Contains the HIP recycling allocators (in the form of type aliases)
+/// for both pinned host memory and device memory. Also contains the required
+/// device selector for MultiGPU setups with these allocators.
+
 namespace cppuddle {
 namespace memory_recycling {
 

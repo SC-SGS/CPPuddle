@@ -9,6 +9,10 @@
 #include "buffer_management_interface.hpp"
 #include "detail/sycl_underlying_allocators.hpp"
 
+/// \file
+/// Contains the SYCL recycling allocators (in the form of type aliases)
+/// for both pinned host memory and device memory. 
+
 namespace cppuddle {
 namespace memory_recycling {
 

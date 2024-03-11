@@ -8,7 +8,11 @@
 
 #include "detail/buffer_management.hpp"
 
+/// \file
+/// Memory recycling public interface
+
 namespace cppuddle {
+/// CPPuddle namespace containing the memory recycling functionality
 namespace memory_recycling {
 
 /// Print performance counters of all buffer managers to stdout

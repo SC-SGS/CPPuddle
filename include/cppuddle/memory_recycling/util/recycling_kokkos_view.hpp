@@ -11,11 +11,16 @@
 
 #include "cppuddle/memory_recycling/buffer_management_interface.hpp"
 
+/// \file
+/// Contains a Kokkos View Wrapper which automatically uses 
+/// recycled memory. Also contains an aggregated version for 
+/// usage with the kernel aggragation
 
 namespace cppuddle {
 namespace memory_recycling {
 
-
+/// Convienience struct to delete the view once the reference counting
+/// reaches 0
 template<typename element_type, typename alloc_type>
 struct view_deleter {
   alloc_type allocator;
@@ -27,6 +32,9 @@ struct view_deleter {
   }
 };
 
+/// Kokkos View that automatically uses a recycling allocator using
+/// alloc_type as an underlying allocator. Must be passed an existing allocator object
+/// (which should be an allocator_slice from the kernel aggregation functionality)
 template <typename kokkos_type, typename alloc_type, typename element_type>
 class aggregated_recycling_view : public kokkos_type {
 private:
@@ -85,6 +93,8 @@ public:
 };
 
 
+/// Kokkos View that automatically uses a recycling allocator using
+/// alloc_type as an underlying allocator
 template <typename kokkos_type, typename alloc_type, typename element_type>
 class recycling_view : public kokkos_type {
 private:

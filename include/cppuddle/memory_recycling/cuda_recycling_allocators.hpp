@@ -10,6 +10,11 @@
 // import cuda_pinned_allocator and cuda_device_allocator
 #include "detail/cuda_underlying_allocators.hpp"
 
+/// \file
+/// Contains the CUDA recycling allocators (in the form of type aliases)
+/// for both pinned host memory and device memory. Also contains the required
+/// device selector for MultiGPU setups with these allocators.
+
 namespace cppuddle {
 namespace memory_recycling {
 
