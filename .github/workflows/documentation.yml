@@ -1,0 +1,44 @@
+name: generate documentation
+
+# triggers
+on:
+  push:
+    branches:
+      - master
+      - documentation
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build-documentation:
+    runs-on: ubuntu-latest
+    steps:
+      # checkout repository
+      - name: Checkout cppuddle
+        uses: actions/checkout@v4
+        with:
+          path: cppuddle
+      # install dependencies
+      - name: Dependancies
+        run: |
+          sudo apt update
+          sudo apt-get install -y doxygen graphviz
+      # CMake
+      - name: Configure
+        run: |
+          cd cppuddle
+          mkdir build
+          cd build
+          cmake -DCPPUDDLE_WITH_DOCUMENTATION=ON ..
+      # make
+      - name: Generate
+        run: |
+          cd cppuddle/build
+          make doc
+      # deploy to github pages
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./cppuddle/docs/html

@@ -15,6 +15,7 @@
 #include "cppuddle/memory_recycling/detail/buffer_management.hpp"
 #include "cppuddle/memory_recycling/std_recycling_allocators.hpp"
 
+/// Deprectated LEGACY namespace. Kept around for compatiblity with old code for now
 namespace recycler {
 
 namespace detail {

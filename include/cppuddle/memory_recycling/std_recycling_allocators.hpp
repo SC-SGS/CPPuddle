@@ -8,6 +8,10 @@
 
 #include "buffer_management_interface.hpp"
 
+/// \file
+/// Contains the recycling allocators (in the form of type aliases)
+/// using the std memory allocator 
+
 namespace cppuddle {
 namespace memory_recycling {
 

@@ -9,11 +9,16 @@
 // import recycle_allocator_cuda_device
 #include "cppuddle/memory_recycling/cuda_recycling_allocators.hpp""
 
+/// \file
+/// Contains a RAII wrappers for CUDA device buffers. Intended to be used with
+/// the recycling allocators but technically any allocator should work
+
 namespace cppuddle {
 namespace memory_recycling {
 
 
 /// RAII wrapper for CUDA device memory
+/// (ideally used with a recycling allocator)
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 struct cuda_device_buffer {
   recycle_allocator_cuda_device<T> allocator;
@@ -38,6 +43,7 @@ struct cuda_device_buffer {
 };
 
 /// RAII wrapper for CUDA device memory using a passed aggregated allocator
+/// (which ideally should be an allocator_slice from the work aggregation)
 template <typename T, typename Host_Allocator, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 struct cuda_aggregated_device_buffer {
   T *device_side_buffer;

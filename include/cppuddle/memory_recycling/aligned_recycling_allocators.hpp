@@ -9,6 +9,10 @@
 #include <boost/align/aligned_allocator.hpp>
 #include "buffer_management_interface.hpp"
 
+/// \file
+/// Contains the recycling allocators (in the form of type aliases)
+/// using the boost aligned_allocator as an underlying allocator
+
 namespace cppuddle {
 namespace memory_recycling {
 
