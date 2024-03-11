@@ -1,11 +1,11 @@
 name: generate documentation
 
-# only trigger this action on specific events
+# triggers
 on:
   push:
     branches:
       - master
-      - add_doxygen
+      - documentation
   pull_request:
     branches:
       - master
@@ -24,19 +24,19 @@ jobs:
         run: |
           sudo apt update
           sudo apt-get install -y doxygen graphviz
-      # configure project via CMake
+      # CMake
       - name: Configure
         run: |
           cd cppuddle
           mkdir build
           cd build
           cmake -DCPPUDDLE_WITH_DOCUMENTATION=ON ..
-      # build project
+      # make
       - name: Generate
         run: |
           cd cppuddle/build
           make doc
-      # deploy generated documentation using github.io
+      # deploy to github pages
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
