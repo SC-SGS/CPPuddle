@@ -18,7 +18,7 @@ In this use-case, allocating GPU buffers for all sub-grids in advance would have
 - Executor pools and various scheduling policies (round robin, priority queue, multi-gpu), which rely on reference counting to gauge the current load of a executor instead of querying the device itself. Tested with CUDA, HIP and Kokkos executors provided by HPX / HPX-Kokkos.
 - Special Executors/Allocators for on-the-fly work GPU aggregation (using HPX).
 
-The documentation is available [here](https://sc-sgs.github.io/CPPuddle/). In particular, the public functionality for the memory recycling in available in the namespace [memory_recycling](https://sc-sgs.github.io/CPPuddle/namespacecppuddle_1_1memory__recycling.html), for the executor pools it is available in the namespace [executor_recycling](https://sc-sgs.github.io/CPPuddle/namespacecppuddle_1_1executor__recycling.html) and the work aggregation (kernel fusion) functionality is available in the namespace [work_aggregation](https://sc-sgs.github.io/CPPuddle/namespacecppuddle_1_1kernel__aggregation.html).
+The documentation of the current master branch is available [here](https://sc-sgs.github.io/CPPuddle/). In particular, the public functionality for the memory recycling in available in the namespace [memory_recycling](https://sc-sgs.github.io/CPPuddle/namespacecppuddle_1_1memory__recycling.html), for the executor pools it is available in the namespace [executor_recycling](https://sc-sgs.github.io/CPPuddle/namespacecppuddle_1_1executor__recycling.html) and the work aggregation (kernel fusion) functionality is available in the namespace [work_aggregation](https://sc-sgs.github.io/CPPuddle/namespacecppuddle_1_1kernel__aggregation.html).
 
 #### Requirements
 
