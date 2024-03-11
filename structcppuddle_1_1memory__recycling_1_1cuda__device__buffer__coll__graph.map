@@ -1,0 +1,4 @@
+<map id="cppuddle::memory_recycling::cuda_device_buffer&lt; T, &gt;" name="cppuddle::memory_recycling::cuda_device_buffer&lt; T, &gt;">
+<area shape="rect" id="node1" title="RAII wrapper for CUDA device memory (ideally used with a recycling allocator)" alt="" coords="12,109,223,151"/>
+<area shape="rect" id="node2" href="$structcppuddle_1_1memory__recycling_1_1detail_1_1recycle__allocator.html" title=" " alt="" coords="5,5,229,47"/>
+</map>

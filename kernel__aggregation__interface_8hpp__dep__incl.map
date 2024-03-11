@@ -1,0 +1,7 @@
+<map id="include/cppuddle/kernel_aggregation/kernel_aggregation_interface.hpp" name="include/cppuddle/kernel_aggregation/kernel_aggregation_interface.hpp">
+<area shape="rect" id="node1" title=" " alt="" coords="248,5,484,61"/>
+<area shape="rect" id="node2" href="$aggregation__manager_8hpp.html" title=" " alt="" coords="5,109,156,151"/>
+<area shape="rect" id="node3" href="$work__aggregation__cpu__triad_8cpp.html" title=" " alt="" coords="180,109,355,151"/>
+<area shape="rect" id="node4" href="$work__aggregation__cuda__triad_8cpp.html" title=" " alt="" coords="379,109,553,151"/>
+<area shape="rect" id="node5" href="$work__aggregation__test_8cpp.html" title=" " alt="" coords="577,109,752,151"/>
+</map>

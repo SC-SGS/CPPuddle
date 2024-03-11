@@ -1,0 +1,8 @@
+<map id="include/cppuddle/memory_recycling/util/cuda_recycling_device_buffer.hpp" name="include/cppuddle/memory_recycling/util/cuda_recycling_device_buffer.hpp">
+<area shape="rect" id="node1" title="Contains a RAII wrappers for CUDA device buffers. Intended to be used with the recycling allocators b..." alt="" coords="250,5,465,61"/>
+<area shape="rect" id="node2" href="$cuda__buffer__util_8hpp.html" title=" " alt="" coords="5,109,155,151"/>
+<area shape="rect" id="node3" href="$stream__test_8hpp.html" title=" " alt="" coords="179,117,343,143"/>
+<area shape="rect" id="node5" href="$work__aggregation__cuda__triad_8cpp.html" title=" " alt="" coords="367,109,542,151"/>
+<area shape="rect" id="node6" href="$work__aggregation__test_8cpp.html" title=" " alt="" coords="566,109,741,151"/>
+<area shape="rect" id="node4" href="$stream__test_8cpp.html" title=" " alt="" coords="180,199,343,225"/>
+</map>
