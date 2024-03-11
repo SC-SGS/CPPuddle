@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2023 Gregor Daiß
+// Copyright (c) 2023-2024 Gregor Daiß
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -28,7 +28,7 @@ For better performance configure CPPuddle with CPPUDDLE_WITH_HPX_AWARE_ALLOCATOR
 #endif
 #endif
 
-namespace recycler {
+namespace cppuddle {
 
 #if defined(CPPUDDLE_HAVE_HPX) && defined(CPPUDDLE_HAVE_HPX_MUTEX)
 using mutex_t = hpx::spinlock_no_backoff;
@@ -67,6 +67,6 @@ inline size_t get_device_id(const size_t number_gpus) {
 #endif
 }
 
-} // end namespace recycler
+} // end namespace cppuddle
 
 #endif

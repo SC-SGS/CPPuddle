@@ -3,7 +3,6 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
-#include "../include/buffer_manager.hpp"
 #ifdef CPPUDDLE_HAVE_HPX  
 #include <hpx/hpx_init.hpp>
 #endif
@@ -16,6 +15,8 @@
 #include <iostream>
 #include <string>
 #include <typeinfo>
+
+#include "cppuddle/memory_recycling/std_recycling_allocators.hpp"
 
 #ifdef CPPUDDLE_HAVE_HPX
 int hpx_main(int argc, char *argv[]) {
@@ -76,8 +77,9 @@ int main(int argc, char *argv[]) {
     std::cout << "\nStarting run with aggressive recycle allocator: " << std::endl;
     for (size_t pass = 0; pass < passes; pass++) {
       auto begin = std::chrono::high_resolution_clock::now();
-      std::vector<double, recycler::aggressive_recycle_std<double>> test1(
-          array_size, double{});
+      std::vector<double,
+                  cppuddle::memory_recycling::aggressive_recycle_std<double>>
+      test1(array_size, double{});
       auto end = std::chrono::high_resolution_clock::now();
       aggressive_duration +=
           std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
@@ -88,16 +90,17 @@ int main(int argc, char *argv[]) {
     std::cout << "\n\n==> Aggressive recycle allocation test took "
               << aggressive_duration << "ms" << std::endl;
   }
-  recycler::print_performance_counters();
-  recycler::force_cleanup(); // Cleanup all buffers and the managers for better
-                             // comparison
+  cppuddle::memory_recycling::print_buffer_counters();
+  cppuddle::memory_recycling::force_buffer_cleanup(); // Cleanup all buffers and the managers for
+                                    // better comparison
 
   // Recycle Test:
   {
     std::cout << "\nStarting run with recycle allocator: " << std::endl;
     for (size_t pass = 0; pass < passes; pass++) {
       auto begin = std::chrono::high_resolution_clock::now();
-      std::vector<double, recycler::recycle_std<double>> test1(array_size, double{});
+      std::vector<double, cppuddle::memory_recycling::recycle_std<double>>
+        test1(array_size, double{});
       auto end = std::chrono::high_resolution_clock::now();
       recycle_duration +=
           std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
@@ -108,9 +111,9 @@ int main(int argc, char *argv[]) {
     std::cout << "\n\n==> Recycle allocation test took " << recycle_duration
               << "ms" << std::endl;
   }
-  recycler::print_performance_counters();
-  recycler::force_cleanup(); // Cleanup all buffers and the managers for better
-                             // comparison
+  cppuddle::memory_recycling::print_buffer_counters();
+  cppuddle::memory_recycling::force_buffer_cleanup(); // Cleanup all buffers and the managers for
+                                    // better comparison
 
   // Same test using std::allocator:
   {
@@ -138,7 +141,7 @@ int main(int argc, char *argv[]) {
     std::cout << "Test information: Aggressive recycler was faster than default allocator!"
               << std::endl;
   }
-  recycler::print_performance_counters();
+  cppuddle::memory_recycling::print_buffer_counters();
 #ifdef CPPUDDLE_HAVE_HPX  
   return hpx::finalize();
 #else

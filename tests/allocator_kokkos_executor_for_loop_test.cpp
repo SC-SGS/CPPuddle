@@ -18,11 +18,12 @@
 #include <cstdio>
 #include <typeinfo>
 
-#include "../include/buffer_manager.hpp"
-#include "../include/cuda_buffer_util.hpp"
-#include "../include/kokkos_buffer_util.hpp"
 #include <hpx/timing/high_resolution_timer.hpp>
 #include <memory>
+
+#include "cppuddle/memory_recycling/std_recycling_allocators.hpp"
+#include "cppuddle/memory_recycling/cuda_recycling_allocators.hpp"
+#include "cppuddle/memory_recycling/util/recycling_kokkos_view.hpp"
 
 // Assert during Release builds as well for this file:
 #undef NDEBUG
@@ -36,18 +37,17 @@ template <class T>
 using kokkos_um_array =
     Kokkos::View<T **, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
-using recycled_host_view =
-    recycler::recycled_view<kokkos_um_array<T>, recycler::recycle_std<T>, T>;
-
+using recycle_host_view = cppuddle::memory_recycling::recycling_view<
+    kokkos_um_array<T>, cppuddle::memory_recycling::recycle_std<T>, T>;
 
 // Device views using recycle allocators
 template <class T>
 using kokkos_um_device_array =
     Kokkos::View<T **, Kokkos::CudaSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
-using recycled_device_view =
-    recycler::recycled_view<kokkos_um_device_array<T>,
-                            recycler::recycle_allocator_cuda_device<T>, T>;
+using recycle_device_view = cppuddle::memory_recycling::recycling_view<
+    kokkos_um_device_array<T>,
+    cppuddle::memory_recycling::recycle_allocator_cuda_device<T>, T>;
 
 // Host views using pinned memory recycle allocators
 template <class T>
@@ -55,9 +55,9 @@ using kokkos_um_pinned_array =
     Kokkos::View<T **, typename kokkos_um_device_array<T>::array_layout,
                  Kokkos::CudaHostPinnedSpace, Kokkos::MemoryUnmanaged>;
 template <class T>
-using recycled_pinned_view =
-    recycler::recycled_view<kokkos_um_pinned_array<T>,
-                            recycler::recycle_allocator_cuda_host<T>, T>;
+using recycle_pinned_view = cppuddle::memory_recycling::recycling_view<
+    kokkos_um_pinned_array<T>,
+    cppuddle::memory_recycling::recycle_allocator_cuda_host<T>, T>;
 
 template <typename Executor, typename ViewType>
 auto get_iteration_policy(const Executor &&executor,
@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
   // Host run
   for (size_t pass = 0; pass < passes; pass++) {
     // Create view
-    recycled_host_view<double> hostView(view_size_0, view_size_1);
+    recycle_host_view<double> hostView(view_size_0, view_size_1);
 
     // Create executor
     hpx::kokkos::serial_executor executor;
@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
   // Device run
   for (size_t pass = 0; pass < passes; pass++) {
     // Create and init host view
-    recycled_pinned_view<double> hostView(view_size_0, view_size_1);
+    recycle_pinned_view<double> hostView(view_size_0, view_size_1);
     for(size_t i = 0; i < view_size_0; i++) {
       for(size_t j = 0; j < view_size_1; j++) {
         hostView(i, j) = 1.0;
@@ -120,7 +120,7 @@ int main(int argc, char *argv[]) {
     hpx::kokkos::cuda_executor executor(hpx::kokkos::execution_space_mode::independent);
 
     // Use executor to move the host data to the device
-   recycled_device_view<double> deviceView(view_size_0, view_size_1);
+   recycle_device_view<double> deviceView(view_size_0, view_size_1);
    Kokkos::deep_copy(executor.instance(), deviceView, hostView); 
 
     auto policy_1 = Kokkos::Experimental::require(
@@ -143,11 +143,11 @@ int main(int argc, char *argv[]) {
 
   // otherwise the HPX cuda polling futures won't work
   hpx::cuda::experimental::detail::unregister_polling(hpx::resource::get_thread_pool(0));
-  recycler::print_performance_counters();
+  cppuddle::memory_recycling::print_buffer_counters();
   // Cleanup all cuda views 
   // (otherwise the cuda driver might shut down before this gets done automatically at
   // the end of the programm)
-  recycler::force_cleanup();
+  cppuddle::memory_recycling::force_buffer_cleanup();
   return hpx::finalize();
 }
 

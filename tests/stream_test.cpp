@@ -1,10 +1,9 @@
-// Copyright (c) 2020-2021 Gregor Daiß
+// Copyright (c) 2020-2024 Gregor Daiß
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
 #define USE_HPX_MAIN
-#include "../include/stream_manager.hpp"
 #include <hpx/async_cuda/cuda_executor.hpp>
 #ifdef USE_HPX_MAIN
 #include <hpx/hpx_init.hpp>
@@ -26,46 +25,49 @@ int main(int argc, char *argv[]) {
 #endif
   std::cout << "Starting ref counting tests ..." << std::endl;
   test_pool_ref_counting<hpx::cuda::experimental::cuda_executor,
-                         priority_pool<hpx::cuda::experimental::cuda_executor>>(
-      2, 0, false);
-  test_pool_ref_counting<
-      hpx::cuda::experimental::cuda_executor,
-      round_robin_pool<hpx::cuda::experimental::cuda_executor>>(2, 0, false);
+                         cppuddle::executor_recycling::priority_pool_impl<
+                             hpx::cuda::experimental::cuda_executor>>(2, 0,
+                                                                      false);
+  test_pool_ref_counting<hpx::cuda::experimental::cuda_executor,
+                         cppuddle::executor_recycling::round_robin_pool_impl<
+                             hpx::cuda::experimental::cuda_executor>>(2, 0,
+                                                                      false);
   std::cout << "Finished ref counting tests!" << std::endl;
-
 
   std::cout << "Starting wrapper objects tests ..." << std::endl;
   test_pool_wrappers<hpx::cuda::experimental::cuda_executor,
-                     priority_pool<hpx::cuda::experimental::cuda_executor>>(
-      2, 0, false);
+                     cppuddle::executor_recycling::priority_pool_impl<
+                         hpx::cuda::experimental::cuda_executor>>(2, 0, false);
   test_pool_wrappers<hpx::cuda::experimental::cuda_executor,
-                     round_robin_pool<hpx::cuda::experimental::cuda_executor>>(
-      2, 0, false);
+                     cppuddle::executor_recycling::round_robin_pool_impl<
+                         hpx::cuda::experimental::cuda_executor>>(2, 0, false);
   std::cout << "Finished wrapper objects tests!" << std::endl;
 
   std::cout << "Starting memcpy tests... " << std::endl;
   test_pool_memcpy<hpx::cuda::experimental::cuda_executor,
-                   round_robin_pool<hpx::cuda::experimental::cuda_executor>>(
-      2, 0, false);
+                   cppuddle::executor_recycling::round_robin_pool_impl<
+                       hpx::cuda::experimental::cuda_executor>>(2, 0, false);
   test_pool_memcpy<hpx::cuda::experimental::cuda_executor,
-                   priority_pool<hpx::cuda::experimental::cuda_executor>>(
-      2, 0, false);
+                   cppuddle::executor_recycling::priority_pool_impl<
+                       hpx::cuda::experimental::cuda_executor>>(2, 0, false);
 
   std::cout << "Finished memcpy tests! " << std::endl;
 
   std::cout << "Starting memcpy polling tests... " << std::endl;
   {
     // hpx::cuda::experimental::enable_user_polling polling_scope;
-    hpx::cuda::experimental::detail::register_polling(hpx::resource::get_thread_pool(0));
+    hpx::cuda::experimental::detail::register_polling(
+        hpx::resource::get_thread_pool(0));
     test_pool_memcpy<hpx::cuda::experimental::cuda_executor,
-                     round_robin_pool<hpx::cuda::experimental::cuda_executor>>(
-        2, 0, true);
+                     cppuddle::executor_recycling::round_robin_pool_impl<
+                         hpx::cuda::experimental::cuda_executor>>(2, 0, true);
     test_pool_memcpy<hpx::cuda::experimental::cuda_executor,
-                     priority_pool<hpx::cuda::experimental::cuda_executor>>(
-        2, 0, true);
-    hpx::cuda::experimental::detail::unregister_polling(hpx::resource::get_thread_pool(0));
+                     cppuddle::executor_recycling::priority_pool_impl<
+                         hpx::cuda::experimental::cuda_executor>>(2, 0, true);
+    hpx::cuda::experimental::detail::unregister_polling(
+        hpx::resource::get_thread_pool(0));
   }
-  recycler::force_cleanup();
+  cppuddle::memory_recycling::force_buffer_cleanup();
   std::cout << "Finished memcpy tests! " << std::endl;
   return hpx::finalize();
 }

@@ -21,7 +21,6 @@ set(CPPUDDLE_VERSION_STRING "${CPPUDDLE_VERSION_MAJOR}.${CPPUDDLE_VERSION_MINOR}
 
 # GPU-related options
 option(CPPUDDLE_WITH_CUDA "Enable CUDA tests/examples" OFF)
-option(CPPUDDLE_WITH_MULTIGPU_SUPPORT "Enables experimental MultiGPU support" OFF)
 option(CPPUDDLE_WITH_KOKKOS "Enable KOKKOS tests/examples" OFF)
 set(CPPUDDLE_WITH_MAX_NUMBER_GPUS "1" CACHE STRING "Number of GPUs that will be used. Should match the number of GPUs used when using the maximum number of HPX worker threads. Should be 1 for non-HPX builds.")
 # HPX-related options
@@ -150,6 +149,9 @@ endif()
 #------------------------------------------------------------------------------------------------------------
 # Define library targets and installation
 # (also includes various warnings for non-optimal build configurations)
+
+# TODO Cleanup targets:
+# this is leftover from the days where cppuddle was not header-only
 
 ## Interface targets
 add_library(buffer_manager INTERFACE)
@@ -319,9 +321,6 @@ if (CPPUDDLE_WITH_TESTS)
           COMPONENT_DEPENDENCIES iostreams
           SOURCES
           tests/work_aggregation_test.cpp
-          include/aggregation_manager.hpp
-          include/buffer_manager.hpp
-          include/stream_manager.hpp
           )
 
         add_hpx_executable(
@@ -331,9 +330,6 @@ if (CPPUDDLE_WITH_TESTS)
           COMPONENT_DEPENDENCIES iostreams
           SOURCES
           tests/work_aggregation_cpu_triad.cpp
-          include/aggregation_manager.hpp
-          include/buffer_manager.hpp
-          include/stream_manager.hpp
           )
 
         add_hpx_executable(
@@ -343,9 +339,6 @@ if (CPPUDDLE_WITH_TESTS)
           COMPONENT_DEPENDENCIES iostreams
           SOURCES
           tests/work_aggregation_cuda_triad.cpp
-          include/aggregation_manager.hpp
-          include/buffer_manager.hpp
-          include/stream_manager.hpp
           )
         target_compile_definitions(work_aggregation_test PRIVATE CPPUDDLE_HAVE_CUDA)
       endif() # end WITH KOKKOS
@@ -357,11 +350,6 @@ if (CPPUDDLE_WITH_TESTS)
   endif()
   if (CPPUDDLE_WITH_HPX)
     add_compile_definitions(CPPUDDLE_WITH_HPX)
-  endif()
-
-  if (CPPUDDLE_WITH_MULTIGPU_SUPPORT)
-    add_compile_definitions(CPPUDDLE_HAVE_MULTIGPU)
-    message(WARNING, " Multi-GPU Support not yet properly tested!")
   endif()
 
 #------------------------------------------------------------------------------------------------------------
