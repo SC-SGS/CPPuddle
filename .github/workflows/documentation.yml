@@ -16,7 +16,7 @@ jobs:
     steps:
       # checkout repository
       - name: Checkout cppuddle
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           path: cppuddle
       # install dependencies
