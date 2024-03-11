@@ -39,6 +39,7 @@ option(CPPUDDLE_WITH_EXECUTOR_RECYCLING "Enables the default executor recycling 
 # Tooling options
 option(CPPUDDLE_WITH_CLANG_TIDY "Enable clang tidy warnings" OFF)
 option(CPPUDDLE_WITH_CLANG_FORMAT "Enable clang format target" OFF)
+option(CPPUDDLE_WITH_DOCUMENTATION "Build documentation using doxygen." OFF)
 
 #------------------------------------------------------------------------------------------------------------
 # Define dependencies and conflicts/incompatibilities
@@ -145,6 +146,10 @@ if (CPPUDDLE_WITH_CLANG_FORMAT)
       )
   endif()
 endif()
+
+if (CPPUDDLE_WITH_DOCUMENTATION)
+    add_subdirectory(docs)
+endif ()
 
 #------------------------------------------------------------------------------------------------------------
 # Define library targets and installation
