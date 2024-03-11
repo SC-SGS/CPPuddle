@@ -1,4 +1,4 @@
-name: Generate documentation
+name: generate documentation
 
 # only trigger this action on specific events
 on:
@@ -30,7 +30,7 @@ jobs:
           cd cppuddle
           mkdir build
           cd build
-          cmake -CPPUDDLE_WITH_DOCUMENTATION=ON ..
+          cmake -DCPPUDDLE_WITH_DOCUMENTATION=ON ..
       # build project
       - name: Generate
         run: |
