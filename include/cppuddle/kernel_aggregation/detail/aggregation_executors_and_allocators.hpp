@@ -432,19 +432,26 @@ public:
     /// How many slices are there overall - required to check the launch
     /// criteria
     const size_t number_slices;
+    const size_t max_slices;
     const size_t id;
     using executor_t = Executor;
     executor_slice(aggregated_executor &parent, const size_t slice_id,
-                   const size_t number_slices)
+                   const size_t number_slices, const size_t max_number_slices)
         : parent(parent), notify_parent_about_destruction(true),
-          number_slices(number_slices), id(slice_id) {
-  }
+          number_slices(number_slices), id(slice_id), max_slices(max_number_slices) {
+        assert(parent.max_slices == max_slices);
+        assert(number_slices >= 1);
+        assert(number_slices <= max_slices);
+    }
     ~executor_slice(void) {
       // Don't notify parent if we moved away from this executor_slice
       if (notify_parent_about_destruction) {
         // Executor should be done by the time of destruction
         // -> check here before notifying parent
 
+        assert(parent.max_slices == max_slices);
+        assert(number_slices >= 1);
+        assert(number_slices <= max_slices);
         // parent still in execution mode?
         assert(parent.slices_exhausted == true);
         // all kernel launches done?
@@ -459,7 +466,7 @@ public:
         : parent(other.parent), launch_counter(std::move(other.launch_counter)),
           buffer_counter(std::move(other.buffer_counter)),
           number_slices(std::move(other.number_slices)),
-          id(std::move(other.id)) {
+          id(std::move(other.id)), max_slices(std::move(other.max_slices)) {
       other.notify_parent_about_destruction = false;
     }
     executor_slice &operator=(executor_slice &&other) {
@@ -468,6 +475,7 @@ public:
       buffer_counter = std::move(other.buffer_counter);
       number_slices = std::move(other.number_slices);
       id = std::move(other.id);
+      max_slices = std::move(other.max_slices);
       other.notify_parent_about_destruction = false;
     }
     template <typename T, typename Host_Allocator>
@@ -844,7 +852,7 @@ public:
       } else {
         launched_slices = current_slices;
         ret_fut = hpx::make_ready_future(executor_slice{*this,
-            executor_slices.size(), launched_slices});
+            executor_slices.size(), launched_slices, max_slices});
       }
 
       // Are we the first slice? If yes, add continuation set the
@@ -888,7 +896,7 @@ public:
           size_t id = 0;
           for (auto &slice_promise : executor_slices) {
             slice_promise.set_value(
-                executor_slice{*this, id, launched_slices});
+                executor_slice{*this, id, launched_slices, max_slices});
             id++;
           }
           executor_slices.clear();

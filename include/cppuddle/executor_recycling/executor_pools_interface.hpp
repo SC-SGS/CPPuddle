@@ -11,7 +11,9 @@
 
 #include "cppuddle/executor_recycling/detail/executor_pools_management.hpp"
 
-/// main CPPuddle namespace
+/// Primary CPPuddle namespace containing the three primary feature modules /
+/// (memory_recycling, / executor_recycling and kernel_aggregation) in
+/// sub-namespaces
 namespace cppuddle {
 /// CPPuddle namespace containing the executor pool functionality
 namespace executor_recycling {
