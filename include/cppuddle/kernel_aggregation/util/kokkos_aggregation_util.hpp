@@ -8,6 +8,10 @@
 /// views, launching aggregated Kokkos kernels and mapping aggregated views
 /// to the correct subview for the current task
 
+// I originally developed and tested these utilities within Octotiger. See:
+// STEllAR-GROUP/octotiger/pull/469 and STEllAR-GROUP/octotiger/pull/487
+// However, I think they are better fit for CPPuddle as they can be used
+// independent of Octotiger with the work aggregation
 #ifndef KOKKOS_AGGREGATION_UTIL_HPP
 #define KOKKOS_AGGREGATION_UTIL_HPP
 #include <hpx/futures/future.hpp>
