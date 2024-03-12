@@ -1,3 +1,13 @@
+// Copyright (c) 2022-2024 Gregor Daiß
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+
+/// \file This file contains convenience functions for using the kernel
+/// aggregation together with Kokkos kernels. It helps copying aggregated
+/// views, launching aggregated Kokkos kernels and mapping aggregated views
+/// to the correct subview for the current task
+
 #ifndef KOKKOS_AGGREGATION_UTIL_HPP
 #define KOKKOS_AGGREGATION_UTIL_HPP
 #include <hpx/futures/future.hpp>
