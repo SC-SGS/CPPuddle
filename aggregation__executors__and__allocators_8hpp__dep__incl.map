@@ -1,9 +1,10 @@
 <map id="include/cppuddle/kernel_aggregation/detail/aggregation_executors_and_allocators.hpp" name="include/cppuddle/kernel_aggregation/detail/aggregation_executors_and_allocators.hpp">
-<area shape="rect" id="node1" title=" " alt="" coords="251,5,481,61"/>
-<area shape="rect" id="node2" href="$aggregation__executor__pools_8hpp.html" title=" " alt="" coords="175,109,405,165"/>
-<area shape="rect" id="node3" href="$kernel__aggregation__interface_8hpp.html" title=" " alt="" coords="248,213,484,269"/>
-<area shape="rect" id="node4" href="$aggregation__manager_8hpp.html" title=" " alt="" coords="5,317,156,359"/>
-<area shape="rect" id="node5" href="$work__aggregation__cpu__triad_8cpp.html" title=" " alt="" coords="180,317,355,359"/>
-<area shape="rect" id="node6" href="$work__aggregation__cuda__triad_8cpp.html" title=" " alt="" coords="379,317,553,359"/>
-<area shape="rect" id="node7" href="$work__aggregation__test_8cpp.html" title=" " alt="" coords="577,317,752,359"/>
+<area shape="rect" id="node1" title=" " alt="" coords="266,5,497,61"/>
+<area shape="rect" id="node2" href="$aggregation__executor__pools_8hpp.html" title=" " alt="" coords="190,109,421,165"/>
+<area shape="rect" id="node3" href="$kernel__aggregation__interface_8hpp.html" title=" " alt="" coords="263,213,499,269"/>
+<area shape="rect" id="node4" href="$aggregation__manager_8hpp.html" title=" " alt="" coords="21,317,171,359"/>
+<area shape="rect" id="node6" href="$work__aggregation__cpu__triad_8cpp.html" title=" " alt="" coords="195,317,370,359"/>
+<area shape="rect" id="node7" href="$work__aggregation__cuda__triad_8cpp.html" title=" " alt="" coords="394,317,569,359"/>
+<area shape="rect" id="node8" href="$work__aggregation__test_8cpp.html" title=" " alt="" coords="593,317,767,359"/>
+<area shape="rect" id="node5" href="$kokkos__aggregation__util_8hpp.html" title=" " alt="" coords="5,407,187,463"/>
 </map>

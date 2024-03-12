@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['stream_5ftest_5fhpp_540',['STREAM_TEST_HPP',['../stream__test_8hpp.html#af4b5aea05074627cdefd101b8c0f3edf',1,'stream_test.hpp']]]
+  ['debug_5faggregation_5fcalls_553',['DEBUG_AGGREGATION_CALLS',['../work__aggregation__test_8cpp.html#a8bdb71dfe3be12d2434a2707effdf161',1,'work_aggregation_test.cpp']]]
 ];

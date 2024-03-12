@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['debug_5faggregation_5fcalls_539',['DEBUG_AGGREGATION_CALLS',['../work__aggregation__test_8cpp.html#a8bdb71dfe3be12d2434a2707effdf161',1,'work_aggregation_test.cpp']]]
+  ['cppuddle_5fhost_5fdevice_5fmethod_552',['CPPUDDLE_HOST_DEVICE_METHOD',['../kokkos__aggregation__util_8hpp.html#a65ebf779734213a3c9f7e5429bd91524',1,'kokkos_aggregation_util.hpp']]]
 ];
