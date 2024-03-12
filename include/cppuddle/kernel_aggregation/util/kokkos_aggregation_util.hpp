@@ -6,7 +6,7 @@
 #include <Kokkos_Core.hpp>
 #include <hpx/kokkos.hpp>
 
-#include <stream_manager.hpp>
+#include <cppuddle/executor_recycling/executor_pools_interface.hpp>
 #include <aggregation_manager.hpp>
 #ifdef __NVCC__
 #include <cuda/std/tuple>
@@ -39,6 +39,7 @@ namespace std {
 namespace cppuddle {
 namespace kernel_aggregation {
 
+/// Get subview for the current slice
 template <typename Agg_view_t>
 CPPUDDLE_HOST_DEVICE_METHOD typename Agg_view_t::view_type
 get_slice_subview(const size_t slice_id, const size_t max_slices,
@@ -49,6 +50,8 @@ get_slice_subview(const size_t slice_id, const size_t max_slices,
                                                (slice_id + 1) * slice_size));
 }
 
+/// Convenience function mapping aggregated Kokkos views to the current
+/// exeuction slice by using subviews
 template <typename Integer,
           std::enable_if_t<std::is_integral<Integer>::value, bool> = true,
           typename Agg_view_t, typename... Args>
@@ -79,6 +82,8 @@ map_views_to_slice(const Integer slice_id, const Integer max_slices,
 #endif
 }
 
+/// Convenience function mapping aggregated Kokkos views to the current
+/// exeuction slice by using subviews
 template <
     typename Agg_executor_t, typename Agg_view_t,
     std::enable_if_t<Kokkos::is_view<typename Agg_view_t::view_type>::value,
@@ -101,6 +106,7 @@ map_views_to_slice(const Agg_executor_t &agg_exec,
   }
 }
 
+/// Convenience function to perform an aggregated deep copy
 template <typename Agg_executor_t, typename TargetView_t, typename SourceView_t>
 void aggregated_deep_copy(Agg_executor_t &agg_exec, TargetView_t &target,
                           SourceView_t &source) {
@@ -110,6 +116,7 @@ void aggregated_deep_copy(Agg_executor_t &agg_exec, TargetView_t &target,
   }
 }
 
+/// Convenience function to perform an aggregated deep copy
 template <typename Agg_executor_t, typename TargetView_t, typename SourceView_t>
 void aggregated_deep_copy(Agg_executor_t &agg_exec, TargetView_t &target,
                           SourceView_t &source, int elements_per_slice) {
@@ -126,6 +133,7 @@ void aggregated_deep_copy(Agg_executor_t &agg_exec, TargetView_t &target,
   }
 }
 
+/// Convenience function to launch an aggregated kernel and get a future back
 template <typename executor_t, typename TargetView_t, typename SourceView_t>
 hpx::shared_future<void> aggregrated_deep_copy_async(
     typename Aggregated_Executor<executor_t>::Executor_Slice &agg_exec,
@@ -134,14 +142,15 @@ hpx::shared_future<void> aggregrated_deep_copy_async(
   auto launch_copy_lambda =
       [gpu_id](TargetView_t &target, SourceView_t &source,
                executor_t &exec) -> hpx::shared_future<void> {
-    stream_pool::select_device<executor_t, round_robin_pool<executor_t>>(
-        gpu_id);
+    cppuddle::executor_recycling::executor_pool::select_device<
+        executor_t, cppuddle::executor_recycling::round_robin_pool_impl<executor_t>>(gpu_id);
     return hpx::kokkos::deep_copy_async(exec.instance(), target, source);
   };
   return agg_exec.wrap_async(launch_copy_lambda, target, source,
                              agg_exec.get_underlying_executor());
 }
 
+/// Convenience function to launch an aggregated kernel and get a future back
 template <typename executor_t, typename TargetView_t, typename SourceView_t>
 hpx::shared_future<void> aggregrated_deep_copy_async(
     typename Aggregated_Executor<executor_t>::Executor_Slice &agg_exec,
@@ -151,7 +160,9 @@ hpx::shared_future<void> aggregrated_deep_copy_async(
   auto launch_copy_lambda = [gpu_id, elements_per_slice, number_slices](
                                 TargetView_t &target, SourceView_t &source,
                                 executor_t &exec) -> hpx::shared_future<void> {
-    stream_pool::select_device<executor_t, round_robin_pool<executor_t>>(
+    cppuddle::executor_recycling::executor_pool::select_device<
+        executor_t,
+        cppuddle::executor_recycling::round_robin_pool_impl<executor_t>>(
         gpu_id);
     auto target_slices = Kokkos::subview(
         target,
