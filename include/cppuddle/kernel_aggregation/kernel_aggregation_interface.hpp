@@ -6,6 +6,7 @@
 #ifndef KERNEL_AGGREGATION_INTERFACE_HPP
 #define KERNEL_AGGREGATION_INTERFACE_HPP
 
+#include "cppuddle/executor_recycling/executor_pools_interface.hpp"
 #include "cppuddle/kernel_aggregation/detail/aggregation_executors_and_allocators.hpp"
 #include "cppuddle/kernel_aggregation/detail/aggregation_executor_pools.hpp"
 
@@ -42,6 +43,27 @@ template <const char *kernelname, class Interface, class Pool>
 using aggregation_pool =
     cppuddle::kernel_aggregation::detail::aggregation_pool<kernelname, Interface,
     Pool>;
+
+/// Start an aggregation region (passsed via lambda)
+template <const char* region_name, typename executor_t, typename return_type>
+hpx::future<return_type> aggregation_region(const size_t team_size,
+    std::function<return_type(size_t, size_t,
+        typename cppuddle::kernel_aggregation::detail::aggregated_executor<
+            executor_t>::executor_slice&)> &&aggregation_area) {
+    using aggregation_pool_t = cppuddle::kernel_aggregation::aggregation_pool<region_name,
+        executor_t, cppuddle::executor_recycling::round_robin_pool_impl<executor_t>>;
+    static hpx::once_flag pool_init;
+    hpx::call_once(pool_init,
+        detail::init_area_aggregation_pool<aggregation_pool_t>, team_size);
+    auto executor_slice_fut = aggregation_pool_t::request_executor_slice();
+    auto ret_fut = executor_slice_fut.value().then(hpx::annotated_function([aggregation_area](auto && fut) {
+      typename cppuddle::kernel_aggregation::detail::aggregated_executor<executor_t>::Executor_Slice agg_exec = fut.get();
+      const size_t slice_id = agg_exec.id;
+      const size_t number_slices = agg_exec.number_slices;
+      return aggregation_area(slice_id, number_slices, agg_exec);
+    }, region_name));
+    return ret_fut;
+}
 
 } // namespace kernel_aggregation 
 } // namespace cppuddle
