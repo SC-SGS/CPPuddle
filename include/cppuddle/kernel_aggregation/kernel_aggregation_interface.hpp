@@ -56,12 +56,15 @@ hpx::future<return_type> aggregation_region(const size_t team_size,
     hpx::call_once(pool_init,
         detail::init_area_aggregation_pool<aggregation_pool_t>, team_size);
     auto executor_slice_fut = aggregation_pool_t::request_executor_slice();
-    auto ret_fut = executor_slice_fut.value().then(hpx::annotated_function([aggregation_area](auto && fut) {
-      typename cppuddle::kernel_aggregation::detail::aggregated_executor<executor_t>::Executor_Slice agg_exec = fut.get();
-      const size_t slice_id = agg_exec.id;
-      const size_t number_slices = agg_exec.number_slices;
-      return aggregation_area(slice_id, number_slices, agg_exec);
-    }, region_name));
+    auto ret_fut = executor_slice_fut.value().then(hpx::annotated_function(
+        [aggregation_area](auto &&fut) {
+          typename cppuddle::kernel_aggregation::detail::aggregated_executor<
+              executor_t>::Executor_Slice agg_exec = fut.get();
+          const size_t slice_id = agg_exec.id;
+          const size_t number_slices = agg_exec.number_slices;
+          return aggregation_area(slice_id, number_slices, agg_exec);
+        },
+        region_name));
     return ret_fut;
 }
 
