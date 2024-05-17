@@ -77,44 +77,71 @@ $(function() {
 <div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160;<span class="preprocessor">#ifndef KERNEL_AGGREGATION_INTERFACE_HPP</span></div>
 <div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160;<span class="preprocessor">#define KERNEL_AGGREGATION_INTERFACE_HPP</span></div>
 <div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160; </div>
-<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="aggregation__executors__and__allocators_8hpp.html">cppuddle/kernel_aggregation/detail/aggregation_executors_and_allocators.hpp</a>&quot;</span></div>
-<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="aggregation__executor__pools_8hpp.html">cppuddle/kernel_aggregation/detail/aggregation_executor_pools.hpp</a>&quot;</span></div>
-<div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160; </div>
-<div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160; </div>
-<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacecppuddle.html">cppuddle</a> {</div>
-<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="keyword">namespace </span>kernel_aggregation {</div>
-<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160; </div>
-<div class="line"><a name="l00024"></a><span class="lineno"><a class="line" href="namespacecppuddle_1_1kernel__aggregation.html#a3386e838710a357f19cccabb0d6e5add">   24</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacecppuddle_1_1kernel__aggregation_1_1detail.html#ab02f0a506737be7ecd014e5f4ff97cf7">aggregated_executor_modes</a> =</div>
-<div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160;    <a class="code" href="namespacecppuddle_1_1kernel__aggregation_1_1detail.html#ab02f0a506737be7ecd014e5f4ff97cf7">cppuddle::kernel_aggregation::detail::aggregated_executor_modes</a>;</div>
-<div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160; </div>
-<div class="line"><a name="l00029"></a><span class="lineno">   29</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> T, <span class="keyword">typename</span> Host_Allocator, <span class="keyword">typename</span> Executor&gt;</div>
-<div class="line"><a name="l00030"></a><span class="lineno"><a class="line" href="namespacecppuddle_1_1kernel__aggregation.html#a60268b17ad22186b596197e3c35392d3">   30</a></span>&#160;<span class="keyword">using</span> <a class="code" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1allocator__slice.html">allocator_slice</a> =</div>
-<div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160;    <a class="code" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1allocator__slice.html">cppuddle::kernel_aggregation::detail::allocator_slice&lt;T, Host_Allocator, Executor&gt;</a>;</div>
-<div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160; </div>
-<div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> Executor&gt;</div>
-<div class="line"><a name="l00037"></a><span class="lineno"><a class="line" href="namespacecppuddle_1_1kernel__aggregation.html#a1b119a03aaba52b2a18bebeb3b4aa000">   37</a></span>&#160;<span class="keyword">using</span> <a class="code" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html">aggregated_executor</a> =</div>
-<div class="line"><a name="l00038"></a><span class="lineno">   38</span>&#160;    <a class="code" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html">cppuddle::kernel_aggregation::detail::aggregated_executor&lt;Executor&gt;</a>;</div>
-<div class="line"><a name="l00039"></a><span class="lineno">   39</span>&#160; </div>
-<div class="line"><a name="l00041"></a><span class="lineno">   41</span>&#160;<span class="keyword">template</span> &lt;const <span class="keywordtype">char</span> *kernelname, <span class="keyword">class</span> Interface, <span class="keyword">class</span> Pool&gt;</div>
-<div class="line"><a name="l00042"></a><span class="lineno"><a class="line" href="namespacecppuddle_1_1kernel__aggregation.html#a1bd429bcdc88e265fc8d048c1497aa1d">   42</a></span>&#160;<span class="keyword">using</span> <a class="code" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregation__pool.html">aggregation_pool</a> =</div>
-<div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160;    <a class="code" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregation__pool.html">cppuddle::kernel_aggregation::detail::aggregation_pool</a>&lt;kernelname, Interface,</div>
-<div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160;    Pool&gt;;</div>
-<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160; </div>
-<div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160;} <span class="comment">// namespace kernel_aggregation </span></div>
-<div class="line"><a name="l00047"></a><span class="lineno">   47</span>&#160;} <span class="comment">// namespace cppuddle</span></div>
-<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160; </div>
-<div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160;<span class="preprocessor">#endif</span></div>
+<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="executor__pools__interface_8hpp.html">cppuddle/executor_recycling/executor_pools_interface.hpp</a>&quot;</span></div>
+<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="aggregation__executors__and__allocators_8hpp.html">cppuddle/kernel_aggregation/detail/aggregation_executors_and_allocators.hpp</a>&quot;</span></div>
+<div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="aggregation__executor__pools_8hpp.html">cppuddle/kernel_aggregation/detail/aggregation_executor_pools.hpp</a>&quot;</span></div>
+<div class="line"><a name="l00012"></a><span class="lineno">   12</span>&#160; </div>
+<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160; </div>
+<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacecppuddle.html">cppuddle</a> {</div>
+<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;<span class="keyword">namespace </span>kernel_aggregation {</div>
+<div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160; </div>
+<div class="line"><a name="l00025"></a><span class="lineno"><a class="line" href="namespacecppuddle_1_1kernel__aggregation.html#a3386e838710a357f19cccabb0d6e5add">   25</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacecppuddle_1_1kernel__aggregation_1_1detail.html#ab02f0a506737be7ecd014e5f4ff97cf7">aggregated_executor_modes</a> =</div>
+<div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160;    <a class="code" href="namespacecppuddle_1_1kernel__aggregation_1_1detail.html#ab02f0a506737be7ecd014e5f4ff97cf7">cppuddle::kernel_aggregation::detail::aggregated_executor_modes</a>;</div>
+<div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160; </div>
+<div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> T, <span class="keyword">typename</span> Host_Allocator, <span class="keyword">typename</span> Executor&gt;</div>
+<div class="line"><a name="l00031"></a><span class="lineno"><a class="line" href="namespacecppuddle_1_1kernel__aggregation.html#a60268b17ad22186b596197e3c35392d3">   31</a></span>&#160;<span class="keyword">using</span> <a class="code" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1allocator__slice.html">allocator_slice</a> =</div>
+<div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160;    <a class="code" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1allocator__slice.html">cppuddle::kernel_aggregation::detail::allocator_slice&lt;T, Host_Allocator, Executor&gt;</a>;</div>
+<div class="line"><a name="l00033"></a><span class="lineno">   33</span>&#160; </div>
+<div class="line"><a name="l00037"></a><span class="lineno">   37</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> Executor&gt;</div>
+<div class="line"><a name="l00038"></a><span class="lineno"><a class="line" href="namespacecppuddle_1_1kernel__aggregation.html#a1b119a03aaba52b2a18bebeb3b4aa000">   38</a></span>&#160;<span class="keyword">using</span> <a class="code" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html">aggregated_executor</a> =</div>
+<div class="line"><a name="l00039"></a><span class="lineno">   39</span>&#160;    <a class="code" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html">cppuddle::kernel_aggregation::detail::aggregated_executor&lt;Executor&gt;</a>;</div>
+<div class="line"><a name="l00040"></a><span class="lineno">   40</span>&#160; </div>
+<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160;<span class="keyword">template</span> &lt;const <span class="keywordtype">char</span> *kernelname, <span class="keyword">class</span> Interface, <span class="keyword">class</span> Pool&gt;</div>
+<div class="line"><a name="l00043"></a><span class="lineno"><a class="line" href="namespacecppuddle_1_1kernel__aggregation.html#a1bd429bcdc88e265fc8d048c1497aa1d">   43</a></span>&#160;<span class="keyword">using</span> <a class="code" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregation__pool.html">aggregation_pool</a> =</div>
+<div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160;    <a class="code" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregation__pool.html">cppuddle::kernel_aggregation::detail::aggregation_pool</a>&lt;kernelname, Interface,</div>
+<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160;    Pool&gt;;</div>
+<div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160; </div>
+<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160;<span class="keyword">template</span> &lt;const <span class="keywordtype">char</span>* region_name, <span class="keyword">typename</span> executor_t, <span class="keyword">typename</span> return_type&gt;</div>
+<div class="line"><a name="l00049"></a><span class="lineno"><a class="line" href="namespacecppuddle_1_1kernel__aggregation.html#ab72783be33b0e7d5d576e61ade040123">   49</a></span>&#160;hpx::future&lt;return_type&gt; <a class="code" href="namespacecppuddle_1_1kernel__aggregation.html#ab72783be33b0e7d5d576e61ade040123">aggregation_region</a>(<span class="keyword">const</span> <span class="keywordtype">size_t</span> team_size,</div>
+<div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160;    std::function&lt;return_type(<span class="keywordtype">size_t</span>, <span class="keywordtype">size_t</span>,</div>
+<div class="line"><a name="l00051"></a><span class="lineno">   51</span>&#160;        <span class="keyword">typename</span> <a class="code" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html">cppuddle::kernel_aggregation::detail::aggregated_executor</a>&lt;</div>
+<div class="line"><a name="l00052"></a><span class="lineno">   52</span>&#160;            executor_t&gt;::executor_slice&amp;)&gt; &amp;&amp;aggregation_area) {</div>
+<div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160;    <span class="keyword">using</span> aggregation_pool_t = <a class="code" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregation__pool.html">cppuddle::kernel_aggregation::aggregation_pool</a>&lt;region_name,</div>
+<div class="line"><a name="l00054"></a><span class="lineno">   54</span>&#160;        executor_t, <a class="code" href="classcppuddle_1_1executor__recycling_1_1detail_1_1round__robin__pool__impl.html">cppuddle::executor_recycling::round_robin_pool_impl&lt;executor_t&gt;</a>&gt;;</div>
+<div class="line"><a name="l00055"></a><span class="lineno">   55</span>&#160;    <span class="keyword">static</span> hpx::once_flag pool_init;</div>
+<div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160;    hpx::call_once(pool_init,</div>
+<div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160;        detail::init_area_aggregation_pool&lt;aggregation_pool_t&gt;, team_size);</div>
+<div class="line"><a name="l00058"></a><span class="lineno">   58</span>&#160;    <span class="keyword">auto</span> executor_slice_fut = aggregation_pool_t::request_executor_slice();</div>
+<div class="line"><a name="l00059"></a><span class="lineno">   59</span>&#160;    <span class="keyword">auto</span> ret_fut = executor_slice_fut.value().then(hpx::annotated_function(</div>
+<div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160;        [aggregation_area](<span class="keyword">auto</span> &amp;&amp;fut) {</div>
+<div class="line"><a name="l00061"></a><span class="lineno">   61</span>&#160;          <span class="keyword">typename</span> <a class="code" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html">cppuddle::kernel_aggregation::detail::aggregated_executor</a>&lt;</div>
+<div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160;              executor_t&gt;::Executor_Slice agg_exec = fut.get();</div>
+<div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;          <span class="keyword">const</span> <span class="keywordtype">size_t</span> slice_id = agg_exec.id;</div>
+<div class="line"><a name="l00064"></a><span class="lineno">   64</span>&#160;          <span class="keyword">const</span> <span class="keywordtype">size_t</span> number_slices = agg_exec.number_slices;</div>
+<div class="line"><a name="l00065"></a><span class="lineno">   65</span>&#160;          <span class="keywordflow">return</span> aggregation_area(slice_id, number_slices, agg_exec);</div>
+<div class="line"><a name="l00066"></a><span class="lineno">   66</span>&#160;        },</div>
+<div class="line"><a name="l00067"></a><span class="lineno">   67</span>&#160;        region_name));</div>
+<div class="line"><a name="l00068"></a><span class="lineno">   68</span>&#160;    <span class="keywordflow">return</span> ret_fut;</div>
+<div class="line"><a name="l00069"></a><span class="lineno">   69</span>&#160;}</div>
+<div class="line"><a name="l00070"></a><span class="lineno">   70</span>&#160; </div>
+<div class="line"><a name="l00071"></a><span class="lineno">   71</span>&#160;} <span class="comment">// namespace kernel_aggregation </span></div>
+<div class="line"><a name="l00072"></a><span class="lineno">   72</span>&#160;} <span class="comment">// namespace cppuddle</span></div>
+<div class="line"><a name="l00073"></a><span class="lineno">   73</span>&#160; </div>
+<div class="line"><a name="l00074"></a><span class="lineno">   74</span>&#160;<span class="preprocessor">#endif</span></div>
 <div class="ttc" id="aaggregation__executor__pools_8hpp_html"><div class="ttname"><a href="aggregation__executor__pools_8hpp.html">aggregation_executor_pools.hpp</a></div></div>
 <div class="ttc" id="aaggregation__executors__and__allocators_8hpp_html"><div class="ttname"><a href="aggregation__executors__and__allocators_8hpp.html">aggregation_executors_and_allocators.hpp</a></div></div>
+<div class="ttc" id="aclasscppuddle_1_1executor__recycling_1_1detail_1_1round__robin__pool__impl_html"><div class="ttname"><a href="classcppuddle_1_1executor__recycling_1_1detail_1_1round__robin__pool__impl.html">cppuddle::executor_recycling::detail::round_robin_pool_impl</a></div><div class="ttdef"><b>Definition:</b> executor_pools_management.hpp:54</div></div>
 <div class="ttc" id="aclasscppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor_html"><div class="ttname"><a href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html">cppuddle::kernel_aggregation::detail::aggregated_executor</a></div><div class="ttdoc">Executor Class that aggregates function calls for specific kernels.</div><div class="ttdef"><b>Definition:</b> aggregation_executors_and_allocators.hpp:394</div></div>
 <div class="ttc" id="aclasscppuddle_1_1kernel__aggregation_1_1detail_1_1aggregation__pool_html"><div class="ttname"><a href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregation__pool.html">cppuddle::kernel_aggregation::detail::aggregation_pool</a></div><div class="ttdef"><b>Definition:</b> aggregation_executor_pools.hpp:16</div></div>
 <div class="ttc" id="aclasscppuddle_1_1kernel__aggregation_1_1detail_1_1allocator__slice_html"><div class="ttname"><a href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1allocator__slice.html">cppuddle::kernel_aggregation::detail::allocator_slice</a></div><div class="ttdoc">Declaration since the actual allocator is only defined after the Executors.</div><div class="ttdef"><b>Definition:</b> aggregation_executors_and_allocators.hpp:993</div></div>
+<div class="ttc" id="aexecutor__pools__interface_8hpp_html"><div class="ttname"><a href="executor__pools__interface_8hpp.html">executor_pools_interface.hpp</a></div></div>
 <div class="ttc" id="anamespacecppuddle_1_1kernel__aggregation_1_1detail_html_ab02f0a506737be7ecd014e5f4ff97cf7"><div class="ttname"><a href="namespacecppuddle_1_1kernel__aggregation_1_1detail.html#ab02f0a506737be7ecd014e5f4ff97cf7">cppuddle::kernel_aggregation::detail::aggregated_executor_modes</a></div><div class="ttdeci">aggregated_executor_modes</div><div class="ttdef"><b>Definition:</b> aggregation_executors_and_allocators.hpp:383</div></div>
+<div class="ttc" id="anamespacecppuddle_1_1kernel__aggregation_html_ab72783be33b0e7d5d576e61ade040123"><div class="ttname"><a href="namespacecppuddle_1_1kernel__aggregation.html#ab72783be33b0e7d5d576e61ade040123">cppuddle::kernel_aggregation::aggregation_region</a></div><div class="ttdeci">hpx::future&lt; return_type &gt; aggregation_region(const size_t team_size, std::function&lt; return_type(size_t, size_t, typename cppuddle::kernel_aggregation::detail::aggregated_executor&lt; executor_t &gt;::executor_slice &amp;)&gt; &amp;&amp;aggregation_area)</div><div class="ttdoc">Start an aggregation region (passsed via lambda)</div><div class="ttdef"><b>Definition:</b> kernel_aggregation_interface.hpp:49</div></div>
 <div class="ttc" id="anamespacecppuddle_html"><div class="ttname"><a href="namespacecppuddle.html">cppuddle</a></div><div class="ttdef"><b>Definition:</b> config.hpp:31</div></div>
 </div><!-- fragment --></div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
-Generated on Tue Mar 12 2024 16:29:24 for CPPuddle by&#160;<a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.1
+Generated on Fri May 17 2024 22:29:15 for CPPuddle by&#160;<a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.1
 </small></address>
 </body>
 </html>

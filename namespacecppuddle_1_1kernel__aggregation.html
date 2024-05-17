@@ -99,6 +99,10 @@ Typedefs</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
+<tr class="memitem:ab72783be33b0e7d5d576e61ade040123"><td class="memTemplParams" colspan="2">template&lt;const char * region_name, typename executor_t , typename return_type &gt; </td></tr>
+<tr class="memitem:ab72783be33b0e7d5d576e61ade040123"><td class="memTemplItemLeft" align="right" valign="top">hpx::future&lt; return_type &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacecppuddle_1_1kernel__aggregation.html#ab72783be33b0e7d5d576e61ade040123">aggregation_region</a> (const size_t team_size, std::function&lt; return_type(size_t, size_t, typename <a class="el" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html">cppuddle::kernel_aggregation::detail::aggregated_executor</a>&lt; executor_t &gt;::executor_slice &amp;)&gt; &amp;&amp;aggregation_area)</td></tr>
+<tr class="memdesc:ab72783be33b0e7d5d576e61ade040123"><td class="mdescLeft">&#160;</td><td class="mdescRight">Start an aggregation region (passsed via lambda)  <a href="namespacecppuddle_1_1kernel__aggregation.html#ab72783be33b0e7d5d576e61ade040123">More...</a><br /></td></tr>
+<tr class="separator:ab72783be33b0e7d5d576e61ade040123"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae1264b82e93e200c0b11bf7bf3af8b12"><td class="memTemplParams" colspan="2">template&lt;typename Agg_view_t &gt; </td></tr>
 <tr class="memitem:ae1264b82e93e200c0b11bf7bf3af8b12"><td class="memTemplItemLeft" align="right" valign="top"><a class="el" href="kokkos__aggregation__util_8hpp.html#a65ebf779734213a3c9f7e5429bd91524">CPPUDDLE_HOST_DEVICE_METHOD</a> Agg_view_t::view_type&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacecppuddle_1_1kernel__aggregation.html#ae1264b82e93e200c0b11bf7bf3af8b12">get_slice_subview</a> (const size_t slice_id, const size_t max_slices, const Agg_view_t &amp;agg_view)</td></tr>
 <tr class="memdesc:ae1264b82e93e200c0b11bf7bf3af8b12"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get subview for the current slice.  <a href="namespacecppuddle_1_1kernel__aggregation.html#ae1264b82e93e200c0b11bf7bf3af8b12">More...</a><br /></td></tr>
@@ -276,6 +280,38 @@ template&lt;typename Agg_executor_t , typename TargetView_t , typename SourceVie
 </div><div class="memdoc">
 
 <p>Convenience function to perform an aggregated deep copy. </p>
+
+</div>
+</div>
+<a id="ab72783be33b0e7d5d576e61ade040123"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab72783be33b0e7d5d576e61ade040123">&#9670;&nbsp;</a></span>aggregation_region()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;const char * region_name, typename executor_t , typename return_type &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">hpx::future&lt;return_type&gt; cppuddle::kernel_aggregation::aggregation_region </td>
+          <td>(</td>
+          <td class="paramtype">const size_t&#160;</td>
+          <td class="paramname"><em>team_size</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::function&lt; return_type(size_t, size_t, typename <a class="el" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html">cppuddle::kernel_aggregation::detail::aggregated_executor</a>&lt; executor_t &gt;::executor_slice &amp;)&gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>aggregation_area</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Start an aggregation region (passsed via lambda) </p>
 
 </div>
 </div>
@@ -482,7 +518,7 @@ template&lt;typename Integer , std::enable_if_t&lt; std::is_integral&lt; Integer
 </div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
-Generated on Tue Mar 12 2024 16:29:24 for CPPuddle by&#160;<a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.1
+Generated on Fri May 17 2024 22:29:15 for CPPuddle by&#160;<a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.1
 </small></address>
 </body>
 </html>

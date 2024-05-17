@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['unused_5fbuffer_5fcleanup_441',['unused_buffer_cleanup',['../namespacecppuddle_1_1memory__recycling.html#a766581137c8135746512e41e9f51f5c8',1,'cppuddle::memory_recycling']]]
+  ['unused_5fbuffer_5fcleanup_445',['unused_buffer_cleanup',['../namespacecppuddle_1_1memory__recycling.html#a766581137c8135746512e41e9f51f5c8',1,'cppuddle::memory_recycling']]]
 ];

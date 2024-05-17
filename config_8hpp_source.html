@@ -124,31 +124,29 @@ $(function() {
 <div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160;<span class="preprocessor">#ifndef CPPUDDLE_HAVE_HPX</span></div>
 <div class="line"><a name="l00054"></a><span class="lineno">   54</span>&#160;static_assert(<a class="code" href="namespacecppuddle.html#a381bca91e0e6d0afd962534aa9433e88">max_number_gpus</a> == 1, <span class="stringliteral">&quot;Non HPX builds do not support multigpu&quot;</span>);</div>
 <div class="line"><a name="l00055"></a><span class="lineno">   55</span>&#160;<span class="preprocessor">#endif</span></div>
-<div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160;<span class="comment">//static_assert(number_instances &gt;= max_number_gpus);</span></div>
-<div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160;static_assert(<a class="code" href="namespacecppuddle.html#a381bca91e0e6d0afd962534aa9433e88">max_number_gpus</a> &gt; 0);</div>
-<div class="line"><a name="l00058"></a><span class="lineno">   58</span>&#160;<span class="comment">//constexpr size_t instances_per_gpu = number_instances / max_number_gpus;</span></div>
-<div class="line"><a name="l00059"></a><span class="lineno">   59</span>&#160; </div>
-<div class="line"><a name="l00061"></a><span class="lineno"><a class="line" href="namespacecppuddle.html#a30d088e8e90249e348bd711ab4e94570">   61</a></span>&#160;<span class="keyword">inline</span> <span class="keywordtype">size_t</span> <a class="code" href="namespacecppuddle.html#a30d088e8e90249e348bd711ab4e94570">get_device_id</a>(<span class="keyword">const</span> <span class="keywordtype">size_t</span> number_gpus) {</div>
-<div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160;<span class="preprocessor">#if defined(CPPUDDLE_HAVE_HPX) </span></div>
-<div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;    assert(number_gpus &lt;= <a class="code" href="namespacecppuddle.html#a381bca91e0e6d0afd962534aa9433e88">max_number_gpus</a>);</div>
-<div class="line"><a name="l00064"></a><span class="lineno">   64</span>&#160;    <span class="keywordflow">return</span> hpx::get_worker_thread_num() % number_gpus; </div>
-<div class="line"><a name="l00065"></a><span class="lineno">   65</span>&#160;<span class="preprocessor">#else</span></div>
-<div class="line"><a name="l00066"></a><span class="lineno">   66</span>&#160;    <span class="keywordflow">return</span> 0;</div>
-<div class="line"><a name="l00067"></a><span class="lineno">   67</span>&#160;<span class="preprocessor">#endif</span></div>
-<div class="line"><a name="l00068"></a><span class="lineno">   68</span>&#160;}</div>
+<div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160;static_assert(<a class="code" href="namespacecppuddle.html#a381bca91e0e6d0afd962534aa9433e88">max_number_gpus</a> &gt; 0);</div>
+<div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160; </div>
+<div class="line"><a name="l00059"></a><span class="lineno"><a class="line" href="namespacecppuddle.html#a30d088e8e90249e348bd711ab4e94570">   59</a></span>&#160;<span class="keyword">inline</span> <span class="keywordtype">size_t</span> <a class="code" href="namespacecppuddle.html#a30d088e8e90249e348bd711ab4e94570">get_device_id</a>(<span class="keyword">const</span> <span class="keywordtype">size_t</span> number_gpus) {</div>
+<div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160;<span class="preprocessor">#if defined(CPPUDDLE_HAVE_HPX) </span></div>
+<div class="line"><a name="l00061"></a><span class="lineno">   61</span>&#160;    assert(number_gpus &lt;= <a class="code" href="namespacecppuddle.html#a381bca91e0e6d0afd962534aa9433e88">max_number_gpus</a>);</div>
+<div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160;    <span class="keywordflow">return</span> hpx::get_worker_thread_num() % number_gpus; </div>
+<div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;<span class="preprocessor">#else</span></div>
+<div class="line"><a name="l00064"></a><span class="lineno">   64</span>&#160;    <span class="keywordflow">return</span> 0;</div>
+<div class="line"><a name="l00065"></a><span class="lineno">   65</span>&#160;<span class="preprocessor">#endif</span></div>
+<div class="line"><a name="l00066"></a><span class="lineno">   66</span>&#160;}</div>
+<div class="line"><a name="l00067"></a><span class="lineno">   67</span>&#160; </div>
+<div class="line"><a name="l00068"></a><span class="lineno">   68</span>&#160;} <span class="comment">// end namespace cppuddle</span></div>
 <div class="line"><a name="l00069"></a><span class="lineno">   69</span>&#160; </div>
-<div class="line"><a name="l00070"></a><span class="lineno">   70</span>&#160;} <span class="comment">// end namespace cppuddle</span></div>
-<div class="line"><a name="l00071"></a><span class="lineno">   71</span>&#160; </div>
-<div class="line"><a name="l00072"></a><span class="lineno">   72</span>&#160;<span class="preprocessor">#endif</span></div>
+<div class="line"><a name="l00070"></a><span class="lineno">   70</span>&#160;<span class="preprocessor">#endif</span></div>
 <div class="ttc" id="anamespacecppuddle_html"><div class="ttname"><a href="namespacecppuddle.html">cppuddle</a></div><div class="ttdef"><b>Definition:</b> config.hpp:31</div></div>
-<div class="ttc" id="anamespacecppuddle_html_a30d088e8e90249e348bd711ab4e94570"><div class="ttname"><a href="namespacecppuddle.html#a30d088e8e90249e348bd711ab4e94570">cppuddle::get_device_id</a></div><div class="ttdeci">size_t get_device_id(const size_t number_gpus)</div><div class="ttdoc">Uses HPX thread information to determine which GPU should be used.</div><div class="ttdef"><b>Definition:</b> config.hpp:61</div></div>
+<div class="ttc" id="anamespacecppuddle_html_a30d088e8e90249e348bd711ab4e94570"><div class="ttname"><a href="namespacecppuddle.html#a30d088e8e90249e348bd711ab4e94570">cppuddle::get_device_id</a></div><div class="ttdeci">size_t get_device_id(const size_t number_gpus)</div><div class="ttdoc">Uses HPX thread information to determine which GPU should be used.</div><div class="ttdef"><b>Definition:</b> config.hpp:59</div></div>
 <div class="ttc" id="anamespacecppuddle_html_a381bca91e0e6d0afd962534aa9433e88"><div class="ttname"><a href="namespacecppuddle.html#a381bca91e0e6d0afd962534aa9433e88">cppuddle::max_number_gpus</a></div><div class="ttdeci">constexpr size_t max_number_gpus</div><div class="ttdef"><b>Definition:</b> config.hpp:52</div></div>
 <div class="ttc" id="anamespacecppuddle_html_a54d5f0955c266b9fa89b703c08c6f39b"><div class="ttname"><a href="namespacecppuddle.html#a54d5f0955c266b9fa89b703c08c6f39b">cppuddle::mutex_t</a></div><div class="ttdeci">std::mutex mutex_t</div><div class="ttdef"><b>Definition:</b> config.hpp:36</div></div>
 <div class="ttc" id="anamespacecppuddle_html_a57856e7a5e75a16c77f61cb0af8ecdf7"><div class="ttname"><a href="namespacecppuddle.html#a57856e7a5e75a16c77f61cb0af8ecdf7">cppuddle::number_instances</a></div><div class="ttdeci">constexpr size_t number_instances</div><div class="ttdef"><b>Definition:</b> config.hpp:50</div></div>
 </div><!-- fragment --></div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
-Generated on Tue Mar 12 2024 16:29:24 for CPPuddle by&#160;<a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.1
+Generated on Fri May 17 2024 22:29:15 for CPPuddle by&#160;<a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.1
 </small></address>
 </body>
 </html>
