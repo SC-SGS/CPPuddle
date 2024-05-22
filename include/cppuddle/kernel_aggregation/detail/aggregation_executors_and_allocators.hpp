@@ -394,7 +394,7 @@ class allocator_slice;
 template <typename Executor> class aggregated_executor {
 private:
   //===============================================================================
-  // Misc private avariables:
+  // Misc private variables:
   //
   std::atomic<bool> slices_exhausted;
 
@@ -432,8 +432,8 @@ public:
     /// How many slices are there overall - required to check the launch
     /// criteria
     const size_t number_slices;
-    const size_t max_slices;
-    const size_t id;
+    size_t max_slices;
+    size_t id;
     using executor_t = Executor;
     executor_slice(aggregated_executor &parent, const size_t slice_id,
                    const size_t number_slices, const size_t max_number_slices)
