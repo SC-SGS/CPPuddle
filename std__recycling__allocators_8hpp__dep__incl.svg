@@ -59,10 +59,10 @@ var sectionId = 'dynsection-1';
 <g id="node1" class="node">
 <title>Node1</title>
 <g id="a_node1"><a xlink:title=" ">
-<polygon fill="#bfbfbf" stroke="black" points="381.5,-134.5 381.5,-175.5 524.5,-175.5 524.5,-134.5 381.5,-134.5"/>
-<text text-anchor="start" x="389.5" y="-163.5" font-family="Helvetica,sans-Serif" font-size="10.00">include/cppuddle/memory</text>
-<text text-anchor="start" x="389.5" y="-152.5" font-family="Helvetica,sans-Serif" font-size="10.00">_recycling/std_recycling</text>
-<text text-anchor="middle" x="453" y="-141.5" font-family="Helvetica,sans-Serif" font-size="10.00">_allocators.hpp</text>
+<polygon fill="#bfbfbf" stroke="black" points="367.5,-134.5 367.5,-175.5 510.5,-175.5 510.5,-134.5 367.5,-134.5"/>
+<text text-anchor="start" x="375.5" y="-163.5" font-family="Helvetica,sans-Serif" font-size="10.00">include/cppuddle/memory</text>
+<text text-anchor="start" x="375.5" y="-152.5" font-family="Helvetica,sans-Serif" font-size="10.00">_recycling/std_recycling</text>
+<text text-anchor="middle" x="439" y="-141.5" font-family="Helvetica,sans-Serif" font-size="10.00">_allocators.hpp</text>
 </a>
 </g>
 </g>
@@ -78,8 +78,8 @@ var sectionId = 'dynsection-1';
 <!-- Node1&#45;&gt;Node2 -->
 <g id="edge1" class="edge">
 <title>Node1&#45;&gt;Node2</title>
-<path fill="none" stroke="midnightblue" d="M371.12,-138.69C294.61,-124.38 183.21,-103.55 121.47,-92"/>
-<polygon fill="midnightblue" stroke="midnightblue" points="370.73,-142.18 381.2,-140.57 372.02,-135.29 370.73,-142.18"/>
+<path fill="none" stroke="midnightblue" d="M357.13,-138.1C283.64,-123.83 178.56,-103.42 119.9,-92.03"/>
+<polygon fill="midnightblue" stroke="midnightblue" points="356.8,-141.6 367.28,-140.07 358.13,-134.73 356.8,-141.6"/>
 </g>
 <!-- Node4 -->
 <g id="node4" class="node">
@@ -94,40 +94,40 @@ var sectionId = 'dynsection-1';
 <!-- Node1&#45;&gt;Node4 -->
 <g id="edge3" class="edge">
 <title>Node1&#45;&gt;Node4</title>
-<path fill="none" stroke="midnightblue" d="M379.85,-131.38C343.95,-120.28 301.83,-107.26 270.59,-97.6"/>
-<polygon fill="midnightblue" stroke="midnightblue" points="379.2,-134.85 389.79,-134.46 381.27,-128.16 379.2,-134.85"/>
+<path fill="none" stroke="midnightblue" d="M369.91,-131.24C336.31,-120.17 296.99,-107.22 267.79,-97.6"/>
+<polygon fill="midnightblue" stroke="midnightblue" points="369.08,-134.65 379.67,-134.46 371.27,-128 369.08,-134.65"/>
 </g>
 <!-- Node5 -->
 <g id="node5" class="node">
 <title>Node5</title>
-<g id="a_node5"><a xlink:href="allocator__kokkos__executor__for__loop__test_8cpp.html" target="_top" xlink:title=" ">
-<polygon fill="white" stroke="black" points="298.5,-67.5 298.5,-97.5 451.5,-97.5 451.5,-67.5 298.5,-67.5"/>
+<g id="a_node5"><a xlink:href="allocator__kokkos__test_8cpp.html" target="_top" xlink:title=" ">
+<polygon fill="white" stroke="black" points="298.5,-67.5 298.5,-97.5 423.5,-97.5 423.5,-67.5 298.5,-67.5"/>
 <text text-anchor="start" x="306.5" y="-85.5" font-family="Helvetica,sans-Serif" font-size="10.00">tests/allocator_kokkos</text>
-<text text-anchor="middle" x="375" y="-74.5" font-family="Helvetica,sans-Serif" font-size="10.00">_executor_for_loop_test.cpp</text>
+<text text-anchor="middle" x="361" y="-74.5" font-family="Helvetica,sans-Serif" font-size="10.00">_test.cpp</text>
 </a>
 </g>
 </g>
 <!-- Node1&#45;&gt;Node5 -->
 <g id="edge4" class="edge">
 <title>Node1&#45;&gt;Node5</title>
-<path fill="none" stroke="midnightblue" d="M423.79,-127.6C412.65,-117.53 400.38,-106.44 390.92,-97.89"/>
-<polygon fill="midnightblue" stroke="midnightblue" points="421.51,-130.25 431.27,-134.36 426.2,-125.06 421.51,-130.25"/>
+<path fill="none" stroke="midnightblue" d="M409.79,-127.6C398.65,-117.53 386.38,-106.44 376.92,-97.89"/>
+<polygon fill="midnightblue" stroke="midnightblue" points="407.51,-130.25 417.27,-134.36 412.2,-125.06 407.51,-130.25"/>
 </g>
 <!-- Node6 -->
 <g id="node6" class="node">
 <title>Node6</title>
-<g id="a_node6"><a xlink:href="allocator__kokkos__test_8cpp.html" target="_top" xlink:title=" ">
-<polygon fill="white" stroke="black" points="469.5,-67.5 469.5,-97.5 594.5,-97.5 594.5,-67.5 469.5,-67.5"/>
-<text text-anchor="start" x="477.5" y="-85.5" font-family="Helvetica,sans-Serif" font-size="10.00">tests/allocator_kokkos</text>
-<text text-anchor="middle" x="532" y="-74.5" font-family="Helvetica,sans-Serif" font-size="10.00">_test.cpp</text>
+<g id="a_node6"><a xlink:href="allocator__kokkos__executor__for__loop__test_8cpp.html" target="_top" xlink:title=" ">
+<polygon fill="white" stroke="black" points="441.5,-67.5 441.5,-97.5 594.5,-97.5 594.5,-67.5 441.5,-67.5"/>
+<text text-anchor="start" x="449.5" y="-85.5" font-family="Helvetica,sans-Serif" font-size="10.00">tests/allocator_kokkos</text>
+<text text-anchor="middle" x="518" y="-74.5" font-family="Helvetica,sans-Serif" font-size="10.00">_executor_for_loop_test.cpp</text>
 </a>
 </g>
 </g>
 <!-- Node1&#45;&gt;Node6 -->
 <g id="edge5" class="edge">
 <title>Node1&#45;&gt;Node6</title>
-<path fill="none" stroke="midnightblue" d="M482.64,-127.55C494,-117.41 506.53,-106.23 516.12,-97.67"/>
-<polygon fill="midnightblue" stroke="midnightblue" points="480.14,-125.09 475.01,-134.36 484.8,-130.31 480.14,-125.09"/>
+<path fill="none" stroke="midnightblue" d="M468.64,-127.55C480,-117.41 492.53,-106.23 502.12,-97.67"/>
+<polygon fill="midnightblue" stroke="midnightblue" points="466.14,-125.09 461.01,-134.36 470.8,-130.31 466.14,-125.09"/>
 </g>
 <!-- Node7 -->
 <g id="node7" class="node">
@@ -141,8 +141,8 @@ var sectionId = 'dynsection-1';
 <!-- Node1&#45;&gt;Node7 -->
 <g id="edge6" class="edge">
 <title>Node1&#45;&gt;Node7</title>
-<path fill="none" stroke="midnightblue" d="M524.94,-131.46C567.84,-118.02 619.82,-101.73 650.83,-92.01"/>
-<polygon fill="midnightblue" stroke="midnightblue" points="523.87,-128.13 515.38,-134.46 525.97,-134.81 523.87,-128.13"/>
+<path fill="none" stroke="midnightblue" d="M515.13,-131.54C560.75,-118.09 616.13,-101.75 649.14,-92.01"/>
+<polygon fill="midnightblue" stroke="midnightblue" points="513.86,-128.27 505.26,-134.46 515.84,-134.98 513.86,-128.27"/>
 </g>
 <!-- Node8 -->
 <g id="node8" class="node">
@@ -157,8 +157,8 @@ var sectionId = 'dynsection-1';
 <!-- Node1&#45;&gt;Node8 -->
 <g id="edge7" class="edge">
 <title>Node1&#45;&gt;Node8</title>
-<path fill="none" stroke="midnightblue" d="M534.41,-139.01C594.78,-127.84 679.06,-112.15 753,-98 755.7,-97.48 758.46,-96.95 761.24,-96.42"/>
-<polygon fill="midnightblue" stroke="midnightblue" points="533.76,-135.57 524.56,-140.83 535.03,-142.45 533.76,-135.57"/>
+<path fill="none" stroke="midnightblue" d="M520.71,-139.82C584.13,-128.72 674.21,-112.74 753,-98 755.7,-97.49 758.46,-96.97 761.24,-96.44"/>
+<polygon fill="midnightblue" stroke="midnightblue" points="520.02,-136.39 510.77,-141.56 521.22,-143.28 520.02,-136.39"/>
 </g>
 <!-- Node3 -->
 <g id="node3" class="node">
