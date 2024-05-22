@@ -50,7 +50,7 @@ public:
   static decltype(auto) request_executor_slice(void) {
     if (!is_initialized) {
       throw std::runtime_error(
-          std::string("Trying to use cppuddle aggregation pool without first calling init") +
+          std::string("ERROR: Trying to use cppuddle aggregation pool without first calling init!\n") +
           " Agg poolname: " + std::string(kernelname));
     }
     const size_t gpu_id = cppuddle::get_device_id(number_devices);
@@ -126,6 +126,20 @@ public:
   aggregation_pool(aggregation_pool &&other) = delete;
   aggregation_pool &operator=(aggregation_pool &&other) = delete;
 };
+
+template <typename aggregation_region_t>
+void init_area_aggregation_pool(
+    const size_t max_slices) {
+    constexpr size_t number_aggregation_executors = 128;
+    constexpr size_t number_gpus = cppuddle::max_number_gpus;
+    aggregated_executor_modes executor_mode = aggregated_executor_modes::EAGER;
+    if (max_slices == 1) {
+      executor_mode = aggregated_executor_modes::STRICT;
+    }
+    aggregation_region_t::init(
+        number_aggregation_executors, max_slices, executor_mode, number_gpus);
+}
+
 
 } // namespace detail
 } // namespace kernel_aggregation
