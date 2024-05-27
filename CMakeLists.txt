@@ -251,6 +251,19 @@ install(
 install(FILES cppuddle-config.cmake DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/cmake/CPPuddle/)
 install(EXPORT CPPuddle NAMESPACE CPPuddle:: DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/cmake/CPPuddle/)
 
+#Boost::boost Boost::program_options HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager stream_manager
+if (CPPUDDLE_WITH_TESTS)
+  if (CPPUDDLE_WITH_CUDA)
+     add_hpx_executable(
+          cuda_vector_add
+          DEPENDENCIES
+          Boost::boost Boost::program_options HPX::hpx buffer_manager stream_manager
+          COMPONENT_DEPENDENCIES iostreams
+          SOURCES
+          examples/cuda_vector_add.cu
+          )
+  endif()
+endif()
 #------------------------------------------------------------------------------------------------------------
 # Define cmake targets for all tests/example executables
 
