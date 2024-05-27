@@ -23,7 +23,7 @@ constexpr size_t entries_per_task = 1024;
 constexpr size_t number_tasks = vector_size / entries_per_task;
 constexpr size_t number_repetitions = 20;
 constexpr size_t max_queue_length = 5;
-constexpr size_t number_executors = 32;
+constexpr size_t number_executors = 1;
 constexpr size_t gpu_id = 0;
 
 static_assert(vector_size % entries_per_task == 0);
@@ -46,6 +46,8 @@ int hpx_main(int argc, char *argv[]) {
       gpu_id, number_executors, gpu_id, true);
   hpx::cout << "Init done!" << std::endl << std::endl;
 
+  std::atomic<size_t> number_cpu_kernel_launches = 0;
+  std::atomic<size_t> number_gpu_kernel_launches = 0;
 
   // Launch tasks 
   // Note: Repetitions may be out of order since they do not depend on each other in this toy sample
@@ -54,8 +56,8 @@ int hpx_main(int argc, char *argv[]) {
   for (size_t repetition = 0; repetition < number_repetitions; repetition++) {
     std::vector<hpx::future<void>> futs(number_tasks);
     for (size_t task_id = 0; task_id < number_tasks; task_id++) {
-      futs[task_id] = hpx::async([task_id]() {
-
+      futs[task_id] = hpx::async([task_id, &number_cpu_kernel_launches,
+                                  &number_gpu_kernel_launches]() {
         // Inner Task Setup to launch the CUDA kernels:
         // ===========================================
 
@@ -73,7 +75,7 @@ int hpx_main(int argc, char *argv[]) {
             cppuddle::memory_recycling::recycle_allocator_cuda_host<float_t>>
             host_c(entries_per_task);
 
-        // 3. Host-side preprocessing (usually: communication, here fill dummy
+        // 2. Host-side preprocessing (usually: communication, here fill dummy
         // input)
         std::fill(host_a.begin(), host_a.end(), 1.0);
         std::fill(host_b.begin(), host_b.end(), 2.0);
@@ -88,11 +90,13 @@ int hpx_main(int argc, char *argv[]) {
         //4. Run Kernel on either CPU or GPU
         if (!device_executor_available) {
           // 4a. Launch CPU Fallback  Version
+          number_cpu_kernel_launches++;
           for (size_t entry_id = 0; entry_id < entries_per_task; entry_id++) {
             host_c[entry_id] = host_a[entry_id] + host_b[entry_id];
           }
         } else {
           // 4b. Create per_task device-side buffers and draw executor
+          number_gpu_kernel_launches++;
           cppuddle::executor_recycling::executor_interface<
               device_executor_t, cppuddle::executor_recycling::
                                      round_robin_pool_impl<device_executor_t>>
@@ -148,9 +152,16 @@ int hpx_main(int argc, char *argv[]) {
   }
   hpx::cout << "All tasks launched asynchronously!" << std::endl << std::endl;
   // Schedule output task to run once all other tasks are done
-  auto all_done_fut = hpx::when_all(repetition_futs).then([](auto &&fut) {
-    hpx::cout << "All tasks are done!" << std::endl << std::endl;
-  });
+  auto all_done_fut =
+      hpx::when_all(repetition_futs)
+          .then([&number_cpu_kernel_launches,
+                 &number_gpu_kernel_launches](auto &&fut) {
+            hpx::cout << "All tasks are done!" << std::endl;
+            hpx::cout << " => " << number_gpu_kernel_launches
+                      << " kernels were run on the GPU" << std::endl;
+            hpx::cout << " => " << number_cpu_kernel_launches
+                      << " kernels were using the CPU fallback" << std::endl << std::endl;
+          });
   all_done_fut.get();
 
   hpx::cuda::experimental::detail::unregister_polling(hpx::resource::get_thread_pool(0));
