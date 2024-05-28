@@ -16,19 +16,17 @@
 #include <stdexcept>
 #include <vector>
 
+// Compile-time options
 using float_t = float;
 using device_executor_t = hpx::cuda::experimental::cuda_executor;
 
-constexpr size_t vector_size = 102400;
-constexpr size_t entries_per_task = 1024;
-constexpr size_t number_tasks = vector_size / entries_per_task;
-constexpr size_t number_repetitions = 20;
-constexpr size_t max_queue_length = 5;
-constexpr size_t number_executors = 1;
-constexpr size_t gpu_id = 0;
-constexpr bool in_order_repetitions = true;
-
-static_assert(vector_size % entries_per_task == 0);
+// Runtime options
+size_t entries_per_task = 1024;
+size_t number_tasks = 100;
+size_t number_repetitions = 20;
+size_t max_queue_length = 5;
+size_t number_executors = 1;
+size_t gpu_id = 0;
 
 
 __global__ void kernel_add(const float_t *input_a, const float_t *input_b, float_t *output_c) {
@@ -38,48 +36,62 @@ __global__ void kernel_add(const float_t *input_a, const float_t *input_b, float
 
 int hpx_main(int argc, char *argv[]) {
 
-  /* try { */
-  /*   boost::program_options::options_description desc{"Options"}; */
-  /*   desc.add_options()("help", "Help screen")( */
-  /*       "elements_per_task", */
-  /*       boost::program_options::value<size_t>(&array_size) */
-  /*           ->default_value(5000000), */
-  /*       "Size of the buffers")( */
-  /*       "tasks_per_repetition", */
-  /*       boost::program_options::value<size_t>(&number_futures) */
-  /*           ->default_value(64), */
-  /*       "Sets the number of futures to be (potentially) executed in parallel")( */
-  /*       "number_repetitions", */
-  /*       boost::program_options::value<size_t>(&passes)->default_value(200), */
-  /*       "Sets the number of repetitions")( */
-  /*       "outputfile", */
-  /*       boost::program_options::value<std::string>(&filename)->default_value( */
-  /*           ""), */
-  /*       "Redirect stdout/stderr to this file"); */
+  // Process example options
+  bool in_order_repetitions = false;
+  try {
+    boost::program_options::options_description desc{"Options"};
+    desc.add_options()("help", "Help screen")(
+        "elements_per_task",
+        boost::program_options::value<size_t>(&entries_per_task)
+            ->default_value(1024),
+        "Number of elements added per task (corresponds to the number of CUDA workitems used per kernel)")(
+        "tasks_per_repetition",
+        boost::program_options::value<size_t>(&number_tasks)
+            ->default_value(100),
+        "Number of tasks per repetition")(
+        "in_order_repetitions",
+        boost::program_options::value<bool>(&in_order_repetitions)
+            ->default_value(false),
+        "Execute repetitions in-order")(
+        "number_repetitions",
+        boost::program_options::value<size_t>(&number_repetitions)->default_value(20),
+        "Sets the number of repetitions")(
+        "number_executors",
+        boost::program_options::value<size_t>(&number_executors)->default_value(32),
+        "Number of GPU executors in the pool")(
+        "max_queue_length_per_executor",
+        boost::program_options::value<size_t>(&max_queue_length)->default_value(5),
+        "Maximum numbers of kernels queued per GPU executor");
 
-  /*   boost::program_options::variables_map vm; */
-  /*   boost::program_options::parsed_options options = */
-  /*       parse_command_line(argc, argv, desc); */
-  /*   boost::program_options::store(options, vm); */
-  /*   boost::program_options::notify(vm); */
+    boost::program_options::variables_map vm;
+    boost::program_options::parsed_options options =
+        parse_command_line(argc, argv, desc);
+    boost::program_options::store(options, vm);
+    boost::program_options::notify(vm);
 
-  /*   if (vm.count("help") == 0u) { */
-  /*     std::cout << "Running with parameters:" << std::endl */
-  /*               << " --arraysize = " << array_size << std::endl */
-  /*               << " --futures =  " << number_futures << std::endl */
-  /*               << " --passes = " << passes << std::endl */
-  /*               << " --hpx:threads = " << hpx::get_os_thread_count() */
-  /*               << std::endl; */
-  /*   } else { */
-  /*     std::cout << desc << std::endl; */
-  /*     return hpx::finalize(); */
-  /*   } */
-  /* } catch (const boost::program_options::error &ex) { */
-  /*   std::cerr << "CLI argument problem found: " << ex.what() << '\n'; */
-  /* } */
+    std::cout << "CPPuddle Recycling Sample (Vector-Add / CUDA edition)" << std::endl;
+    std::cout << "=====================================================" << std::endl;
+    if (vm.count("help") == 0u) {
+      hpx::cout << "Running with parameters:" << std::endl
+                << " --elements_per_task = " << entries_per_task << std::endl
+                << " --tasks_per_repetition =  " << number_tasks << std::endl
+                << " --number_repetitions = " << number_repetitions << std::endl
+                << " --in_order_repetitions = " << in_order_repetitions << std::endl
+                << " --number_executors = " << number_executors << std::endl
+                << " --max_queue_length_per_executor = " << max_queue_length << std::endl
+                << " --hpx:threads = " << hpx::get_os_thread_count()
+                << std::endl << std::endl;
+    } else {
+      std::cout << desc << std::endl;
+      return hpx::finalize();
+    }
+  } catch (const boost::program_options::error &ex) {
+    std::cerr << "CLI argument problem found: " << ex.what() << '\n';
+  }
 
   // HPX and CPPuddle Setup for executor (polling + pool init)
-  // =========================================== 0.a Init HPX CUDA polling
+  // =========================================== 
+  // 0.a Init HPX CUDA polling
   hpx::cout << "Start initializing CUDA polling and executor pool..." << std::endl;
   hpx::cuda::experimental::detail::register_polling(hpx::resource::get_thread_pool(0));
   // 0.b Init CPPuddle executor pool
@@ -93,9 +105,7 @@ int hpx_main(int argc, char *argv[]) {
   std::atomic<size_t> number_gpu_kernel_launches = 0;
 
   // Launch tasks 
-  // Note: Repetitions may be out of order since they do not depend on each other in this toy sample
   hpx::cout << "Start launching tasks..." << std::endl;
-
   hpx::shared_future<void> previous_iteration_fut = hpx::make_ready_future<void>();
   std::vector<hpx::future<void>> repetition_futs(number_repetitions);
   for (size_t repetition = 0; repetition < number_repetitions; repetition++) {
@@ -189,6 +199,8 @@ int hpx_main(int argc, char *argv[]) {
         // Inner Task Done!
         // ===========================================
       };
+
+      // Schedule task either in order (one repetition after another) or out of order
       if (in_order_repetitions) {
         futs[task_id] =  previous_iteration_fut.then([task_id, &number_cpu_kernel_launches,
                         &number_gpu_kernel_launches, gpu_task_lambda](auto && fut) {
