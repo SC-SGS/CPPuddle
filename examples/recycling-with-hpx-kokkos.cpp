@@ -4,23 +4,30 @@
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
 // Developer  TODOs regarding CPPuddle usability:
-// TODO(daissgr) Simplify specifying an executor pool (at least when using the
-// default round_robin_pool_impl). The current way seems awfully verbose
+// TODO(daissgr) Improve type accessiblity (user should not worry about the
+// activated Kokkos backend like belew to pick the correct view types
+// TODO(daissgr) Add unified CPPuddle finalize that also cleans up all executor
+// pool (and avoids having to use the cleanup methds of the individual pools
 
 #include <algorithm>
 #include <cstdlib>
+
 #include <hpx/include/async.hpp>
 #include <hpx/include/lcos.hpp>
 #include <hpx/hpx_init.hpp>
 #include <hpx/include/iostreams.hpp>
 #include <hpx/async_cuda/cuda_executor.hpp>
 
+#include <hpx/kokkos.hpp>
+
+#include <Kokkos_Core.hpp>
+
 #include <boost/program_options.hpp>
 
 #include <cppuddle/memory_recycling/buffer_management_interface.hpp>
 #include <cppuddle/memory_recycling/std_recycling_allocators.hpp>
 #include <cppuddle/memory_recycling/cuda_recycling_allocators.hpp>
-#include <cppuddle/memory_recycling/util/cuda_recycling_device_buffer.hpp>
+#include <cppuddle/memory_recycling/util/recycling_kokkos_view.hpp>
 #include <cppuddle/executor_recycling/executor_pools_interface.hpp>
 
 #include <iostream>
@@ -28,38 +35,103 @@
 #include <vector>
 
 
-/** \file This example shows how to use HPX + CPPuddle with GPU-accelerated
- * applications. Particulary we focus on how to use a) recycled pinned host
- * memory, b) recycled device memory, c) the executor pool, d) the HPX-CUDA
+/** \file This example shows how to use HPX + Kokkos + CPPuddle with GPU-accelerated
+ * applications. The example is extremly similary to its CUDA counterpart, however, uses
+ * Kokkos for implementation to showcase the required boilerplate and offered features.
+ * Particulary we focus on how to use a) recycled pinned host
+ * memory, b) recycled device memory, c) the executor pool, d) the HPX-Kokkos
  * futures and the basic CPU/GPU load balancing based on executor usage in an
  * HPX application. To demonstrate these features we just use the simplest of
- * kernels: a vector addition that is repeated over a multitude of tasks (with
+ * kernels: a vector add, that is repeated over a multitude of tasks (with
  * varying, artifical dependencies inbetween). So while the compute kernel is
- * basic, we still get to see how the CPPuddle/HPX features may be used with 
- * it.
+ * basic, we still get to see how the CPPuddle/HPX features may be used.
  *
  * The example has three parts: First the GPU part, then the HPX task graph
  * management and lastly the remaining initialization/boilerplate code
  */
 
 //=================================================================================================
-// PART I: The (CUDA) GPU kernel and how to launch it with CPPuddle + HPX whilst avoid
+// PART I: The Kokkos kernel and how to launch it with CPPuddle + HPX whilst avoid
 // any CPU/GPU barriers
 //=================================================================================================
 
-// Compile-time options: float type...
+// Define types: A lot of this can be done automatically, however, here we want to show the manual
+// approach (as using different types/ifdefs can allow us to specialize kernels for specific hardware
+// if required. 
+//
 using float_t = float;
-// ... and we will use the HPX CUDA executor inside the executor pool later on
-using device_executor_t = hpx::cuda::experimental::cuda_executor;
+// Use correct device exeuction space and memory spaces depending on the activated device 
+// execution space
+#ifdef KOKKOS_ENABLE_CUDA
+// Pick executor type
+using device_executor_t = hpx::kokkos::cuda_executor;
+// Define Kokkos View types to be used! Must be using MemoryUnmanaged to allow memory recycling
+using kokkos_device_view_t = Kokkos::View<float_t*, Kokkos::CudaSpace, Kokkos::MemoryUnmanaged>; 
+using kokkos_host_view_t = Kokkos::View<float_t*, Kokkos::CudaHostPinnedSpace, Kokkos::MemoryUnmanaged>; 
+// Define CPPuddle recycling allocators to be used with the views
+using device_allocator_t = cppuddle::memory_recycling::recycle_allocator_cuda_device<float_t>;
+using host_allocator_t = cppuddle::memory_recycling::recycle_allocator_cuda_host<float_t>;
+#elif KOKKOS_ENABLE_HIP
+// Pick executor type
+using device_executor_t = hpx::kokkos::hip_executor;
+// Define Kokkos View types to be used! Must be using MemoryUnmanaged to allow memory recycling
+using kokkos_device_view_t = Kokkos::View<float_t*, Kokkos::HIPSpace, Kokkos::MemoryUnmanaged>; 
+using kokkos_host_view_t = Kokkos::View<float_t*, Kokkos::HIPHostPinnedSpace, Kokkos::MemoryUnmanaged>; 
+// Define CPPuddle recycling allocators to be used with the views
+using device_allocator_t = cppuddle::memory_recycling::recycle_allocator_hip_device<float_t>;
+using host_allocator_t = cppuddle::memory_recycling::recycle_allocator_hip_host<float_t>;
+#elif KOKKOS_ENABLE_SYCL
+// Pick executor type
+using device_executor_t = hpx::kokkos::sycl_executor;
+// Define Kokkos View types to be used! Must be using MemoryUnmanaged to allow memory recycling
+using kokkos_device_view_t = Kokkos::View<float_t*, Kokkos::SYCLDeviceUSMSpace, Kokkos::MemoryUnmanaged>; 
+using kokkos_host_view_t = Kokkos::View<float_t*, Kokkos::SYCLDeviceHostSpace, Kokkos::MemoryUnmanaged>; 
+// Define CPPuddle recycling allocators to be used with the views
+using device_allocator_t = cppuddle::memory_recycling::recycle_allocator_sycl_device<float_t>;
+using host_allocator_t = cppuddle::memory_recycling::recycle_allocator_sycl_host<float_t>;
+#else
+#error "Example assumes both a host and a device Kokkos execution space are available"
+#endif
+// Plug together the defined Kokkos views with the recycling CPPuddle allocators
+// This yields a new type that can be used just like a normal Kokkos View but gets its memory from 
+// CPPuddle.
+using recycling_device_view_t =
+    cppuddle::memory_recycling::recycling_view<kokkos_device_view_t,
+                                               device_allocator_t, float_t>;
+using recycling_host_view_t =
+    cppuddle::memory_recycling::recycling_view<kokkos_host_view_t,
+                                               host_allocator_t, float_t>;
 
-/** Just some example CUDA kernel. For simplicity it just adds two vectors. */
-__global__ void kernel_add(const float_t *input_a, const float_t *input_b, float_t *output_c) {
-  const int index = blockIdx.x * blockDim.x + threadIdx.x;
-  output_c[index] = input_a[index] + input_b[index];
+// Run host kernels on HPX execution space:
+using host_executor_t = hpx::kokkos::hpx_executor;
+// Serial executor can actually work well, too when interleaving multiple Kokkos kernels to
+// achieve multicore usage. However, be aware that this only works for Kokkos kernels that are not
+// using team policies / scratch memory (those use a global barrier across all Serial execution 
+// spaces):
+// using host_executor_t = hpx::kokkos::serial_executor;
+
+// The actual compute kernel: Simply defines a exeuction policy with the given executor and runs the
+// kernel with a Kokkos::parallel_for
+template <typename executor_t, typename view_t>
+void kernel_add(executor_t &executor, const size_t entries_per_task,
+                const view_t &input_a, const view_t &input_b, view_t &output_c)
+{
+  // Define exeuction policy
+  auto execution_policy = Kokkos::Experimental::require(
+      Kokkos::RangePolicy<decltype(executor.instance())>(
+          executor.instance(), 0, entries_per_task),
+      Kokkos::Experimental::WorkItemProperty::HintLightWeight);
+
+  // Run Kernel with execution policy (and give it some name ideally)
+  Kokkos::parallel_for(
+      "sample vector add kernel", execution_policy,
+      KOKKOS_LAMBDA(size_t index) {
+        output_c[index] = input_a[index] + input_b[index];
+      });
 }
 
-/** Method that demonstrates how one might launch a CUDA kernel with HPX and
- * CPPuddle recycled memory/executor! By using CPPuddle allocators to avoid
+/** Method that demonstrates how one might launch a Kokkos kernel with HPX and
+ * CPPuddle recycled memory/executors! By using CPPuddle allocators to avoid
  * allocating GPU memory and HPX futures to track the status of the
  * kernel/memory transfers, this method is expected to be non-blocking both on
  * the launching CPU thread and on the GPU (non malloc barriers). Hence, this
@@ -78,25 +150,20 @@ void launch_gpu_kernel_task(const size_t task_id, const size_t entries_per_task,
                             const size_t max_queue_length, const size_t gpu_id,
                             std::atomic<size_t> &number_cpu_kernel_launches,
                             std::atomic<size_t> &number_gpu_kernel_launches) {
-  // 1. Create required per task host-side buffers using CPPuddle recycled
-  // pinned memory
-  std::vector<float_t,
-              cppuddle::memory_recycling::recycle_allocator_cuda_host<float_t>>
-      host_a(entries_per_task);
-  std::vector<float_t,
-              cppuddle::memory_recycling::recycle_allocator_cuda_host<float_t>>
-      host_b(entries_per_task);
-  std::vector<float_t,
-              cppuddle::memory_recycling::recycle_allocator_cuda_host<float_t>>
-      host_c(entries_per_task);
+  // 1. Create recycled Kokkos host views
+  recycling_host_view_t host_a(entries_per_task);
+  recycling_host_view_t host_b(entries_per_task);
+  recycling_host_view_t host_c(entries_per_task);
 
   // 2. Host-side preprocessing (usually: communication, here fill dummy input)
-  std::fill(host_a.begin(), host_a.end(), 1.0);
-  std::fill(host_b.begin(), host_b.end(), 2.0);
+  for (size_t i = 0; i < entries_per_task; i++) {
+    host_a[i] = 1.0;
+    host_b[i] = 2.0;
+  }
 
   // 3. Check GPU utilization - Method will return true if there is an executor
   // in the pool that does currently not exceed its queue limit (tracked by
-  // RAII, no CUDA API calls involved)
+  // RAII, no CUDA/HIP/SYCL API calls involved)
   bool device_executor_available =
       cppuddle::executor_recycling::executor_pool::interface_available<
           device_executor_t, cppuddle::executor_recycling::
@@ -105,53 +172,57 @@ void launch_gpu_kernel_task(const size_t task_id, const size_t entries_per_task,
 
   // 4. Run Kernel on either CPU or GPU
   if (!device_executor_available) {
-    number_cpu_kernel_launches++;
     // 4a. Launch CPU Fallback  Version
-    for (size_t entry_id = 0; entry_id < entries_per_task; entry_id++) {
-      host_c[entry_id] = host_a[entry_id] + host_b[entry_id];
-    }
+    number_cpu_kernel_launches++;
+    // Draw host executor
+    cppuddle::executor_recycling::executor_interface<
+        host_executor_t,
+        cppuddle::executor_recycling::round_robin_pool_impl<host_executor_t>>
+        executor(gpu_id); // Wrapper that draws executor from the pool
+
+    // Launch
+    kernel_add(static_cast<host_executor_t&>(executor), entries_per_task, host_a, host_b, host_c);
+    
+    // Sync kernel
+    static_cast<host_executor_t&>(executor).instance().fence();
+
   } else {
     number_gpu_kernel_launches++;
-    // 4b. Create per_task device-side buffers (using recylced device memory)
+    // 4b. Create per_task device-side views (using recylced device memory)
     // and draw GPU executor from CPPuddle executor pool
+    // Draw host device
     cppuddle::executor_recycling::executor_interface<
         device_executor_t,
         cppuddle::executor_recycling::round_robin_pool_impl<device_executor_t>>
         executor(gpu_id); // Wrapper that draws executor from the pool
-    cppuddle::memory_recycling::cuda_device_buffer<float_t> device_a(
-        entries_per_task);
-    cppuddle::memory_recycling::cuda_device_buffer<float_t> device_b(
-        entries_per_task);
-    cppuddle::memory_recycling::cuda_device_buffer<float_t> device_c(
-        entries_per_task);
+
+    recycling_device_view_t device_a(entries_per_task);
+    recycling_device_view_t device_b(entries_per_task);
+    recycling_device_view_t device_c(entries_per_task);
 
     // 4c. Launch data transfers and kernel
-    hpx::apply(static_cast<device_executor_t>(executor), cudaMemcpyAsync,
-               device_a.device_side_buffer, host_a.data(),
-               entries_per_task * sizeof(float_t), cudaMemcpyHostToDevice);
-    hpx::apply(static_cast<device_executor_t>(executor), cudaMemcpyAsync,
-               device_b.device_side_buffer, host_b.data(),
-               entries_per_task * sizeof(float_t), cudaMemcpyHostToDevice);
-    void *args[] = {&device_a.device_side_buffer, &device_b.device_side_buffer,
-                    &device_c.device_side_buffer};
-    hpx::apply(static_cast<device_executor_t>(executor),
-               cudaLaunchKernel<decltype(kernel_add)>, kernel_add,
-               entries_per_task / 128, 128, args, 0);
-    auto fut =
-        hpx::async(static_cast<device_executor_t>(executor), cudaMemcpyAsync,
-                   host_c.data(), device_c.device_side_buffer,
-                   entries_per_task * sizeof(float_t), cudaMemcpyDeviceToHost);
-    fut.get(); // Allow worker thread to jump away until the kernel and
-               // data-transfers are done
+    Kokkos::deep_copy(executor.interface.instance(), device_a, host_a);
+    Kokkos::deep_copy(executor.interface.instance(), device_b, host_b);
+
+    kernel_add(static_cast<device_executor_t &>(executor), entries_per_task,
+               device_a, device_b, device_c);
+
+    auto transfer_fut = hpx::kokkos::deep_copy_async(
+        executor.interface.instance(), host_c, device_c);
+    transfer_fut.get();
+
+    // 5. Host-side postprocessing (usually: communication, here: check
+    // correctness)
+    for (size_t i = 0; i < entries_per_task; i++) {
+      if (host_c[i] != 1.0 + 2.0) {
+        std::cerr << "Task " << task_id << " contained wrong results!!"
+                  << std::endl;
+        break;
+      }
+    }
   }
 
-  // 5. Host-side postprocessing (usually: communication, here: check
-  // correctness)
-  if (!std::all_of(host_c.begin(), host_c.end(),
-                   [](float_t i) { return i == 1.0 + 2.0; })) {
-    std::cerr << "Task " << task_id << " contained wrong results!!"
-              << std::endl;
-  }
+
 }
 
 //=================================================================================================
@@ -240,21 +311,30 @@ build_task_graph(const size_t number_repetitions, const size_t number_tasks,
 // PART III: Initialization / Boilerplate and Main
 //=================================================================================================
 
-/** HPX uses either callbacks or event polling to implement its CUDA futures.
+/** HPX uses either callbacks or event polling to implement its HPX-Kokkos futures.
  * Polling usually has the superior performance, however, it requires that the
- * polling is initialized at startup (or at least before the CUDA futures are
+ * polling is initialized at startup (or at least before the HPX-Kokkos futures are
  * used). The CPPuddle executor pool also needs initialzing as we need to set it
  * to a specified number of executors (which CPPuddle cannot know without the
  * number_gpu_executors parameter). We will use the round_robin_pool_impl for
  * simplicity. A priority_pool_impl is also available.
  */
-void init_executor_pool_and_polling(const size_t number_gpu_executors, const size_t gpu_id) {
+void init_executor_pool_and_polling(const size_t number_gpu_executors,
+                                    const size_t number_cpu_executors,
+                                    const size_t gpu_id) {
   assert(gpu_id == 0); // MultiGPU not used in this example
+  // Init polling
   hpx::cuda::experimental::detail::register_polling(hpx::resource::get_thread_pool(0));
+  // Init device executors
   cppuddle::executor_recycling::executor_pool::init_executor_pool<
       device_executor_t,
       cppuddle::executor_recycling::round_robin_pool_impl<device_executor_t>>(
-      gpu_id, number_gpu_executors, gpu_id, true);
+      gpu_id, number_gpu_executors, hpx::kokkos::execution_space_mode::independent);
+  /* // Init host executors (fixed to 256) */
+  cppuddle::executor_recycling::executor_pool::init_all_executor_pools<
+      host_executor_t,
+      cppuddle::executor_recycling::round_robin_pool_impl<host_executor_t>>(
+      number_cpu_executors, hpx::kokkos::execution_space_mode::independent);
 }
 
 /// Processes the CLI options via boost program_options to configure the example
@@ -326,6 +406,10 @@ bool process_cli_options(int argc, char *argv[], size_t &entries_per_task,
 }
 
 int hpx_main(int argc, char *argv[]) {
+  // Init Kokkos 
+  Kokkos::initialize();
+  // Init/Finalize Kokkos alternative using RAII:
+  /* hpx::kokkos::ScopeGuard g(argc, argv); */
   // Launch counters
   std::atomic<size_t> number_cpu_kernel_launches = 0;
   std::atomic<size_t> number_gpu_kernel_launches = 0;
@@ -337,6 +421,7 @@ int hpx_main(int argc, char *argv[]) {
   bool in_order_repetitions = false;
   size_t max_queue_length = 5;
   size_t number_gpu_executors = 1;
+  size_t number_cpu_executors = 128;
   size_t gpu_id = 0;
   if(!process_cli_options(argc, argv, entries_per_task, number_tasks,
                       in_order_repetitions, number_repetitions,
@@ -346,9 +431,9 @@ int hpx_main(int argc, char *argv[]) {
 
   // Init HPX CUDA polling + executor pool
   hpx::cout << "Start initializing CUDA polling and executor pool..." << std::endl;
-  init_executor_pool_and_polling(number_gpu_executors, gpu_id);
+  init_executor_pool_and_polling(number_gpu_executors, number_cpu_executors,
+                                 gpu_id);
   hpx::cout << "Init done!" << std::endl << std::endl;
-
 
   // Build task graph / Launch all tasks
   auto start = std::chrono::high_resolution_clock::now();
@@ -369,12 +454,19 @@ int hpx_main(int argc, char *argv[]) {
 
   // Finalize HPX (CPPuddle finalizes automatically)
   hpx::cout << "Finalizing..." << std::endl;
-  // Deallocates all CPPuddle everything and prevent further usage. Technically
-  // not required as long as static variables with CPPuddle-managed memory are
-  // not used, however, it does not hurt either.
-  cppuddle::memory_recycling::finalize();
   hpx::cuda::experimental::detail::unregister_polling(
       hpx::resource::get_thread_pool(0));
+
+  // Cleanup (executor_pool cleanup required to deallocate all Kokkos execution
+  // spaces before Kokkos finalize is called)
+  cppuddle::executor_recycling::executor_pool::cleanup<
+      device_executor_t,
+      cppuddle::executor_recycling::round_robin_pool_impl<device_executor_t>>();
+  cppuddle::executor_recycling::executor_pool::cleanup<
+      host_executor_t,
+      cppuddle::executor_recycling::round_robin_pool_impl<host_executor_t>>();
+  cppuddle::memory_recycling::finalize();
+  Kokkos::finalize(); // only required if hpx-kokkos Scope Guard is not used
   return hpx::finalize();
 }
 

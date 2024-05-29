@@ -35,6 +35,8 @@ struct view_deleter {
 /// Kokkos View that automatically uses a recycling allocator using
 /// alloc_type as an underlying allocator. Must be passed an existing allocator object
 /// (which should be an allocator_slice from the kernel aggregation functionality)
+/** Requires the underlying Kokkos View (kokkos_type) to be a View using the
+ * MemoryUnmanaged trait! */
 template <typename kokkos_type, typename alloc_type, typename element_type>
 class aggregated_recycling_view : public kokkos_type {
 private:
@@ -95,6 +97,8 @@ public:
 
 /// Kokkos View that automatically uses a recycling allocator using
 /// alloc_type as an underlying allocator
+/** Requires the underlying Kokkos View (kokkos_type) to be a View using the
+ * MemoryUnmanaged trait! */
 template <typename kokkos_type, typename alloc_type, typename element_type>
 class recycling_view : public kokkos_type {
 private:
