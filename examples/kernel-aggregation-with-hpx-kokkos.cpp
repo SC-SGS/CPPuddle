@@ -28,6 +28,9 @@
 #include <cppuddle/memory_recycling/util/recycling_kokkos_view.hpp>
 #include <cppuddle/executor_recycling/executor_pools_interface.hpp>
 
+#include <cppuddle/kernel_aggregation/kernel_aggregation_interface.hpp>
+#include <cppuddle/kernel_aggregation/util/kokkos_aggregation_util.hpp>
+
 #include <iostream>
 #include <stdexcept>
 #include <vector>
@@ -102,6 +105,18 @@ using recycling_device_view_t =
 using recycling_host_view_t =
     cppuddle::memory_recycling::recycling_view<kokkos_host_view_t,
                                                host_allocator_t, float_t>;
+using aggregated_device_view_t =
+    cppuddle::memory_recycling::aggregated_recycling_view<
+        kokkos_device_view_t,
+        cppuddle::kernel_aggregation::allocator_slice<
+            float_t, device_allocator_t, device_executor_t>,
+        float_t>;
+using aggregated_host_view_t =
+    cppuddle::memory_recycling::aggregated_recycling_view<
+        kokkos_host_view_t,
+        cppuddle::kernel_aggregation::allocator_slice<float_t, host_allocator_t,
+                                                      device_executor_t>,
+        float_t>;
 
 // Run host kernels on HPX execution space:
 using host_executor_t = hpx::kokkos::hpx_executor;
@@ -147,81 +162,90 @@ void kernel_add(executor_t &executor, const size_t entries_per_task,
  * - Asynchronous data-transfers and lauching of the kernel.
  * - HPX futures to suspend the HPX task until kernel and data-transfers are  done.
  * - Includes (sample) pre- and post-processing. */
-void launch_gpu_kernel_task(const size_t task_id, const size_t entries_per_task,
-                            const size_t max_queue_length, const size_t gpu_id,
-                            std::atomic<size_t> &number_cpu_kernel_launches,
-                            std::atomic<size_t> &number_gpu_kernel_launches) {
-  // 1. Create recycled Kokkos host views
-  recycling_host_view_t host_a(entries_per_task);
-  recycling_host_view_t host_b(entries_per_task);
-  recycling_host_view_t host_c(entries_per_task);
-
-  // 2. Host-side preprocessing (usually: communication, here fill dummy input)
-  for (size_t i = 0; i < entries_per_task; i++) {
-    host_a[i] = 1.0;
-    host_b[i] = 2.0;
-  }
-
-  // 3. Check GPU utilization - Method will return true if there is an executor
-  // in the pool that does currently not exceed its queue limit (tracked by
-  // RAII, no CUDA/HIP/SYCL API calls involved)
+void launch_gpu_kernel_task(
+    const size_t task_id, const size_t entries_per_task,
+    const size_t max_queue_length, const size_t gpu_id,
+    const size_t max_kernels_fused,
+    std::atomic<size_t> &number_aggregated_kernel_launches,
+    std::atomic<size_t> &number_kernel_launches) {
+  // 3. Check GPU utilization - Method will return true if there is an
+  // executor in the pool that does currently not exceed its queue limit
+  // (tracked by RAII, no CUDA/HIP/SYCL API calls involved)
   bool device_executor_available =
       cppuddle::executor_recycling::executor_pool::interface_available<
           device_executor_t, cppuddle::executor_recycling::
                                  round_robin_pool_impl<device_executor_t>>(
           max_queue_length, gpu_id);
 
-  // 4. Run Kernel on either CPU or GPU
-  if (!device_executor_available) {
-    // 4a. Launch CPU Fallback  Version
-    number_cpu_kernel_launches++;
-    // Draw host executor
-    cppuddle::executor_recycling::executor_interface<
-        host_executor_t,
-        cppuddle::executor_recycling::round_robin_pool_impl<host_executor_t>>
-        executor(gpu_id); // Wrapper that draws executor from the pool
+  static const char aggregation_region_name[] = "vector_add_aggregation";
+  auto kernel_done_future = cppuddle::kernel_aggregation::aggregation_region<
+      aggregation_region_name, device_executor_t,
+      void>(max_kernels_fused, [&](auto slice_id, auto number_slices,
+                   auto &aggregation_executor) {
+    cppuddle::kernel_aggregation::allocator_slice<float_t, host_allocator_t,
+                                                  device_executor_t>
+        alloc_host = aggregation_executor
+                         .template make_allocator<float_t, host_allocator_t>();
+    assert(number_slices >= 1);
+    assert(number_slices < max_kernels_fused);
 
-    // Launch
-    kernel_add(static_cast<host_executor_t&>(executor), entries_per_task, host_a, host_b, host_c);
-    
-    // Sync kernel
-    static_cast<host_executor_t&>(executor).instance().fence();
+    if (aggregation_executor.sync_aggregation_slices()) {
+        // Only executed once per team
+        number_aggregated_kernel_launches++;
+    }
+    // Executed by each team member
+    number_kernel_launches++;
+    // 1. Create recycled Kokkos host views
+    aggregated_host_view_t host_a(alloc_host, entries_per_task * max_kernels_fused);
+    aggregated_host_view_t host_b(alloc_host, entries_per_task * max_kernels_fused);
+    aggregated_host_view_t host_c(alloc_host, entries_per_task * max_kernels_fused);
 
-  } else {
-    number_gpu_kernel_launches++;
-    // 4b. Create per_task device-side views (using recylced device memory)
-    // and draw GPU executor from CPPuddle executor pool
-    // Draw host device
-    cppuddle::executor_recycling::executor_interface<
-        device_executor_t,
-        cppuddle::executor_recycling::round_robin_pool_impl<device_executor_t>>
-        executor(gpu_id); // Wrapper that draws executor from the pool
+    auto [host_a_slice, host_b_slice, host_c_slice] =
+        cppuddle::kernel_aggregation::map_views_to_slice(
+            aggregation_executor, host_a, host_b, host_c);
 
-    recycling_device_view_t device_a(entries_per_task);
-    recycling_device_view_t device_b(entries_per_task);
-    recycling_device_view_t device_c(entries_per_task);
+    // 2. Host-side preprocessing (usually: communication, here fill dummy
+    // input)
+    for (size_t i = 0; i < entries_per_task; i++) {
+      host_a_slice[i] = 1.0;
+      host_b_slice[i] = 2.0;
+    }
+
+    cppuddle::kernel_aggregation::allocator_slice<float_t, device_allocator_t,
+                                                  device_executor_t>
+        alloc_device = aggregation_executor
+                         .template make_allocator<float_t, device_allocator_t>();
+    aggregated_device_view_t device_a(alloc_device, entries_per_task * max_kernels_fused);
+    aggregated_device_view_t device_b(alloc_device, entries_per_task * max_kernels_fused);
+    aggregated_device_view_t device_c(alloc_device, entries_per_task * max_kernels_fused);
 
     // 4c. Launch data transfers and kernel
-    Kokkos::deep_copy(executor.interface.instance(), device_a, host_a);
-    Kokkos::deep_copy(executor.interface.instance(), device_b, host_b);
+    cppuddle::kernel_aggregation::aggregated_deep_copy(aggregation_executor,
+                                                       device_a, host_a);
+    cppuddle::kernel_aggregation::aggregated_deep_copy(aggregation_executor,
+                                                       device_b, host_b);
 
-    kernel_add(static_cast<device_executor_t &>(executor), entries_per_task,
-               device_a, device_b, device_c);
-
-    auto transfer_fut = hpx::kokkos::deep_copy_async(
-        executor.interface.instance(), host_c, device_c);
-    transfer_fut.get();
-  }
-
-  // 5. Host-side postprocessing (usually: communication, here: check
-  // correctness)
-  for (size_t i = 0; i < entries_per_task; i++) {
-    if (host_c[i] != 1.0 + 2.0) {
-      std::cerr << "Task " << task_id << " contained wrong results!!"
-                << std::endl;
-      break;
+    if (aggregation_executor.sync_aggregation_slices()) {
+      kernel_add(aggregation_executor.get_underlying_executor(),
+                 entries_per_task, device_a, device_b, device_c);
     }
-  }
+
+    auto transfer_fut =
+        cppuddle::kernel_aggregation::aggregrated_deep_copy_async<device_executor_t>(
+            aggregation_executor, host_c, device_c);
+    transfer_fut.get();
+
+    // 5. Host-side postprocessing (usually: communication, here: check
+    // correctness)
+    for (size_t i = 0; i < entries_per_task; i++) {
+      if (host_c[i] != 1.0 + 2.0) {
+        std::cerr << "Task " << task_id << " contained wrong results!!"
+                  << std::endl;
+        break;
+      }
+    }
+  });
+  kernel_done_future.get();
 }
 
 //=================================================================================================
@@ -238,8 +262,9 @@ hpx::future<void>
 build_task_graph(const size_t number_repetitions, const size_t number_tasks,
                  const size_t entries_per_task, const bool in_order_repetitions,
                  const size_t max_queue_length, const size_t gpu_id,
-                 std::atomic<size_t> &number_cpu_kernel_launches,
-                 std::atomic<size_t> &number_gpu_kernel_launches) {
+                 const size_t max_kernels_fused,
+                 std::atomic<size_t> &number_aggregated_kernel_launches,
+                 std::atomic<size_t> &number_kernel_launches) {
   // Launch tasks
   hpx::shared_future<void> previous_iteration_fut = hpx::make_ready_future<void>();
   std::vector<hpx::future<void>> repetition_futs(number_repetitions);
@@ -250,19 +275,22 @@ build_task_graph(const size_t number_repetitions, const size_t number_tasks,
       if (in_order_repetitions) {
         futs[task_id] = previous_iteration_fut.then(
             [task_id, entries_per_task, max_queue_length, gpu_id,
-             &number_cpu_kernel_launches,
-             &number_gpu_kernel_launches](auto &&fut) {
+             max_kernels_fused, &number_aggregated_kernel_launches,
+             &number_kernel_launches](auto &&fut) {
               launch_gpu_kernel_task(
                   task_id, entries_per_task, max_queue_length, gpu_id,
-                  number_cpu_kernel_launches, number_gpu_kernel_launches);
+                  max_kernels_fused, number_aggregated_kernel_launches,
+                  number_kernel_launches);
             });
       } else {
         futs[task_id] = hpx::async([task_id, entries_per_task, max_queue_length,
-                                    gpu_id, &number_cpu_kernel_launches,
-                                    &number_gpu_kernel_launches]() {
+                                    gpu_id, max_kernels_fused,
+                                    &number_aggregated_kernel_launches,
+                                    &number_kernel_launches]() {
           launch_gpu_kernel_task(task_id, entries_per_task, max_queue_length,
-                                 gpu_id, number_cpu_kernel_launches,
-                                 number_gpu_kernel_launches);
+                                 gpu_id, max_kernels_fused,
+                                 number_aggregated_kernel_launches,
+                                 number_kernel_launches);
         });
       }
     }
@@ -283,24 +311,24 @@ build_task_graph(const size_t number_repetitions, const size_t number_tasks,
   // Schedule final output task to run once all other tasks are done and return future
   if (in_order_repetitions) {
     return previous_iteration_fut
-        .then([&number_cpu_kernel_launches,
-               &number_gpu_kernel_launches](auto &&fut) {
-          hpx::cout << "All tasks are done! [in-order repetitions version]" << std::endl;
-          hpx::cout << " => " << number_gpu_kernel_launches
-                    << " kernels were run on the GPU" << std::endl;
-          hpx::cout << " => " << number_cpu_kernel_launches
-                    << " kernels were using the CPU fallback" << std::endl
+        .then([&number_aggregated_kernel_launches,
+               &number_kernel_launches](auto &&fut) {
+          hpx::cout << "All tasks are done! [out-of-order repetitions version]" << std::endl;
+          hpx::cout << " => " << number_kernel_launches
+                    << " were scheduled (before kernel fusion)" << std::endl;
+          hpx::cout << " => " << number_aggregated_kernel_launches
+                    << " fused kernels were launched" << std::endl
                     << std::endl;
         });
   } else {
     return hpx::when_all(repetition_futs)
-        .then([&number_cpu_kernel_launches,
-               &number_gpu_kernel_launches](auto &&fut) {
+        .then([&number_aggregated_kernel_launches,
+               &number_kernel_launches](auto &&fut) {
           hpx::cout << "All tasks are done! [out-of-order repetitions version]" << std::endl;
-          hpx::cout << " => " << number_gpu_kernel_launches
-                    << " kernels were run on the GPU" << std::endl;
-          hpx::cout << " => " << number_cpu_kernel_launches
-                    << " kernels were using the CPU fallback" << std::endl
+          hpx::cout << " => " << number_kernel_launches
+                    << " were scheduled (before kernel fusion)" << std::endl;
+          hpx::cout << " => " << number_aggregated_kernel_launches
+                    << " fused kernels were launched" << std::endl
                     << std::endl;
         });
   }
@@ -340,7 +368,7 @@ void init_executor_pool_and_polling(const size_t number_gpu_executors,
 bool process_cli_options(int argc, char *argv[], size_t &entries_per_task,
                          size_t &number_tasks, bool &in_order_repetitions,
                          size_t &number_repetitions, size_t &number_gpu_executors,
-                         size_t &max_queue_length) {
+                         size_t &max_queue_length, size_t &max_kernels_fused) {
   try {
     boost::program_options::options_description desc{"Options"};
     desc.add_options()("help", "Help screen")(
@@ -368,7 +396,11 @@ bool process_cli_options(int argc, char *argv[], size_t &entries_per_task,
         "max_queue_length_per_executor",
         boost::program_options::value<size_t>(&max_queue_length)
             ->default_value(5),
-        "Maximum numbers of kernels queued per GPU executor");
+        "Maximum numbers of kernels queued per GPU executor")(
+        "max_kernels_fused",
+        boost::program_options::value<size_t>(&max_kernels_fused)
+            ->default_value(4),
+        "The maximum amount of kernels being fused together (keep below 128 ideally)");
 
     boost::program_options::variables_map vm;
     boost::program_options::parsed_options options =
@@ -391,6 +423,7 @@ bool process_cli_options(int argc, char *argv[], size_t &entries_per_task,
                 << " --in_order_repetitions = " << in_order_repetitions << std::endl
                 << " --number_gpu_executors = " << number_gpu_executors << std::endl
                 << " --max_queue_length_per_executor = " << max_queue_length << std::endl
+                << " --max_kernels_fused = " << max_kernels_fused << std::endl
                 << " --hpx:threads = " << hpx::get_os_thread_count()
                 << std::endl << std::endl;
     } else {
@@ -410,8 +443,8 @@ int hpx_main(int argc, char *argv[]) {
   // Init/Finalize Kokkos alternative using RAII:
   /* hpx::kokkos::ScopeGuard g(argc, argv); */
   // Launch counters
-  std::atomic<size_t> number_cpu_kernel_launches = 0;
-  std::atomic<size_t> number_gpu_kernel_launches = 0;
+  std::atomic<size_t> number_aggregated_kernel_launches = 0;
+  std::atomic<size_t> number_kernel_launches = 0;
 
   // Runtime options
   size_t entries_per_task = 1024;
@@ -421,10 +454,11 @@ int hpx_main(int argc, char *argv[]) {
   size_t max_queue_length = 5;
   size_t number_gpu_executors = 1;
   size_t number_cpu_executors = 128;
+  size_t max_kernels_fused = 4;
   size_t gpu_id = 0;
   if(!process_cli_options(argc, argv, entries_per_task, number_tasks,
                       in_order_repetitions, number_repetitions,
-                      number_gpu_executors, max_queue_length)) {
+                      number_gpu_executors, max_queue_length, max_kernels_fused)) {
     return hpx::finalize(); // problem with CLI parameters detected -> exiting..
   }
 
@@ -439,8 +473,8 @@ int hpx_main(int argc, char *argv[]) {
   hpx::cout << "Start launching tasks..." << std::endl;
   auto all_tasks_done_fut =
       build_task_graph(number_repetitions, number_tasks, entries_per_task,
-                       in_order_repetitions, max_queue_length, gpu_id,
-                       number_cpu_kernel_launches, number_gpu_kernel_launches);
+                       in_order_repetitions, max_queue_length, gpu_id, max_kernels_fused,
+                       number_aggregated_kernel_launches, number_kernel_launches);
   hpx::cout << "All tasks launched asynchronously!" << std::endl; 
   // Only continue once all tasks are done!
   all_tasks_done_fut.get();

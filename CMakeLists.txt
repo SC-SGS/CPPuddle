@@ -272,6 +272,14 @@ if (CPPUDDLE_WITH_TESTS)
               SOURCES
               examples/recycling-with-hpx-kokkos.cpp
               )
+         add_hpx_executable(
+              kernel-aggregation-with-hpx-kokkos
+              DEPENDENCIES
+              Boost::boost Boost::program_options Kokkos::kokkos HPXKokkos::hpx_kokkos HPX::hpx buffer_manager stream_manager
+              COMPONENT_DEPENDENCIES iostreams
+              SOURCES
+              examples/kernel-aggregation-with-hpx-kokkos.cpp
+              )
       endif()
   endif()
 endif()
