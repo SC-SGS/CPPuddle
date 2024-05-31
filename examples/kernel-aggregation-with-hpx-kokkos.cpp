@@ -130,19 +130,26 @@ using host_executor_t = hpx::kokkos::hpx_executor;
 // kernel with a Kokkos::parallel_for
 template <typename executor_t, typename view_t>
 void kernel_add(executor_t &executor, const size_t entries_per_task,
-                const view_t &input_a, const view_t &input_b, view_t &output_c)
-{
+                const size_t number_slices, const size_t max_kernels_fused,
+                const view_t &input_a, const view_t &input_b,
+                view_t &output_c) {
   // Define exeuction policy
   auto execution_policy = Kokkos::Experimental::require(
       Kokkos::RangePolicy<decltype(executor.instance())>(
-          executor.instance(), 0, entries_per_task),
+          executor.instance(), 0, entries_per_task * number_slices),
       Kokkos::Experimental::WorkItemProperty::HintLightWeight);
 
   // Run Kernel with execution policy (and give it some name ideally)
   Kokkos::parallel_for(
       "sample vector add kernel", execution_policy,
       KOKKOS_LAMBDA(size_t index) {
-        output_c[index] = input_a[index] + input_b[index];
+        const size_t slice_id = index / entries_per_task;
+        const size_t entry_index = index % entries_per_task;
+        auto [a_slice, b_slice, c_slice] =
+            cppuddle::kernel_aggregation::map_views_to_slice(slice_id, max_kernels_fused, input_a,
+                                                             input_b, output_c);
+
+        c_slice[entry_index] = a_slice[entry_index] + b_slice[entry_index];
       });
 }
 
@@ -182,10 +189,7 @@ void launch_gpu_kernel_task(
       aggregation_region_name, device_executor_t,
       void>(max_kernels_fused, [&](auto slice_id, auto number_slices,
                    auto &aggregation_executor) {
-    cppuddle::kernel_aggregation::allocator_slice<float_t, host_allocator_t,
-                                                  device_executor_t>
-        alloc_host = aggregation_executor
-                         .template make_allocator<float_t, host_allocator_t>();
+    auto alloc_host = aggregation_executor. template make_allocator<float_t, host_allocator_t>();
     assert(number_slices >= 1);
     assert(number_slices < max_kernels_fused);
 
@@ -211,11 +215,9 @@ void launch_gpu_kernel_task(
       host_b_slice[i] = 2.0;
     }
 
-    cppuddle::kernel_aggregation::allocator_slice<float_t, device_allocator_t,
-                                                  device_executor_t>
-        alloc_device = aggregation_executor
-                         .template make_allocator<float_t, device_allocator_t>();
-    aggregated_device_view_t device_a(alloc_device, entries_per_task * max_kernels_fused);
+    auto alloc_device = aggregation_executor. template make_allocator<float_t, device_allocator_t>();
+    aggregated_device_view_t device_a(alloc_device,
+                                      entries_per_task * max_kernels_fused);
     aggregated_device_view_t device_b(alloc_device, entries_per_task * max_kernels_fused);
     aggregated_device_view_t device_c(alloc_device, entries_per_task * max_kernels_fused);
 
@@ -225,20 +227,20 @@ void launch_gpu_kernel_task(
     cppuddle::kernel_aggregation::aggregated_deep_copy(aggregation_executor,
                                                        device_b, host_b);
 
-    if (aggregation_executor.sync_aggregation_slices()) {
+    if (aggregation_executor.sync_aggregation_slices()) { // Only launch one per team
       kernel_add(aggregation_executor.get_underlying_executor(),
-                 entries_per_task, device_a, device_b, device_c);
+                 entries_per_task, number_slices, max_kernels_fused, device_a, device_b, device_c);
     }
 
     auto transfer_fut =
-        cppuddle::kernel_aggregation::aggregrated_deep_copy_async<device_executor_t>(
-            aggregation_executor, host_c, device_c);
+        cppuddle::kernel_aggregation::aggregrated_deep_copy_async<
+            device_executor_t>(aggregation_executor, host_c, device_c);
     transfer_fut.get();
 
     // 5. Host-side postprocessing (usually: communication, here: check
     // correctness)
     for (size_t i = 0; i < entries_per_task; i++) {
-      if (host_c[i] != 1.0 + 2.0) {
+      if (host_c_slice[i] != 1.0 + 2.0) {
         std::cerr << "Task " << task_id << " contained wrong results!!"
                   << std::endl;
         break;
