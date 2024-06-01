@@ -251,6 +251,38 @@ install(
 install(FILES cppuddle-config.cmake DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/cmake/CPPuddle/)
 install(EXPORT CPPuddle NAMESPACE CPPuddle:: DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/cmake/CPPuddle/)
 
+#Boost::boost Boost::program_options HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager stream_manager
+if (CPPUDDLE_WITH_TESTS)
+  if (CPPUDDLE_WITH_CUDA)
+     add_hpx_executable(
+          recycling-with-hpx-cuda
+          DEPENDENCIES
+          Boost::boost Boost::program_options HPX::hpx buffer_manager stream_manager
+          COMPONENT_DEPENDENCIES iostreams
+          SOURCES
+          examples/recycling-with-hpx-cuda.cu
+          )
+        
+      if (CPPUDDLE_WITH_KOKKOS)
+         add_hpx_executable(
+              recycling-with-hpx-kokkos
+              DEPENDENCIES
+              Boost::boost Boost::program_options Kokkos::kokkos HPXKokkos::hpx_kokkos HPX::hpx buffer_manager stream_manager
+              COMPONENT_DEPENDENCIES iostreams
+              SOURCES
+              examples/recycling-with-hpx-kokkos.cpp
+              )
+         add_hpx_executable(
+              kernel-aggregation-with-hpx-kokkos
+              DEPENDENCIES
+              Boost::boost Boost::program_options Kokkos::kokkos HPXKokkos::hpx_kokkos HPX::hpx buffer_manager stream_manager
+              COMPONENT_DEPENDENCIES iostreams
+              SOURCES
+              examples/kernel-aggregation-with-hpx-kokkos.cpp
+              )
+      endif()
+  endif()
+endif()
 #------------------------------------------------------------------------------------------------------------
 # Define cmake targets for all tests/example executables
 
