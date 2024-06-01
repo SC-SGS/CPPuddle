@@ -454,7 +454,7 @@ bool process_cli_options(int argc, char *argv[], size_t &entries_per_task,
       return false;
     }
 
-    std::cout << "CPPuddle Recycling Sample (Vector-Add / CUDA edition)" << std::endl;
+    std::cout << "CPPuddle Aggregation Sample (Vector-Add / Kokkos edition)" << std::endl;
     std::cout << "=====================================================" << std::endl;
     if (vm.count("help") == 0u) {
       hpx::cout << "Running with parameters:" << std::endl

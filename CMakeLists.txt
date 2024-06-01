@@ -255,12 +255,12 @@ install(EXPORT CPPuddle NAMESPACE CPPuddle:: DESTINATION ${CMAKE_INSTALL_PREFIX}
 if (CPPUDDLE_WITH_TESTS)
   if (CPPUDDLE_WITH_CUDA)
      add_hpx_executable(
-          cuda_vector_add
+          recycling-with-hpx-cuda
           DEPENDENCIES
           Boost::boost Boost::program_options HPX::hpx buffer_manager stream_manager
           COMPONENT_DEPENDENCIES iostreams
           SOURCES
-          examples/cuda_vector_add.cu
+          examples/recycling-with-hpx-cuda.cu
           )
         
       if (CPPUDDLE_WITH_KOKKOS)
