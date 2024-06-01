@@ -2,7 +2,7 @@ name: ctest
 
 on: 
   push:
-  pull request: # build on PRs -- asks maintainers for approval before running on external PRs
+  pull_request: # build on PRs -- asks maintainers for approval before running on external PRs
     branches:
       - master
   workflow_dispatch: # add manual trigger for the workflow
