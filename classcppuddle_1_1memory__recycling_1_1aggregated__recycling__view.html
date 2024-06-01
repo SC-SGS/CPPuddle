@@ -113,7 +113,7 @@ Public Member Functions</h2></td></tr>
 <div class="textblock"><h3>template&lt;typename kokkos_type, typename alloc_type, typename element_type&gt;<br />
 class cppuddle::memory_recycling::aggregated_recycling_view&lt; kokkos_type, alloc_type, element_type &gt;</h3>
 
-<p>Kokkos View that automatically uses a recycling allocator using alloc_type as an underlying allocator. Must be passed an existing allocator object (which should be an allocator_slice from the kernel aggregation functionality) </p>
+<p>Kokkos View that automatically uses a recycling allocator using alloc_type as an underlying allocator. Must be passed an existing allocator object (which should be an allocator_slice from the kernel aggregation functionality) Requires the underlying Kokkos View (kokkos_type) to be a View using the MemoryUnmanaged trait! </p>
 </div><h2 class="groupheader">Member Typedef Documentation</h2>
 <a id="af7a8b650be6490c9b084b65bcd7610fc"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#af7a8b650be6490c9b084b65bcd7610fc">&#9670;&nbsp;</a></span>view_type</h2>
@@ -318,7 +318,7 @@ template&lt;typename kokkos_type , typename alloc_type , typename element_type &
 </div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
-Generated on Wed May 22 2024 15:35:07 for CPPuddle by&#160;<a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.1
+Generated on Sat Jun 1 2024 18:30:15 for CPPuddle by&#160;<a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.1
 </small></address>
 </body>
 </html>
