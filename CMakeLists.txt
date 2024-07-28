@@ -998,7 +998,11 @@ if (CPPUDDLE_WITH_TESTS)
         )
 
 
+      # Test examples
+      add_test(kernel_aggregation_with_hpx_kokkos_example.run kernel-aggregation-with-hpx-kokkos )
+      add_test(recycling_with_hpx_kokkos_example.run recycling-with-hpx-kokkos )
       endif() # end with KOKKOS
+    add_test(recycling_with_hpx_cuda_example.run recycling-with-hpx-cuda )
     endif() # end with CUDA
   endif() # end with hpx
 endif() # end with tests
