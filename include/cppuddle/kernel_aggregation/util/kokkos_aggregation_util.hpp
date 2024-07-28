@@ -21,6 +21,7 @@
 #include <hpx/kokkos.hpp>
 
 #include <cppuddle/executor_recycling/executor_pools_interface.hpp>
+#include <cppuddle/memory_recycling/util/recycling_kokkos_view.hpp>
 #include <aggregation_manager.hpp>
 #ifdef __NVCC__
 #include <cuda/std/tuple>
@@ -190,6 +191,13 @@ hpx::shared_future<void> aggregrated_deep_copy_async(
   return agg_exec.wrap_async(launch_copy_lambda, target, source,
                              agg_exec.get_underlying_executor());
 }
+
+template <typename kokkos_view_t, typename alloc_t, typename data_t, typename executor_t>
+using aggregated_recycling_view = cppuddle::memory_recycling::detail::aggregated_recycling_view<
+        kokkos_view_t,
+        cppuddle::kernel_aggregation::allocator_slice<data_t, alloc_t,
+                                                      executor_t>,
+        data_t>;
 
 } // namespace kernel_aggregation
 } // namespace cppuddle

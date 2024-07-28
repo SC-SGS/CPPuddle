@@ -93,6 +93,8 @@ using host_allocator_t = cppuddle::memory_recycling::recycle_allocator_sycl_host
 #else
 #error "Example assumes both a host and a device Kokkos execution space are available"
 #endif
+
+
 // Plug together the defined Kokkos views with the recycling CPPuddle allocators
 // This yields a new type that can be used just like a normal Kokkos View but gets its memory from 
 // CPPuddle.
@@ -103,17 +105,11 @@ using recycling_host_view_t =
     cppuddle::memory_recycling::recycling_view<kokkos_host_view_t,
                                                host_allocator_t, float_t>;
 using aggregated_device_view_t =
-    cppuddle::memory_recycling::aggregated_recycling_view<
-        kokkos_device_view_t,
-        cppuddle::kernel_aggregation::allocator_slice<
-            float_t, device_allocator_t, device_executor_t>,
-        float_t>;
+    cppuddle::kernel_aggregation::aggregated_recycling_view<
+        kokkos_device_view_t, device_allocator_t, float_t, device_executor_t>;
 using aggregated_host_view_t =
-    cppuddle::memory_recycling::aggregated_recycling_view<
-        kokkos_host_view_t,
-        cppuddle::kernel_aggregation::allocator_slice<float_t, host_allocator_t,
-                                                      device_executor_t>,
-        float_t>;
+    cppuddle::kernel_aggregation::aggregated_recycling_view<
+        kokkos_host_view_t, host_allocator_t, float_t, device_executor_t>;
 
 // Run host kernels on HPX execution space:
 using host_executor_t = hpx::kokkos::hpx_executor;
