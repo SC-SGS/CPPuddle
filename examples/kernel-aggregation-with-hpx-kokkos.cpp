@@ -93,27 +93,15 @@ using host_allocator_t = cppuddle::memory_recycling::recycle_allocator_sycl_host
 #else
 #error "Example assumes both a host and a device Kokkos execution space are available"
 #endif
-// Plug together the defined Kokkos views with the recycling CPPuddle allocators
-// This yields a new type that can be used just like a normal Kokkos View but gets its memory from 
-// CPPuddle.
-using recycling_device_view_t =
-    cppuddle::memory_recycling::recycling_view<kokkos_device_view_t,
-                                               device_allocator_t, float_t>;
-using recycling_host_view_t =
-    cppuddle::memory_recycling::recycling_view<kokkos_host_view_t,
-                                               host_allocator_t, float_t>;
-using aggregated_device_view_t =
-    cppuddle::memory_recycling::aggregated_recycling_view<
-        kokkos_device_view_t,
-        cppuddle::kernel_aggregation::allocator_slice<
-            float_t, device_allocator_t, device_executor_t>,
-        float_t>;
-using aggregated_host_view_t =
-    cppuddle::memory_recycling::aggregated_recycling_view<
-        kokkos_host_view_t,
-        cppuddle::kernel_aggregation::allocator_slice<float_t, host_allocator_t,
-                                                      device_executor_t>,
-        float_t>;
+/* // Plug together the defined Kokkos views with the recycling CPPuddle allocators */
+/* // This yields a new type that can be used just like a normal Kokkos View but gets its memory from */ 
+/* // CPPuddle. */
+/* using recycling_device_view_t = */
+/*     cppuddle::memory_recycling::recycling_view<kokkos_device_view_t, */
+/*                                                device_allocator_t, float_t>; */
+/* using recycling_host_view_t = */
+/*     cppuddle::memory_recycling::recycling_view<kokkos_host_view_t, */
+/*                                                host_allocator_t, float_t>; */
 
 // Run host kernels on HPX execution space:
 using host_executor_t = hpx::kokkos::hpx_executor;
@@ -225,6 +213,16 @@ void launch_gpu_kernel_task(
     // 1. Create recycled Kokkos host views 
     // 1a) obtain aggregated host allocator from aggregation executor
     auto alloc_host = aggregation_executor. template make_allocator<float_t, host_allocator_t>();
+    using aggregated_host_view_t = cppuddle::memory_recycling::aggregated_recycling_view<
+        kokkos_host_view_t, decltype(alloc_host), float_t>;
+    // is the same typedef as the more verbose:
+    /* using aggregated_host_view_t = */
+    /*     cppuddle::memory_recycling::aggregated_recycling_view< */
+    /*         kokkos_host_view_t, */
+    /*         cppuddle::kernel_aggregation::allocator_slice< */
+    /*             float_t, host_allocator_t, device_executor_t>, */
+    /*         float_t>; */
+
     // 1b) create aggregated views (shared by all team members, hence larger than entries_per_task)
     aggregated_host_view_t host_a(alloc_host, entries_per_task * max_kernels_fused);
     aggregated_host_view_t host_b(alloc_host, entries_per_task * max_kernels_fused);
@@ -244,7 +242,18 @@ void launch_gpu_kernel_task(
     // 3 Create subviews
     // 3a) obtain aggregated device allocator from aggregation executor
     auto alloc_device = aggregation_executor. template make_allocator<float_t, device_allocator_t>();
-    // 3b) create aggregated views (shared by all team members, hence larger than entries_per_task)
+    using aggregated_device_view_t = cppuddle::memory_recycling::aggregated_recycling_view<
+        kokkos_device_view_t, decltype(alloc_device), float_t>;
+    // is the same typedef as the more verbose:
+    /* using aggregated_device_view_t = */
+    /*     cppuddle::memory_recycling::aggregated_recycling_view< */
+    /*         kokkos_device_view_t, */
+    /*         cppuddle::kernel_aggregation::allocator_slice< */
+    /*             float_t, device_allocator_t, device_executor_t>, */
+    /*         float_t>; */
+
+    // 3b) create aggregated views (shared by all team members, hence larger
+    // than entries_per_task)
     aggregated_device_view_t device_a(alloc_device,
                                       entries_per_task * max_kernels_fused);
     aggregated_device_view_t device_b(alloc_device, entries_per_task * max_kernels_fused);
