@@ -18,7 +18,6 @@
 
 namespace cppuddle {
 namespace memory_recycling {
-namespace detail{
 
 /// Convienience struct to delete the view once the reference counting
 /// reaches 0
@@ -95,7 +94,6 @@ public:
   ~aggregated_recycling_view() {}
 };
 
-} // namespace detail
 
 /// Kokkos View that automatically uses a recycling allocator using
 /// alloc_type as an underlying allocator
@@ -119,7 +117,7 @@ public:
             args...),
         total_elements(kokkos_type::required_allocation_size(args...) /
                        sizeof(element_type)),
-        data_ref_counter(this->data(), detail::view_deleter<element_type, alloc_type>(
+        data_ref_counter(this->data(), view_deleter<element_type, alloc_type>(
                                            alloc_type{}, total_elements)) {}
 
   template <typename... Args,
@@ -131,7 +129,7 @@ public:
             args...),
         total_elements(kokkos_type::required_allocation_size(args...) /
                        sizeof(element_type)),
-        data_ref_counter(this->data(), detail::view_deleter<element_type, alloc_type>(
+        data_ref_counter(this->data(), view_deleter<element_type, alloc_type>(
                                            alloc_type{device_id}, total_elements)) {}
 
   template <
@@ -144,7 +142,7 @@ public:
             layout),
         total_elements(kokkos_type::required_allocation_size(layout) /
                        sizeof(element_type)),
-        data_ref_counter(this->data(), detail::view_deleter<element_type, alloc_type>(
+        data_ref_counter(this->data(), view_deleter<element_type, alloc_type>(
                                            alloc_type{device_id}, total_elements)) {}
 
   recycling_view(

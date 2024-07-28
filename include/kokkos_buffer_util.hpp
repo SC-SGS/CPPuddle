@@ -17,8 +17,7 @@ template <typename kokkos_type, typename alloc_type, typename element_type>
 using aggregated_recycled_view [[deprecated(
     "Use aggregated_recycle_view from header recycling_kokkos_view.hpp "
     "instead")]] =
-    cppuddle::memory_recycling::detail::aggregated_recycling_view<
-        kokkos_type, alloc_type, element_type>;
+    cppuddle::memory_recycling::aggregated_recycling_view<kokkos_type, alloc_type, element_type>;
 
 template <typename kokkos_type, typename alloc_type, typename element_type>
 using recycled_view [[deprecated(
