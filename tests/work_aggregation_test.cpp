@@ -12,6 +12,7 @@
 
 #include <boost/program_options.hpp>
 
+#include "cppuddle/common/config.hpp"
 #include "cppuddle/memory_recycling/cuda_recycling_allocators.hpp"
 #include "cppuddle/memory_recycling/util/cuda_recycling_device_buffer.hpp"
 #include "cppuddle/executor_recycling/executor_pools_interface.hpp""
@@ -96,7 +97,7 @@ struct Dummy_Executor {
   }
 };
 
-namespace hpx { namespace parallel { namespace execution {
+namespace CPPUDDLE_HPX_EXECUTOR_SPECIALIZATION_NS {
     template <>
     struct is_one_way_executor<Dummy_Executor>
       : std::true_type
@@ -110,7 +111,7 @@ namespace hpx { namespace parallel { namespace execution {
     {
         // we support returning a waitable/future
     };
-}}}
+}
 
 //===============================================================================
 //===============================================================================

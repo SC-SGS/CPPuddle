@@ -67,4 +67,10 @@ inline size_t get_device_id(const size_t number_gpus) {
 
 } // end namespace cppuddle
 
+#if HPX_VERSION_FULL >= 0x011100
+#define CPPUDDLE_HPX_EXECUTOR_SPECIALIZATION_NS hpx::execution::experimental
+#else
+#define CPPUDDLE_HPX_EXECUTOR_SPECIALIZATION_NS hpx::parallel::execution
+#endif
+
 #endif
