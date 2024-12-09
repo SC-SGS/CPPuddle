@@ -1,6 +1,9 @@
 <map id="include/cppuddle/memory_recycling/detail/cuda_underlying_allocators.hpp" name="include/cppuddle/memory_recycling/detail/cuda_underlying_allocators.hpp">
-<area shape="rect" id="node1" title=" " alt="" coords="97,5,295,61"/>
-<area shape="rect" id="node2" title=" " alt="" coords="5,109,128,136"/>
-<area shape="rect" id="node3" title=" " alt="" coords="153,109,239,136"/>
-<area shape="rect" id="node4" title=" " alt="" coords="264,109,323,136"/>
+<area shape="rect" id="Node000001" title=" " alt="" coords="97,5,295,60"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,108,128,133"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="158,62,97,103,94,98,155,58"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="153,108,239,133"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="199,60,199,94,193,94,193,60"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="264,108,323,133"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="227,58,272,97,268,101,224,62"/>
 </map>

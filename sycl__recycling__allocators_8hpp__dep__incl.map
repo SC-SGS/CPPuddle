@@ -1,4 +1,5 @@
 <map id="include/cppuddle/memory_recycling/sycl_recycling_allocators.hpp" name="include/cppuddle/memory_recycling/sycl_recycling_allocators.hpp">
-<area shape="rect" id="node1" title=" " alt="" coords="5,5,196,61"/>
-<area shape="rect" id="node2" href="$sycl__buffer__util_8hpp.html" title=" " alt="" coords="29,109,173,151"/>
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,5,196,60"/>
+<area shape="rect" id="Node000002" href="$sycl__buffer__util_8hpp.html" title=" " alt="" coords="29,108,173,148"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="103,74,103,108,98,108,98,74"/>
 </map>

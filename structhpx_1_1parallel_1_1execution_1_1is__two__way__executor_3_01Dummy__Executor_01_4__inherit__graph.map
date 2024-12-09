@@ -1,4 +1,6 @@
 <map id="hpx::parallel::execution::is_two_way_executor&lt; Dummy_Executor &gt;" name="hpx::parallel::execution::is_two_way_executor&lt; Dummy_Executor &gt;">
-<area shape="rect" id="node1" title=" " alt="" coords="5,80,185,136"/>
-<area shape="rect" id="node2" title=" " alt="" coords="39,5,151,32"/>
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,79,185,133"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="39,5,151,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="90,44,90,79,84,79,84,44"/>
+<area shape="poly" id="edge2_Node000001_Node000002" title=" " alt="" coords="106,44,106,79,101,79,101,44"/>
 </map>

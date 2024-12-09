@@ -1,6 +1,10 @@
 <map id="include/cppuddle/memory_recycling/detail/hip_underlying_allocators.hpp" name="include/cppuddle/memory_recycling/detail/hip_underlying_allocators.hpp">
-<area shape="rect" id="node1" title=" " alt="" coords="77,5,275,61"/>
-<area shape="rect" id="node2" href="$hip__recycling__allocators_8hpp.html" title=" " alt="" coords="81,109,271,165"/>
-<area shape="rect" id="node3" href="$hip__recycling__device__buffer_8hpp.html" title=" " alt="" coords="5,213,208,269"/>
-<area shape="rect" id="node4" href="$hip__buffer__util_8hpp.html" title=" " alt="" coords="107,317,245,359"/>
+<area shape="rect" id="Node000001" title=" " alt="" coords="77,5,275,60"/>
+<area shape="rect" id="Node000002" href="$hip__recycling__allocators_8hpp.html" title=" " alt="" coords="81,108,271,163"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="179,74,179,108,173,108,173,74"/>
+<area shape="rect" id="Node000003" href="$hip__recycling__device__buffer_8hpp.html" title=" " alt="" coords="5,211,208,265"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="152,176,127,212,123,209,148,173"/>
+<area shape="rect" id="Node000004" href="$hip__buffer__util_8hpp.html" title=" " alt="" coords="107,313,245,353"/>
+<area shape="poly" id="edge4_Node000002_Node000004" title=" " alt="" coords="206,173,223,210,228,238,223,266,210,293,195,315,191,312,206,290,217,265,222,238,217,211,201,175"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="137,275,164,312,160,315,132,278"/>
 </map>

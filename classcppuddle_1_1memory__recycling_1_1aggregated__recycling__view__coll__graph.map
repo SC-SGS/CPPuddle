@@ -1,4 +1,5 @@
 <map id="cppuddle::memory_recycling::aggregated_recycling_view&lt; kokkos_type, alloc_type, element_type &gt;" name="cppuddle::memory_recycling::aggregated_recycling_view&lt; kokkos_type, alloc_type, element_type &gt;">
-<area shape="rect" id="node1" title=" " alt="" coords="5,80,216,151"/>
-<area shape="rect" id="node2" title=" " alt="" coords="59,5,162,32"/>
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,79,216,148"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="59,5,162,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="113,44,113,79,108,79,108,44"/>
 </map>

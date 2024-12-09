@@ -1,9 +1,11 @@
 var searchData=
 [
-  ['cppuddle_296',['cppuddle',['../namespacecppuddle.html',1,'']]],
-  ['detail_297',['detail',['../namespacecppuddle_1_1executor__recycling_1_1detail.html',1,'cppuddle::executor_recycling::detail'],['../namespacecppuddle_1_1kernel__aggregation_1_1detail.html',1,'cppuddle::kernel_aggregation::detail'],['../namespacecppuddle_1_1memory__recycling_1_1detail.html',1,'cppuddle::memory_recycling::detail']]],
-  ['device_5fselection_298',['device_selection',['../namespacecppuddle_1_1memory__recycling_1_1device__selection.html',1,'cppuddle::memory_recycling']]],
-  ['executor_5frecycling_299',['executor_recycling',['../namespacecppuddle_1_1executor__recycling.html',1,'cppuddle']]],
-  ['kernel_5faggregation_300',['kernel_aggregation',['../namespacecppuddle_1_1kernel__aggregation.html',1,'cppuddle']]],
-  ['memory_5frecycling_301',['memory_recycling',['../namespacecppuddle_1_1memory__recycling.html',1,'cppuddle']]]
+  ['cppuddle_0',['cppuddle',['../namespacecppuddle.html',1,'']]],
+  ['cppuddle_3a_3aexecutor_5frecycling_1',['executor_recycling',['../namespacecppuddle_1_1executor__recycling.html',1,'cppuddle']]],
+  ['cppuddle_3a_3aexecutor_5frecycling_3a_3adetail_2',['detail',['../namespacecppuddle_1_1executor__recycling_1_1detail.html',1,'cppuddle::executor_recycling']]],
+  ['cppuddle_3a_3akernel_5faggregation_3',['kernel_aggregation',['../namespacecppuddle_1_1kernel__aggregation.html',1,'cppuddle']]],
+  ['cppuddle_3a_3akernel_5faggregation_3a_3adetail_4',['detail',['../namespacecppuddle_1_1kernel__aggregation_1_1detail.html',1,'cppuddle::kernel_aggregation']]],
+  ['cppuddle_3a_3amemory_5frecycling_5',['memory_recycling',['../namespacecppuddle_1_1memory__recycling.html',1,'cppuddle']]],
+  ['cppuddle_3a_3amemory_5frecycling_3a_3adetail_6',['detail',['../namespacecppuddle_1_1memory__recycling_1_1detail.html',1,'cppuddle::memory_recycling']]],
+  ['cppuddle_3a_3amemory_5frecycling_3a_3adevice_5fselection_7',['device_selection',['../namespacecppuddle_1_1memory__recycling_1_1device__selection.html',1,'cppuddle::memory_recycling']]]
 ];

@@ -1,6 +1,9 @@
 <map id="include/cppuddle/memory_recycling/detail/hip_underlying_allocators.hpp" name="include/cppuddle/memory_recycling/detail/hip_underlying_allocators.hpp">
-<area shape="rect" id="node1" title=" " alt="" coords="111,5,308,61"/>
-<area shape="rect" id="node2" title=" " alt="" coords="5,109,141,136"/>
-<area shape="rect" id="node3" title=" " alt="" coords="166,109,253,136"/>
-<area shape="rect" id="node4" title=" " alt="" coords="277,109,336,136"/>
+<area shape="rect" id="Node000001" title=" " alt="" coords="111,5,308,60"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,108,141,133"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="169,62,105,103,102,98,166,58"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="166,108,253,133"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="212,60,212,94,207,94,207,60"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="277,108,336,133"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="241,58,285,97,281,101,237,62"/>
 </map>

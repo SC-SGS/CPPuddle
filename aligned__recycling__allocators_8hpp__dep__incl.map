@@ -1,5 +1,7 @@
 <map id="include/cppuddle/memory_recycling/aligned_recycling_allocators.hpp" name="include/cppuddle/memory_recycling/aligned_recycling_allocators.hpp">
-<area shape="rect" id="node1" title=" " alt="" coords="81,5,288,61"/>
-<area shape="rect" id="node2" href="$aligned__buffer__util_8hpp.html" title=" " alt="" coords="5,109,172,151"/>
-<area shape="rect" id="node3" href="$allocator__aligned__test_8cpp.html" title=" " alt="" coords="197,109,367,151"/>
+<area shape="rect" id="Node000001" title=" " alt="" coords="81,5,288,60"/>
+<area shape="rect" id="Node000002" href="$aligned__buffer__util_8hpp.html" title=" " alt="" coords="5,108,172,148"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="149,72,110,110,106,106,146,68"/>
+<area shape="rect" id="Node000003" href="$allocator__aligned__test_8cpp.html" title=" " alt="" coords="197,108,367,148"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="224,68,264,106,261,110,220,71"/>
 </map>

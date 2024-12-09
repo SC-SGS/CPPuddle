@@ -1,6 +1,9 @@
 <map id="include/cppuddle/memory_recycling/util/recycling_kokkos_view.hpp" name="include/cppuddle/memory_recycling/util/recycling_kokkos_view.hpp">
-<area shape="rect" id="node1" title=" " alt="" coords="199,5,390,61"/>
-<area shape="rect" id="node2" href="$kokkos__buffer__util_8hpp.html" title=" " alt="" coords="5,109,168,151"/>
-<area shape="rect" id="node3" href="$allocator__kokkos__executor__for__loop__test_8cpp.html" title=" " alt="" coords="193,109,397,151"/>
-<area shape="rect" id="node4" href="$allocator__kokkos__test_8cpp.html" title=" " alt="" coords="421,109,587,151"/>
+<area shape="rect" id="Node000001" title=" " alt="" coords="199,5,390,60"/>
+<area shape="rect" id="Node000002" href="$kokkos__buffer__util_8hpp.html" title=" " alt="" coords="5,108,168,148"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="225,68,130,110,128,105,223,63"/>
+<area shape="rect" id="Node000003" href="$allocator__kokkos__executor__for__loop__test_8cpp.html" title=" " alt="" coords="193,108,397,148"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="297,74,297,108,292,108,292,74"/>
+<area shape="rect" id="Node000004" href="$allocator__kokkos__test_8cpp.html" title=" " alt="" coords="421,108,587,148"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="367,63,463,105,460,110,365,68"/>
 </map>

@@ -1,27 +1,62 @@
 <map id="include/cppuddle/memory_recycling/buffer_management_interface.hpp" name="include/cppuddle/memory_recycling/buffer_management_interface.hpp">
-<area shape="rect" id="node1" title=" " alt="" coords="1350,5,1574,61"/>
-<area shape="rect" id="node2" href="$buffer__manager_8hpp.html" title=" " alt="" coords="1179,228,1382,255"/>
-<area shape="rect" id="node4" href="$aligned__recycling__allocators_8hpp.html" title=" " alt="" coords="1957,109,2164,165"/>
-<area shape="rect" id="node7" href="$cuda__recycling__allocators_8hpp.html" title=" " alt="" coords="415,109,605,165"/>
-<area shape="rect" id="node15" href="$std__recycling__allocators_8hpp.html" title=" " alt="" coords="1367,109,1557,165"/>
-<area shape="rect" id="node19" href="$hip__recycling__allocators_8hpp.html" title=" " alt="" coords="2280,109,2471,165"/>
-<area shape="rect" id="node22" href="$sycl__recycling__allocators_8hpp.html" title=" " alt="" coords="2555,109,2745,165"/>
-<area shape="rect" id="node24" href="$recycling__kokkos__view_8hpp.html" title=" " alt="" coords="872,109,1063,165"/>
-<area shape="rect" id="node3" href="$cuda__buffer__util_8hpp.html" title=" " alt="" coords="591,317,741,359"/>
-<area shape="rect" id="node5" href="$aligned__buffer__util_8hpp.html" title=" " alt="" coords="2171,221,2337,262"/>
-<area shape="rect" id="node6" href="$allocator__aligned__test_8cpp.html" title=" " alt="" coords="1975,221,2146,262"/>
-<area shape="rect" id="node8" href="$cuda__recycling__device__buffer_8hpp.html" title="Contains a RAII wrappers for CUDA device buffers. Intended to be used with the recycling allocators b..." alt="" coords="232,213,447,269"/>
-<area shape="rect" id="node9" href="$stream__test_8hpp.html" title=" " alt="" coords="403,325,567,351"/>
-<area shape="rect" id="node11" href="$work__aggregation__cuda__triad_8cpp.html" title=" " alt="" coords="5,317,180,359"/>
-<area shape="rect" id="node12" href="$work__aggregation__test_8cpp.html" title=" " alt="" coords="204,317,379,359"/>
-<area shape="rect" id="node13" href="$allocator__kokkos__executor__for__loop__test_8cpp.html" title=" " alt="" coords="760,221,964,262"/>
-<area shape="rect" id="node14" href="$allocator__kokkos__test_8cpp.html" title=" " alt="" coords="988,221,1155,262"/>
-<area shape="rect" id="node10" href="$stream__test_8cpp.html" title=" " alt="" coords="403,407,566,433"/>
-<area shape="rect" id="node16" href="$allocator__hpx__test_8cpp.html" title=" " alt="" coords="1406,221,1553,262"/>
-<area shape="rect" id="node17" href="$allocator__test_8cpp.html" title=" " alt="" coords="1577,228,1752,255"/>
-<area shape="rect" id="node18" href="$work__aggregation__cpu__triad_8cpp.html" title=" " alt="" coords="1776,221,1951,262"/>
-<area shape="rect" id="node20" href="$hip__recycling__device__buffer_8hpp.html" title=" " alt="" coords="2413,213,2615,269"/>
-<area shape="rect" id="node21" href="$hip__buffer__util_8hpp.html" title=" " alt="" coords="2375,317,2514,359"/>
-<area shape="rect" id="node23" href="$sycl__buffer__util_8hpp.html" title=" " alt="" coords="2639,221,2783,262"/>
-<area shape="rect" id="node25" href="$kokkos__buffer__util_8hpp.html" title=" " alt="" coords="573,221,735,262"/>
+<area shape="rect" id="Node000001" title=" " alt="" coords="1350,5,1574,60"/>
+<area shape="rect" id="Node000002" href="$buffer__manager_8hpp.html" title=" " alt="" coords="1179,225,1382,251"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="1404,70,1379,88,1356,110,1332,140,1313,173,1288,226,1283,224,1308,170,1328,137,1352,106,1376,84,1401,65"/>
+<area shape="rect" id="Node000004" href="$aligned__recycling__allocators_8hpp.html" title=" " alt="" coords="1957,108,2164,163"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="1588,52,1957,114,1957,119,1587,58"/>
+<area shape="rect" id="Node000007" href="$cuda__recycling__allocators_8hpp.html" title=" " alt="" coords="415,108,605,163"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="1337,50,606,127,605,121,1336,45"/>
+<area shape="rect" id="Node000015" href="$hip__recycling__allocators_8hpp.html" title=" " alt="" coords="2280,108,2471,163"/>
+<area shape="poly" id="edge19_Node000001_Node000015" title=" " alt="" coords="1588,43,2176,105,2280,118,2279,124,2175,111,1588,49"/>
+<area shape="rect" id="Node000018" href="$std__recycling__allocators_8hpp.html" title=" " alt="" coords="1367,108,1557,163"/>
+<area shape="poly" id="edge23_Node000001_Node000018" title=" " alt="" coords="1465,74,1465,108,1459,108,1459,74"/>
+<area shape="rect" id="Node000022" href="$sycl__recycling__allocators_8hpp.html" title=" " alt="" coords="2555,108,2745,163"/>
+<area shape="poly" id="edge30_Node000001_Node000022" title=" " alt="" coords="1588,37,1987,61,2235,81,2484,105,2555,115,2554,120,2483,111,2235,86,1987,66,1588,42"/>
+<area shape="rect" id="Node000024" href="$recycling__kokkos__view_8hpp.html" title=" " alt="" coords="872,108,1063,163"/>
+<area shape="poly" id="edge32_Node000001_Node000024" title=" " alt="" coords="1337,62,1063,117,1062,112,1336,57"/>
+<area shape="rect" id="Node000003" href="$cuda__buffer__util_8hpp.html" title=" " alt="" coords="591,313,741,353"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="1222,256,1166,268,934,303,741,327,741,322,934,298,1166,263,1221,251"/>
+<area shape="rect" id="Node000005" href="$aligned__buffer__util_8hpp.html" title=" " alt="" coords="2171,218,2337,258"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="2124,167,2219,215,2216,220,2122,171"/>
+<area shape="rect" id="Node000006" href="$allocator__aligned__test_8cpp.html" title=" " alt="" coords="1975,218,2146,258"/>
+<area shape="poly" id="edge5_Node000004_Node000006" title=" " alt="" coords="2063,177,2063,218,2058,218,2058,177"/>
+<area shape="poly" id="edge13_Node000007_Node000003" title=" " alt="" coords="521,175,537,220,563,264,592,291,625,311,623,316,589,295,559,267,532,222,516,177"/>
+<area shape="rect" id="Node000008" href="$cuda__recycling__device__buffer_8hpp.html" title="Contains a RAII wrappers for CUDA device buffers. Intended to be used with the recycling allocators b..." alt="" coords="232,211,447,265"/>
+<area shape="poly" id="edge7_Node000007_Node000008" title=" " alt="" coords="455,172,385,213,383,208,453,167"/>
+<area shape="rect" id="Node000009" href="$stream__test_8hpp.html" title=" " alt="" coords="403,321,567,346"/>
+<area shape="poly" id="edge16_Node000007_Node000009" title=" " alt="" coords="507,177,489,321,484,320,502,176"/>
+<area shape="rect" id="Node000011" href="$work__aggregation__cuda__triad_8cpp.html" title=" " alt="" coords="5,313,180,353"/>
+<area shape="poly" id="edge17_Node000007_Node000011" title=" " alt="" coords="402,150,303,172,253,190,206,213,175,236,147,263,107,315,103,312,143,260,171,232,203,208,251,185,302,167,401,145"/>
+<area shape="rect" id="Node000012" href="$work__aggregation__test_8cpp.html" title=" " alt="" coords="204,313,379,353"/>
+<area shape="poly" id="edge18_Node000007_Node000012" title=" " alt="" coords="402,153,346,163,292,177,248,193,221,212,214,225,213,237,222,264,240,290,263,311,259,315,236,294,217,267,207,237,209,223,217,209,246,188,291,171,345,158,401,148"/>
+<area shape="rect" id="Node000013" href="$allocator__kokkos__executor__for__loop__test_8cpp.html" title=" " alt="" coords="760,218,964,258"/>
+<area shape="poly" id="edge14_Node000007_Node000013" title=" " alt="" coords="615,164,797,215,795,220,614,169"/>
+<area shape="rect" id="Node000014" href="$allocator__kokkos__test_8cpp.html" title=" " alt="" coords="988,218,1155,258"/>
+<area shape="poly" id="edge15_Node000007_Node000014" title=" " alt="" coords="619,148,788,173,976,208,1007,215,1005,221,975,213,787,178,619,153"/>
+<area shape="poly" id="edge8_Node000008_Node000003" title=" " alt="" coords="445,267,601,311,599,316,444,272"/>
+<area shape="poly" id="edge9_Node000008_Node000009" title=" " alt="" coords="393,270,468,318,465,323,390,275"/>
+<area shape="poly" id="edge11_Node000008_Node000011" title=" " alt="" coords="258,273,143,316,141,311,256,268"/>
+<area shape="poly" id="edge12_Node000008_Node000012" title=" " alt="" coords="322,279,303,315,299,312,317,276"/>
+<area shape="rect" id="Node000010" href="$stream__test_8cpp.html" title=" " alt="" coords="403,401,566,427"/>
+<area shape="poly" id="edge10_Node000009_Node000010" title=" " alt="" coords="487,360,487,401,482,401,482,360"/>
+<area shape="rect" id="Node000016" href="$hip__recycling__device__buffer_8hpp.html" title=" " alt="" coords="2413,211,2615,265"/>
+<area shape="poly" id="edge20_Node000015_Node000016" title=" " alt="" coords="2424,168,2479,208,2476,213,2421,173"/>
+<area shape="rect" id="Node000017" href="$hip__buffer__util_8hpp.html" title=" " alt="" coords="2375,313,2514,353"/>
+<area shape="poly" id="edge22_Node000015_Node000017" title=" " alt="" coords="2382,176,2389,219,2403,264,2416,290,2432,312,2427,315,2412,292,2398,266,2384,221,2377,177"/>
+<area shape="poly" id="edge21_Node000016_Node000017" title=" " alt="" coords="2488,278,2461,315,2457,312,2484,275"/>
+<area shape="poly" id="edge24_Node000018_Node000002" title=" " alt="" coords="1404,172,1303,228,1300,223,1402,167"/>
+<area shape="poly" id="edge26_Node000018_Node000013" title=" " alt="" coords="1353,154,1176,179,976,213,940,221,939,215,975,208,1175,174,1353,148"/>
+<area shape="poly" id="edge27_Node000018_Node000014" title=" " alt="" coords="1354,166,1168,213,1141,220,1139,215,1167,208,1353,161"/>
+<area shape="rect" id="Node000019" href="$allocator__hpx__test_8cpp.html" title=" " alt="" coords="1406,218,1553,258"/>
+<area shape="poly" id="edge25_Node000018_Node000019" title=" " alt="" coords="1472,176,1479,217,1473,218,1466,177"/>
+<area shape="rect" id="Node000020" href="$allocator__test_8cpp.html" title=" " alt="" coords="1577,225,1752,251"/>
+<area shape="poly" id="edge28_Node000018_Node000020" title=" " alt="" coords="1528,166,1643,223,1640,228,1526,171"/>
+<area shape="rect" id="Node000021" href="$work__aggregation__cpu__triad_8cpp.html" title=" " alt="" coords="1776,218,1951,258"/>
+<area shape="poly" id="edge29_Node000018_Node000021" title=" " alt="" coords="1571,160,1764,208,1792,215,1791,221,1763,213,1570,166"/>
+<area shape="rect" id="Node000023" href="$sycl__buffer__util_8hpp.html" title=" " alt="" coords="2639,218,2783,258"/>
+<area shape="poly" id="edge31_Node000022_Node000023" title=" " alt="" coords="2675,173,2702,216,2697,219,2671,176"/>
+<area shape="poly" id="edge34_Node000024_Node000013" title=" " alt="" coords="932,174,884,219,880,216,928,170"/>
+<area shape="poly" id="edge35_Node000024_Node000014" title=" " alt="" coords="1007,171,1053,216,1050,219,1003,174"/>
+<area shape="rect" id="Node000025" href="$kokkos__buffer__util_8hpp.html" title=" " alt="" coords="573,218,735,258"/>
+<area shape="poly" id="edge33_Node000024_Node000025" title=" " alt="" coords="874,169,714,220,712,215,872,164"/>
 </map>
