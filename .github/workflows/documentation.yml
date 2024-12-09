@@ -6,9 +6,7 @@ on:
     branches:
       - master
       - documentation
-  pull_request:
-    branches:
-      - master
+  workflow_dispatch:
 
 jobs:
   build-documentation:
