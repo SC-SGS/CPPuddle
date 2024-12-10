@@ -1,7 +1,7 @@
 <map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
-<area shape="rect" id="Node000000" title=" " alt="" coords="5,60,117,85"/>
-<area shape="rect" id="Node000001" href="$structhpx_1_1parallel_1_1execution_1_1is__one__way__executor_3_01Dummy__Executor_01_4.html" title=" " alt="" coords="165,5,345,60"/>
-<area shape="poly" id="edge3_Node000000_Node000001" title=" " alt="" coords="130,56,165,49,166,54,131,61"/>
-<area shape="rect" id="Node000002" href="$structhpx_1_1parallel_1_1execution_1_1is__two__way__executor_3_01Dummy__Executor_01_4.html" title=" " alt="" coords="165,84,345,139"/>
-<area shape="poly" id="edge4_Node000000_Node000002" title=" " alt="" coords="131,84,166,91,165,96,130,89"/>
+<area shape="rect" id="Node000000" title=" " alt="" coords="5,74,117,99"/>
+<area shape="rect" id="Node000001" href="$structCPPUDDLE__HPX__EXECUTOR__SPECIALIZATION__NS_1_1is__one__way__executor_3_01Dummy__Executor_01_4.html" title=" " alt="" coords="165,5,383,75"/>
+<area shape="poly" id="edge3_Node000000_Node000001" title=" " alt="" coords="130,69,164,61,166,67,131,74"/>
+<area shape="rect" id="Node000002" href="$structCPPUDDLE__HPX__EXECUTOR__SPECIALIZATION__NS_1_1is__two__way__executor_3_01Dummy__Executor_01_4.html" title=" " alt="" coords="165,99,383,168"/>
+<area shape="poly" id="edge4_Node000000_Node000002" title=" " alt="" coords="131,99,166,107,164,112,130,104"/>
 </map>

@@ -153,7 +153,13 @@ $(document).ready(function() { init_codefold(0); });
 <div class="line"><a id="l00068" name="l00068"></a><span class="lineno">   68</span>} <span class="comment">// end namespace cppuddle</span></div>
 </div>
 <div class="line"><a id="l00069" name="l00069"></a><span class="lineno">   69</span> </div>
-<div class="line"><a id="l00070" name="l00070"></a><span class="lineno">   70</span><span class="preprocessor">#endif</span></div>
+<div class="line"><a id="l00070" name="l00070"></a><span class="lineno">   70</span><span class="preprocessor">#if HPX_VERSION_FULL &gt;= 0x011100</span></div>
+<div class="line"><a id="l00071" name="l00071"></a><span class="lineno">   71</span><span class="preprocessor">#define CPPUDDLE_HPX_EXECUTOR_SPECIALIZATION_NS hpx::execution::experimental</span></div>
+<div class="line"><a id="l00072" name="l00072"></a><span class="lineno">   72</span><span class="preprocessor">#else</span></div>
+<div class="line"><a id="l00073" name="l00073"></a><span class="lineno"><a class="line" href="config_8hpp.html#a3efd29d4900802cbfc3c0124c5b11ad4">   73</a></span><span class="preprocessor">#define CPPUDDLE_HPX_EXECUTOR_SPECIALIZATION_NS hpx::parallel::execution</span></div>
+<div class="line"><a id="l00074" name="l00074"></a><span class="lineno">   74</span><span class="preprocessor">#endif</span></div>
+<div class="line"><a id="l00075" name="l00075"></a><span class="lineno">   75</span> </div>
+<div class="line"><a id="l00076" name="l00076"></a><span class="lineno">   76</span><span class="preprocessor">#endif</span></div>
 <div class="ttc" id="anamespacecppuddle_html"><div class="ttname"><a href="namespacecppuddle.html">cppuddle</a></div><div class="ttdef"><b>Definition</b> config.hpp:31</div></div>
 <div class="ttc" id="anamespacecppuddle_html_a30d088e8e90249e348bd711ab4e94570"><div class="ttname"><a href="namespacecppuddle.html#a30d088e8e90249e348bd711ab4e94570">cppuddle::get_device_id</a></div><div class="ttdeci">size_t get_device_id(const size_t number_gpus)</div><div class="ttdoc">Uses HPX thread information to determine which GPU should be used.</div><div class="ttdef"><b>Definition</b> config.hpp:59</div></div>
 <div class="ttc" id="anamespacecppuddle_html_a381bca91e0e6d0afd962534aa9433e88"><div class="ttname"><a href="namespacecppuddle.html#a381bca91e0e6d0afd962534aa9433e88">cppuddle::max_number_gpus</a></div><div class="ttdeci">constexpr size_t max_number_gpus</div><div class="ttdef"><b>Definition</b> config.hpp:52</div></div>

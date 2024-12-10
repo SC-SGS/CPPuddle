@@ -122,7 +122,7 @@ $(document).ready(function() { init_codefold(0); });
 <div class="line"><a id="l00036" name="l00036"></a><span class="lineno">   36</span> </div>
 <div class="line"><a id="l00037" name="l00037"></a><span class="lineno">   37</span>      std::lock_guard&lt;aggregation_mutex_t&gt; guard(instance()[gpu_id].pool_mutex);</div>
 <div class="line"><a id="l00038" name="l00038"></a><span class="lineno">   38</span>      assert(instance()[gpu_id].aggregation_executor_pool.empty());</div>
-<div class="line"><a id="l00039" name="l00039"></a><span class="lineno">   39</span>      <span class="keywordflow">for</span> (<span class="keywordtype">int</span> i = 0; i &lt; <a class="code hl_function" href="namespacecppuddle_1_1kernel__aggregation_1_1detail.html#a668f8fe3af3a55e5e4a05d1708ade60d">number_of_executors</a>; <a class="code hl_function" href="namespacecppuddle_1_1kernel__aggregation_1_1detail.html#a668f8fe3af3a55e5e4a05d1708ade60d">i</a>++) {</div>
+<div class="line"><a id="l00039" name="l00039"></a><span class="lineno">   39</span>      <span class="keywordflow">for</span> (<span class="keywordtype">int</span> i = 0; i &lt; number_of_executors; i++) {</div>
 <div class="line"><a id="l00040" name="l00040"></a><span class="lineno">   40</span>        instance()[gpu_id].aggregation_executor_pool.emplace_back(slices_per_executor,</div>
 <div class="line"><a id="l00041" name="l00041"></a><span class="lineno">   41</span>                                                        mode, gpu_id);</div>
 <div class="line"><a id="l00042" name="l00042"></a><span class="lineno">   42</span>      }</div>
