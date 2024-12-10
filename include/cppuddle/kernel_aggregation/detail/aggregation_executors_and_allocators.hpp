@@ -1039,9 +1039,9 @@ operator!=(allocator_slice<T, Host_Allocator, Executor> const &,
 
 
 
-namespace hpx { namespace parallel { namespace execution {
+namespace CPPUDDLE_HPX_EXECUTOR_SPECIALIZATION_NS {
    // TODO Unfortunately does not work that way! Create trait that works for Executor Slices with 
-   // compatible unlying executor types
+   // compatible underlying executor types
     /* template<typename E> */
     /* struct is_one_way_executor<typename aggregated_executor<E>::executor_slice> */
     /*   : std::true_type */
@@ -1064,6 +1064,6 @@ struct is_two_way_executor<
         hpx::cuda::experimental::cuda_executor>::executor_slice>
     : std::true_type {};
 #endif
-}}}
+}
 
 #endif

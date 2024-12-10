@@ -5,6 +5,7 @@
 #include <hpx/futures/future.hpp>
 #undef NDEBUG
 
+#include "cppuddle/common/config.hpp"
 #include "cppuddle/memory_recycling/std_recycling_allocators.hpp"
 #include "cppuddle/kernel_aggregation/kernel_aggregation_interface.hpp"
 
@@ -71,7 +72,7 @@ struct Dummy_Executor {
   }
 };
 
-namespace hpx { namespace parallel { namespace execution {
+namespace CPPUDDLE_HPX_EXECUTOR_SPECIALIZATION_NS {
     template <>
     struct is_one_way_executor<Dummy_Executor>
       : std::true_type
@@ -85,7 +86,7 @@ namespace hpx { namespace parallel { namespace execution {
     {
         // we support returning a waitable/future
     };
-}}}
+}
 
 
 //===============================================================================
