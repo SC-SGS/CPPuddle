@@ -21,6 +21,13 @@ pipeline {
     }
     stages {
         stage('checkout') {
+            steps {
+                            dir('CPPuddle') {
+                                sh '''
+                                    echo "test
+                                '''
+                            }
+            }
         }
         stage('build-and-test') {
             matrix {
