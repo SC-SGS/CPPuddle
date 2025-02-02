@@ -22,18 +22,6 @@ pipeline {
     stages {
         stage('checkout') {
             steps {
-                scmSkip(deleteBuild: false, skipPattern:'.*\\[ci skip\\].*')
-                script {
-		    buildbadge.setStatus('running')
-                }
-                dir('CPPuddle') {
-                    checkout scm
-                    sh '''
-                        git submodule update --init --recursive
-                        ./scripts/clean_dependencies.sh
-                        rm -rf build
-                    '''
-                }
             }
         }
         stage('build-and-test') {
