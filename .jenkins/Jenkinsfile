@@ -23,8 +23,12 @@ pipeline {
         stage('checkout') {
             steps {
                             dir('CPPuddle') {
+                                checkout scm
                                 sh '''
                                     echo "test"
+                                    git submodule update --init --recursive
+                                    ./scripts/clean_dependencies.sh
+                                    rm -rf build
                                 '''
                             }
             }
