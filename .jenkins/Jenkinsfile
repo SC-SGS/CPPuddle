@@ -21,8 +21,6 @@ pipeline {
     }
     stages {
         stage('checkout') {
-            steps {
-            }
         }
         stage('build-and-test') {
             matrix {
