@@ -24,7 +24,7 @@ pipeline {
             steps {
                             dir('CPPuddle') {
                                 sh '''
-                                    echo "test
+                                    echo "test"
                                 '''
                             }
             }
