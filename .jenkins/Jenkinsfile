@@ -22,15 +22,17 @@ pipeline {
     stages {
         stage('checkout') {
             steps {
-                            dir('CPPuddle') {
-                                checkout scm
-                                sh '''
-                                    echo "test"
-                                    git submodule update --init --recursive
-                                    ./scripts/clean_dependencies.sh
-                                    rm -rf build
-                                '''
-                            }
+              script {
+                  buildbadge.setStatus('running')
+              }
+              dir('CPPuddle') {
+                  checkout scm
+                  sh '''
+                      git submodule update --init --recursive
+                      ./scripts/clean_dependencies.sh
+                      rm -rf build
+                  '''
+              }
             }
         }
         stage('build-and-test') {
@@ -160,6 +162,9 @@ pipeline {
         success {
 	    script {
 	        buildbadge.setStatus('success')
+            sh '''
+                echo "Build succeded! Pipeline ${JOB_BASE_NAME} with build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "Jenkins CPPuddle: Build ${JOB_BASE_NAME}/${BUILD_NUMBER} succeded" "${MAINTAINER_MAIL}"
+            '''
 	    }
         }
         failure {
