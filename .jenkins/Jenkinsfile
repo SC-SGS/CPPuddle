@@ -162,26 +162,17 @@ pipeline {
         success {
 	    script {
 	        buildbadge.setStatus('success')
-            sh '''
-                echo "Build succeded! Pipeline ${JOB_BASE_NAME} with build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "Jenkins CPPuddle: Build ${JOB_BASE_NAME}/${BUILD_NUMBER} succeded" "${MAINTAINER_MAIL}"
-            '''
 	    }
         }
         failure {
 	    script {
 	        buildbadge.setStatus('failing')
 	    }
-            sh '''
-                echo "Build failed! Pipeline ${JOB_BASE_NAME} with build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "Jenkins CPPuddle: Build ${JOB_BASE_NAME}/${BUILD_NUMBER} failed" "${MAINTAINER_MAIL}"
-            '''
         }
         aborted {
 	    script {
 	        buildbadge.setStatus('aborted')
 	    }
-            sh '''
-                echo "Build aborted on pipeline ${JOB_BASE_NAME} with build ID ${BUILD_NUMBER} using GIT commit ${GIT_COMMIT}" | mail -s "Jenkins CPPuddle: Build ${JOB_BASE_NAME}/${BUILD_NUMBER} aborted" "${MAINTAINER_MAIL}"
-            '''
         }
     }
 }
