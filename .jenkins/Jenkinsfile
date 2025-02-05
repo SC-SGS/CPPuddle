@@ -73,7 +73,7 @@ pipeline {
                             dir('CPPuddle') {
                                 sh '''
                                     . /usr/local.nfs/Modules/latest/init/sh
-                                    module load cuda
+                                    module load cuda cmake
                                     ./scripts/build_dependencies.sh ${build_type} ${compiler}
                                 '''
                             }
@@ -84,7 +84,7 @@ pipeline {
                             dir('CPPuddle') {
                                 sh '''
                                     . /usr/local.nfs/Modules/latest/init/sh
-                                    module load cuda 
+                                    module load cuda cmake
                                     ./scripts/configure_build_directory.sh ${build_type} ${compiler}
                                     cd build/${compiler}-${build_type}
                                     make -j4
@@ -97,7 +97,7 @@ pipeline {
                             dir('CPPuddle') {
                                 sh '''
                                     . /usr/local.nfs/Modules/latest/init/sh
-                                    module load cuda
+                                    module load cuda cmake
                                     cd build/${compiler}-${build_type}
                                     ctest -j4
                                 '''
