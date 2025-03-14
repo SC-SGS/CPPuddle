@@ -431,7 +431,7 @@ public:
   public:
     /// How many slices are there overall - required to check the launch
     /// criteria
-    const size_t number_slices;
+    size_t number_slices;
     size_t max_slices;
     size_t id;
     using executor_t = Executor;
