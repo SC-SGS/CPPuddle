@@ -183,7 +183,7 @@ int hpx_main(int argc, char *argv[]) {
 
 
       size_t number_tasks = problem_size / kernel_size;
-      std::vector<hpx::lcos::future<void>> futs;
+      std::vector<hpx::future<void>> futs;
       cudaError_t(*func)(void*,const void*,size_t,cudaMemcpyKind,cudaStream_t) = cudaMemcpyAsync;
 
 
@@ -196,7 +196,7 @@ int hpx_main(int argc, char *argv[]) {
           if (slice_fut1.has_value()) {
             // Work aggregation Wrapper: Recombines (some) tasks, depending on the
             // number of slices
-            hpx::lcos::future<void> current_fut =
+            hpx::future<void> current_fut =
                 slice_fut1.value().then([&, task_id](auto &&fut) {
                   auto slice_exec = fut.get();
 
@@ -281,11 +281,11 @@ int hpx_main(int argc, char *argv[]) {
             return current_fut;
           } else {
             hpx::cout << "ERROR: Executor was not properly initialized!" << std::endl;
-            return hpx::lcos::make_ready_future();
+            return hpx::make_ready_future();
           }
         })); 
       }
-      auto final_fut = hpx::lcos::when_all(futs);
+      auto final_fut = hpx::when_all(futs);
       final_fut.get();
       std::chrono::steady_clock::time_point end =
           std::chrono::steady_clock::now();
@@ -353,7 +353,7 @@ int hpx_main(int argc, char *argv[]) {
     for (size_t repetition = 0; repetition < repetitions; repetition++) {
 
       size_t number_tasks = problem_size / kernel_size;
-      std::vector<hpx::lcos::future<void>> futs;
+      std::vector<hpx::future<void>> futs;
       cudaError_t(*func)(void*,const void*,size_t,cudaMemcpyKind,cudaStream_t) = cudaMemcpyAsync;
 
 
@@ -366,7 +366,7 @@ int hpx_main(int argc, char *argv[]) {
           if (slice_fut1.has_value()) {
             // Work aggregation Wrapper: Recombines (some) tasks, depending on the
             // number of slices
-            hpx::lcos::future<void> current_fut =
+            hpx::future<void> current_fut =
                 slice_fut1.value().then([&, task_id](auto &&fut) {
                   auto slice_exec = fut.get();
 
@@ -396,11 +396,11 @@ int hpx_main(int argc, char *argv[]) {
             return hpx::make_ready_future();
           } else {
             hpx::cout << "ERROR: Executor was not properly initialized!" << std::endl;
-            return hpx::lcos::make_ready_future();
+            return hpx::make_ready_future();
           }
         })); 
       }
-      auto final_fut = hpx::lcos::when_all(futs);
+      auto final_fut = hpx::when_all(futs);
       final_fut.get();
     std::chrono::steady_clock::time_point end =
         std::chrono::steady_clock::now();
