@@ -148,7 +148,7 @@ private:
   std::atomic<size_t> slice_counter = 0;
 
   /// Promise to be set when all slices have visited this function call
-  /* hpx::local::promise<void> slices_ready_promise; */
+  /* hpx::promise<void> slices_ready_promise; */
   /// Tracks if all slices have visited this function call
   /* hpx::future<void> all_slices_ready = slices_ready_promise.get_future(); */
   /// How many slices can we expect?
@@ -168,7 +168,7 @@ private:
   aggregation_mutex_t debug_mut;
 #endif
 
-  std::vector<hpx::local::promise<void>> potential_async_promises{};
+  std::vector<hpx::promise<void>> potential_async_promises{};
 
 public:
   aggregated_function_call(const size_t number_slices, bool async_mode, Executor &exec)
@@ -557,10 +557,10 @@ public:
 
   //===============================================================================
 
-  hpx::local::promise<void> slices_full_promise;
+  hpx::promise<void> slices_full_promise;
   /// Promises with the slice executors -- to be set when the starting criteria
   /// is met
-  std::vector<hpx::local::promise<executor_slice>> executor_slices;
+  std::vector<hpx::promise<executor_slice>> executor_slices;
   /// List of aggregated function calls - function will be launched when all
   /// slices have called it
   std::deque<aggregated_function_call<Executor>> function_calls;
@@ -839,14 +839,14 @@ public:
         dealloc_counter = 0;
 
         if (mode == aggregated_executor_modes::STRICT ) {
-          slices_full_promise = hpx::local::promise<void>{};
+          slices_full_promise = hpx::promise<void>{};
         }
       }
 
       // Create Executor Slice future -- that will be returned later
       hpx::future<executor_slice> ret_fut;
       if (local_slice_id < max_slices) {
-        executor_slices.emplace_back(hpx::local::promise<executor_slice>{});
+        executor_slices.emplace_back(hpx::promise<executor_slice>{});
         ret_fut =
             executor_slices[local_slice_id - 1].get_future();
       } else {
