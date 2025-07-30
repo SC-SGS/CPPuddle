@@ -24,5 +24,5 @@ var searchData=
   ['cuda_5frecycling_5fallocators_2ehpp_21',['cuda_recycling_allocators.hpp',['../cuda__recycling__allocators_8hpp.html',1,'']]],
   ['cuda_5frecycling_5fdevice_5fbuffer_2ehpp_22',['cuda_recycling_device_buffer.hpp',['../cuda__recycling__device__buffer_8hpp.html',1,'']]],
   ['cuda_5funderlying_5fallocators_2ehpp_23',['cuda_underlying_allocators.hpp',['../cuda__underlying__allocators_8hpp.html',1,'']]],
-  ['current_5fcontinuation_24',['current_continuation',['../classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html#a888531fc2c904e2aaaf7cc1138fef28c',1,'cppuddle::kernel_aggregation::detail::aggregated_executor']]]
+  ['current_5fcontinuation_24',['current_continuation',['../classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html#a5765572ecda6ce44611c7dafb1586e04',1,'cppuddle::kernel_aggregation::detail::aggregated_executor']]]
 ];

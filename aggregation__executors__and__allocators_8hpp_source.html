@@ -214,7 +214,7 @@ $(document).ready(function() { init_codefold(0); });
 <div class="line"><a id="l00129" name="l00129"></a><span class="lineno">  129</span><span class="stringliteral"></span> </div>
 <div class="line"><a id="l00130" name="l00130"></a><span class="lineno">  130</span><span class="stringliteral">template &lt;typename Executor, typename F, typename... Ts&gt;</span></div>
 <div class="foldopen" id="foldopen00131" data-start="{" data-end="}">
-<div class="line"><a id="l00131" name="l00131"></a><span class="lineno"><a class="line" href="namespacecppuddle_1_1kernel__aggregation_1_1detail.html#ada6d9ca41834ffbc966b75ee90748599">  131</a></span><span class="stringliteral">hpx::lcos::future&lt;void&gt; exec_async_wrapper(Executor &amp; exec, F &amp;&amp;f, Ts &amp;&amp;...ts) {</span></div>
+<div class="line"><a id="l00131" name="l00131"></a><span class="lineno"><a class="line" href="namespacecppuddle_1_1kernel__aggregation_1_1detail.html#abbf12a8e1534e44f712a97907f0941df">  131</a></span><span class="stringliteral">hpx::future&lt;void&gt; exec_async_wrapper(Executor &amp; exec, F &amp;&amp;f, Ts &amp;&amp;...ts) {</span></div>
 <div class="line"><a id="l00132" name="l00132"></a><span class="lineno">  132</span><span class="stringliteral">  return hpx::async(exec, std::forward&lt;F&gt;(f), std::forward&lt;Ts&gt;(ts)...);</span></div>
 <div class="line"><a id="l00133" name="l00133"></a><span class="lineno">  133</span><span class="stringliteral">}</span></div>
 </div>
@@ -233,8 +233,8 @@ $(document).ready(function() { init_codefold(0); });
 <div class="line"><a id="l00147" name="l00147"></a><span class="lineno">  147</span>private:</div>
 <div class="line"><a id="l00148" name="l00148"></a><span class="lineno">  148</span>  std::atomic&lt;size_t&gt; slice_counter = 0;</div>
 <div class="line"><a id="l00149" name="l00149"></a><span class="lineno">  149</span> </div>
-<div class="line"><a id="l00151" name="l00151"></a><span class="lineno">  151</span>  /* hpx::lcos::local::promise&lt;void&gt; slices_ready_promise; */</div>
-<div class="line"><a id="l00153" name="l00153"></a><span class="lineno">  153</span>  /* hpx::lcos::future&lt;void&gt; all_slices_ready = slices_ready_promise.get_future(); */</div>
+<div class="line"><a id="l00151" name="l00151"></a><span class="lineno">  151</span>  /* hpx::promise&lt;void&gt; slices_ready_promise; */</div>
+<div class="line"><a id="l00153" name="l00153"></a><span class="lineno">  153</span>  /* hpx::future&lt;void&gt; all_slices_ready = slices_ready_promise.get_future(); */</div>
 <div class="line"><a id="l00155" name="l00155"></a><span class="lineno">  155</span>  const size_t number_slices;</div>
 <div class="line"><a id="l00156" name="l00156"></a><span class="lineno">  156</span>  const bool async_mode;</div>
 <div class="line"><a id="l00157" name="l00157"></a><span class="lineno">  157</span> </div>
@@ -248,7 +248,7 @@ $(document).ready(function() { init_codefold(0); });
 <div class="line"><a id="l00168" name="l00168"></a><span class="lineno">  168</span>  aggregation_mutex_t debug_mut;</div>
 <div class="line"><a id="l00169" name="l00169"></a><span class="lineno">  169</span>#endif</div>
 <div class="line"><a id="l00170" name="l00170"></a><span class="lineno">  170</span> </div>
-<div class="line"><a id="l00171" name="l00171"></a><span class="lineno">  171</span>  std::vector&lt;hpx::lcos::local::promise&lt;void&gt;&gt; potential_async_promises{};</div>
+<div class="line"><a id="l00171" name="l00171"></a><span class="lineno">  171</span>  std::vector&lt;hpx::promise&lt;void&gt;&gt; potential_async_promises{};</div>
 <div class="line"><a id="l00172" name="l00172"></a><span class="lineno">  172</span> </div>
 <div class="line"><a id="l00173" name="l00173"></a><span class="lineno">  173</span>public:</div>
 <div class="foldopen" id="foldopen00174" data-start="{" data-end="}">
@@ -266,7 +266,7 @@ $(document).ready(function() { init_codefold(0); });
 <div class="line"><a id="l00183" name="l00183"></a><span class="lineno">  183</span>  }</div>
 </div>
 <div class="foldopen" id="foldopen00185" data-start="{" data-end="}">
-<div class="line"><a id="l00185" name="l00185"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__function__call.html#a0f7bb2a94c6a7e403539542689346340">  185</a></span>  bool sync_aggregation_slices(hpx::lcos::future&lt;void&gt; &amp;stream_future) {</div>
+<div class="line"><a id="l00185" name="l00185"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__function__call.html#aaa9c511fe4ce8c8eef84907a266a3b19">  185</a></span>  bool sync_aggregation_slices(hpx::future&lt;void&gt; &amp;stream_future) {</div>
 <div class="line"><a id="l00186" name="l00186"></a><span class="lineno">  186</span>    assert(!async_mode);</div>
 <div class="line"><a id="l00187" name="l00187"></a><span class="lineno">  187</span>    assert(potential_async_promises.empty());</div>
 <div class="line"><a id="l00188" name="l00188"></a><span class="lineno">  188</span>    const size_t local_counter = slice_counter++;</div>
@@ -278,7 +278,7 @@ $(document).ready(function() { init_codefold(0); });
 </div>
 <div class="line"><a id="l00194" name="l00194"></a><span class="lineno">  194</span>  template &lt;typename F, typename... Ts&gt;</div>
 <div class="foldopen" id="foldopen00195" data-start="{" data-end="}">
-<div class="line"><a id="l00195" name="l00195"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__function__call.html#ad8f008f3479842407685ddebf7764287">  195</a></span>  void post_when(hpx::lcos::future&lt;void&gt; &amp;stream_future, F &amp;&amp;f, Ts &amp;&amp;...ts) {</div>
+<div class="line"><a id="l00195" name="l00195"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__function__call.html#a386b32cc3a161ae7e1b0d498fc367ed9">  195</a></span>  void post_when(hpx::future&lt;void&gt; &amp;stream_future, F &amp;&amp;f, Ts &amp;&amp;...ts) {</div>
 <div class="line"><a id="l00196" name="l00196"></a><span class="lineno">  196</span>#if !(defined(NDEBUG)) &amp;&amp; defined(DEBUG_AGGREGATION_CALLS)</div>
 <div class="line"><a id="l00197" name="l00197"></a><span class="lineno">  197</span>    // needed for concurrent access to function_tuple and debug_type_information</div>
 <div class="line"><a id="l00198" name="l00198"></a><span class="lineno">  198</span>    // Not required for normal use</div>
@@ -353,7 +353,7 @@ $(document).ready(function() { init_codefold(0); });
 </div>
 <div class="line"><a id="l00267" name="l00267"></a><span class="lineno">  267</span><span class="stringliteral">  template &lt;typename F, typename... Ts&gt;</span></div>
 <div class="foldopen" id="foldopen00268" data-start="{" data-end="}">
-<div class="line"><a id="l00268" name="l00268"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__function__call.html#a51ff576e56f059f922f1ddf7b3d755e8">  268</a></span><span class="stringliteral">  hpx::lcos::future&lt;void&gt; async_when(hpx::lcos::future&lt;void&gt; &amp;stream_future,</span></div>
+<div class="line"><a id="l00268" name="l00268"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__function__call.html#a3ec8c9a6eaa77fcbe6a9a166e63e66b9">  268</a></span><span class="stringliteral">  hpx::future&lt;void&gt; async_when(hpx::future&lt;void&gt; &amp;stream_future,</span></div>
 <div class="line"><a id="l00269" name="l00269"></a><span class="lineno">  269</span><span class="stringliteral">                                     F &amp;&amp;f, Ts &amp;&amp;...ts) {</span></div>
 <div class="line"><a id="l00270" name="l00270"></a><span class="lineno">  270</span><span class="stringliteral">#if !(defined(NDEBUG)) &amp;&amp; defined(DEBUG_AGGREGATION_CALLS)</span></div>
 <div class="line"><a id="l00271" name="l00271"></a><span class="lineno">  271</span><span class="stringliteral">    // needed for concurrent access to function_tuple and debug_type_information</span></div>
@@ -418,7 +418,7 @@ $(document).ready(function() { init_codefold(0); });
 <div class="line"><a id="l00330" name="l00330"></a><span class="lineno">  330</span><span class="stringliteral">    assert(local_counter &lt; number_slices);</span></div>
 <div class="line"><a id="l00331" name="l00331"></a><span class="lineno">  331</span><span class="stringliteral">    assert(slice_counter &lt; number_slices + 1);</span></div>
 <div class="line"><a id="l00332" name="l00332"></a><span class="lineno">  332</span><span class="stringliteral">    assert(potential_async_promises.size() == number_slices);</span></div>
-<div class="line"><a id="l00333" name="l00333"></a><span class="lineno">  333</span><span class="stringliteral">    hpx::lcos::future&lt;void&gt; ret_fut =</span></div>
+<div class="line"><a id="l00333" name="l00333"></a><span class="lineno">  333</span><span class="stringliteral">    hpx::future&lt;void&gt; ret_fut =</span></div>
 <div class="line"><a id="l00334" name="l00334"></a><span class="lineno">  334</span><span class="stringliteral">        potential_async_promises[local_counter].get_future();</span></div>
 <div class="line"><a id="l00335" name="l00335"></a><span class="lineno">  335</span><span class="stringliteral">    if (local_counter == number_slices - 1) {</span></div>
 <div class="line"><a id="l00336" name="l00336"></a><span class="lineno">  336</span><span class="stringliteral">      /* slices_ready_promise.set_value(); */</span></div>
@@ -437,7 +437,7 @@ $(document).ready(function() { init_codefold(0); });
 </div>
 <div class="line"><a id="l00349" name="l00349"></a><span class="lineno">  349</span><span class="stringliteral">  template &lt;typename F, typename... Ts&gt;</span></div>
 <div class="foldopen" id="foldopen00350" data-start="{" data-end="}">
-<div class="line"><a id="l00350" name="l00350"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__function__call.html#ad755a2e0d908306c5a52b9a9b09a37dc">  350</a></span><span class="stringliteral">  hpx::lcos::shared_future&lt;void&gt; wrap_async(hpx::lcos::future&lt;void&gt; &amp;stream_future,</span></div>
+<div class="line"><a id="l00350" name="l00350"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__function__call.html#a1c5c8242b8ab8ea2ae42f243cdead09e">  350</a></span><span class="stringliteral">  hpx::shared_future&lt;void&gt; wrap_async(hpx::future&lt;void&gt; &amp;stream_future,</span></div>
 <div class="line"><a id="l00351" name="l00351"></a><span class="lineno">  351</span><span class="stringliteral">                                     F &amp;&amp;f, Ts &amp;&amp;...ts) {</span></div>
 <div class="line"><a id="l00352" name="l00352"></a><span class="lineno">  352</span><span class="stringliteral">    assert(async_mode);</span></div>
 <div class="line"><a id="l00353" name="l00353"></a><span class="lineno">  353</span><span class="stringliteral">    assert(!potential_async_promises.empty());</span></div>
@@ -445,7 +445,7 @@ $(document).ready(function() { init_codefold(0); });
 <div class="line"><a id="l00355" name="l00355"></a><span class="lineno">  355</span><span class="stringliteral">    assert(local_counter &lt; number_slices);</span></div>
 <div class="line"><a id="l00356" name="l00356"></a><span class="lineno">  356</span><span class="stringliteral">    assert(slice_counter &lt; number_slices + 1);</span></div>
 <div class="line"><a id="l00357" name="l00357"></a><span class="lineno">  357</span><span class="stringliteral">    assert(potential_async_promises.size() == number_slices);</span></div>
-<div class="line"><a id="l00358" name="l00358"></a><span class="lineno">  358</span><span class="stringliteral">    hpx::lcos::shared_future&lt;void&gt; ret_fut =</span></div>
+<div class="line"><a id="l00358" name="l00358"></a><span class="lineno">  358</span><span class="stringliteral">    hpx::shared_future&lt;void&gt; ret_fut =</span></div>
 <div class="line"><a id="l00359" name="l00359"></a><span class="lineno">  359</span><span class="stringliteral">        potential_async_promises[local_counter].get_shared_future();</span></div>
 <div class="line"><a id="l00360" name="l00360"></a><span class="lineno">  360</span><span class="stringliteral">    if (local_counter == number_slices - 1) {</span></div>
 <div class="line"><a id="l00361" name="l00361"></a><span class="lineno">  361</span><span class="stringliteral">      auto fut = f(std::forward&lt;Ts&gt;(ts)...);</span></div>
@@ -594,11 +594,11 @@ $(document).ready(function() { init_codefold(0); });
 </div>
 <div class="line"><a id="l00498" name="l00498"></a><span class="lineno">  498</span>    template &lt;typename F, typename... Ts&gt;</div>
 <div class="foldopen" id="foldopen00499" data-start="{" data-end="}">
-<div class="line"><a id="l00499" name="l00499"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor_1_1executor__slice.html#a325948bfd0b70b61aacb239cf95f0e6b">  499</a></span>    hpx::lcos::future&lt;void&gt; async(F &amp;&amp;f, Ts &amp;&amp;...ts) {</div>
+<div class="line"><a id="l00499" name="l00499"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor_1_1executor__slice.html#af9db0515baeeed186d4f8f0e4ca0657f">  499</a></span>    hpx::future&lt;void&gt; async(F &amp;&amp;f, Ts &amp;&amp;...ts) {</div>
 <div class="line"><a id="l00500" name="l00500"></a><span class="lineno">  500</span>      // we should only execute function calls once all slices</div>
 <div class="line"><a id="l00501" name="l00501"></a><span class="lineno">  501</span>      // have been given away (-&gt; Executor Slices start)</div>
 <div class="line"><a id="l00502" name="l00502"></a><span class="lineno">  502</span>      assert(parent.slices_exhausted == true);</div>
-<div class="line"><a id="l00503" name="l00503"></a><span class="lineno">  503</span>      hpx::lcos::future&lt;void&gt; ret_fut = parent.async(</div>
+<div class="line"><a id="l00503" name="l00503"></a><span class="lineno">  503</span>      hpx::future&lt;void&gt; ret_fut = parent.async(</div>
 <div class="line"><a id="l00504" name="l00504"></a><span class="lineno">  504</span>          launch_counter, std::forward&lt;F&gt;(f), std::forward&lt;Ts&gt;(ts)...);</div>
 <div class="line"><a id="l00505" name="l00505"></a><span class="lineno">  505</span>      launch_counter++;</div>
 <div class="line"><a id="l00506" name="l00506"></a><span class="lineno">  506</span>      return ret_fut;</div>
@@ -629,11 +629,11 @@ $(document).ready(function() { init_codefold(0); });
 <div class="line"><a id="l00526" name="l00526"></a><span class="lineno">  526</span> </div>
 <div class="line"><a id="l00527" name="l00527"></a><span class="lineno">  527</span>    template &lt;typename F, typename... Ts&gt;</div>
 <div class="foldopen" id="foldopen00528" data-start="{" data-end="}">
-<div class="line"><a id="l00528" name="l00528"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor_1_1executor__slice.html#ae996f39da8351a4235e82b92e5e57f05">  528</a></span>    hpx::lcos::shared_future&lt;void&gt; wrap_async(F &amp;&amp;f, Ts &amp;&amp;...ts) {</div>
+<div class="line"><a id="l00528" name="l00528"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor_1_1executor__slice.html#a1da486e5dd248c8f363112d598bfdc0c">  528</a></span>    hpx::shared_future&lt;void&gt; wrap_async(F &amp;&amp;f, Ts &amp;&amp;...ts) {</div>
 <div class="line"><a id="l00529" name="l00529"></a><span class="lineno">  529</span>      // we should only execute function calls once all slices</div>
 <div class="line"><a id="l00530" name="l00530"></a><span class="lineno">  530</span>      // have been given away (-&gt; Executor Slices start)</div>
 <div class="line"><a id="l00531" name="l00531"></a><span class="lineno">  531</span>      assert(parent.slices_exhausted == true);</div>
-<div class="line"><a id="l00532" name="l00532"></a><span class="lineno">  532</span>      hpx::lcos::shared_future&lt;void&gt; ret_fut = parent.wrap_async(</div>
+<div class="line"><a id="l00532" name="l00532"></a><span class="lineno">  532</span>      hpx::shared_future&lt;void&gt; ret_fut = parent.wrap_async(</div>
 <div class="line"><a id="l00533" name="l00533"></a><span class="lineno">  533</span>          launch_counter, std::forward&lt;F&gt;(f), std::forward&lt;Ts&gt;(ts)...);</div>
 <div class="line"><a id="l00534" name="l00534"></a><span class="lineno">  534</span>      launch_counter++;</div>
 <div class="line"><a id="l00535" name="l00535"></a><span class="lineno">  535</span>      return ret_fut;</div>
@@ -665,8 +665,8 @@ $(document).ready(function() { init_codefold(0); });
 <div class="line"><a id="l00557" name="l00557"></a><span class="lineno">  557</span><span class="stringliteral"></span> </div>
 <div class="line"><a id="l00558" name="l00558"></a><span class="lineno">  558</span><span class="stringliteral">  //===============================================================================</span></div>
 <div class="line"><a id="l00559" name="l00559"></a><span class="lineno">  559</span><span class="stringliteral"></span> </div>
-<div class="line"><a id="l00560" name="l00560"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html#ac3a5f90ea52d1af29aa140922861785c">  560</a></span><span class="stringliteral">  hpx::lcos::local::promise&lt;void&gt; slices_full_promise;</span></div>
-<div class="line"><a id="l00563" name="l00563"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html#a8542e49962894b869e3522a81eaee8f3">  563</a></span>  std::vector&lt;hpx::lcos::local::promise&lt;executor_slice&gt;&gt; executor_slices;</div>
+<div class="line"><a id="l00560" name="l00560"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html#a7ef79c227c79389839f060827b63ef0c">  560</a></span><span class="stringliteral">  hpx::promise&lt;void&gt; slices_full_promise;</span></div>
+<div class="line"><a id="l00563" name="l00563"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html#a2487615d922200568f920615866a840b">  563</a></span>  std::vector&lt;hpx::promise&lt;executor_slice&gt;&gt; executor_slices;</div>
 <div class="line"><a id="l00566" name="l00566"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html#a479a6492cb9feb4c09780efe0988b2ac">  566</a></span>  std::deque&lt;aggregated_function_call&lt;Executor&gt;&gt; function_calls;</div>
 <div class="line"><a id="l00568" name="l00568"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html#ae83f28c40b0d075cb82f0836af64aaaa">  568</a></span>  aggregation_mutex_t mut;</div>
 <div class="line"><a id="l00569" name="l00569"></a><span class="lineno">  569</span> </div>
@@ -815,8 +815,8 @@ $(document).ready(function() { init_codefold(0); });
 <div class="line"><a id="l00715" name="l00715"></a><span class="lineno">  715</span><span class="stringliteral">  //===============================================================================</span></div>
 <div class="line"><a id="l00716" name="l00716"></a><span class="lineno">  716</span><span class="stringliteral">  // Public Interface</span></div>
 <div class="line"><a id="l00717" name="l00717"></a><span class="lineno">  717</span><span class="stringliteral">public:</span></div>
-<div class="line"><a id="l00718" name="l00718"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html#a888531fc2c904e2aaaf7cc1138fef28c">  718</a></span><span class="stringliteral">  hpx::lcos::future&lt;void&gt; current_continuation;</span></div>
-<div class="line"><a id="l00719" name="l00719"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html#a926e166d51350334aa4baef4ca758ede">  719</a></span><span class="stringliteral">  hpx::lcos::future&lt;void&gt; last_stream_launch_done;</span></div>
+<div class="line"><a id="l00718" name="l00718"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html#a5765572ecda6ce44611c7dafb1586e04">  718</a></span><span class="stringliteral">  hpx::future&lt;void&gt; current_continuation;</span></div>
+<div class="line"><a id="l00719" name="l00719"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html#aef413255e668a8ac411b36db0db24666">  719</a></span><span class="stringliteral">  hpx::future&lt;void&gt; last_stream_launch_done;</span></div>
 <div class="line"><a id="l00720" name="l00720"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html#a93a843c01a08d33cc1f3d2b4b6c6ba61">  720</a></span><span class="stringliteral">  std::atomic&lt;size_t&gt; overall_launch_counter = 0;</span></div>
 <div class="line"><a id="l00721" name="l00721"></a><span class="lineno">  721</span><span class="stringliteral"></span> </div>
 <div class="foldopen" id="foldopen00723" data-start="{" data-end="}">
@@ -866,7 +866,7 @@ $(document).ready(function() { init_codefold(0); });
 <div class="line"><a id="l00764" name="l00764"></a><span class="lineno">  764</span> </div>
 <div class="line"><a id="l00766" name="l00766"></a><span class="lineno">  766</span>  template &lt;typename F, typename... Ts&gt;</div>
 <div class="foldopen" id="foldopen00767" data-start="{" data-end="}">
-<div class="line"><a id="l00767" name="l00767"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html#a10836c3bc5a0c06c3dec1e34054cb983">  767</a></span>  hpx::lcos::future&lt;void&gt; async(const size_t slice_launch_counter, F &amp;&amp;f,</div>
+<div class="line"><a id="l00767" name="l00767"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html#a689314399d88583df17401d7ad72eaba">  767</a></span>  hpx::future&lt;void&gt; async(const size_t slice_launch_counter, F &amp;&amp;f,</div>
 <div class="line"><a id="l00768" name="l00768"></a><span class="lineno">  768</span>                                Ts &amp;&amp;...ts) {</div>
 <div class="line"><a id="l00769" name="l00769"></a><span class="lineno">  769</span>    std::lock_guard&lt;aggregation_mutex_t&gt; guard(mut);</div>
 <div class="line"><a id="l00770" name="l00770"></a><span class="lineno">  770</span>    assert(slices_exhausted == true);</div>
@@ -888,7 +888,7 @@ $(document).ready(function() { init_codefold(0); });
 </div>
 <div class="line"><a id="l00787" name="l00787"></a><span class="lineno">  787</span>  template &lt;typename F, typename... Ts&gt;</div>
 <div class="foldopen" id="foldopen00788" data-start="{" data-end="}">
-<div class="line"><a id="l00788" name="l00788"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html#ab44d67224b6ae2898df3fafb7a9a6ede">  788</a></span>  hpx::lcos::shared_future&lt;void&gt; wrap_async(const size_t slice_launch_counter, F &amp;&amp;f,</div>
+<div class="line"><a id="l00788" name="l00788"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html#a13e7c27d52d73ac6713f795e05ed9afc">  788</a></span>  hpx::shared_future&lt;void&gt; wrap_async(const size_t slice_launch_counter, F &amp;&amp;f,</div>
 <div class="line"><a id="l00789" name="l00789"></a><span class="lineno">  789</span>                                Ts &amp;&amp;...ts) {</div>
 <div class="line"><a id="l00790" name="l00790"></a><span class="lineno">  790</span>    std::lock_guard&lt;aggregation_mutex_t&gt; guard(mut);</div>
 <div class="line"><a id="l00791" name="l00791"></a><span class="lineno">  791</span>    assert(slices_exhausted == true);</div>
@@ -917,7 +917,7 @@ $(document).ready(function() { init_codefold(0); });
 </div>
 <div class="line"><a id="l00812" name="l00812"></a><span class="lineno">  812</span> </div>
 <div class="foldopen" id="foldopen00813" data-start="{" data-end="}">
-<div class="line"><a id="l00813" name="l00813"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html#a778fd31bc0516ec92b08bee3104e1188">  813</a></span>  std::optional&lt;hpx::lcos::future&lt;executor_slice&gt;&gt; request_executor_slice() {</div>
+<div class="line"><a id="l00813" name="l00813"></a><span class="lineno"><a class="line" href="classcppuddle_1_1kernel__aggregation_1_1detail_1_1aggregated__executor.html#ac30c5e64d9eff2ba0597a75a6c950c0e">  813</a></span>  std::optional&lt;hpx::future&lt;executor_slice&gt;&gt; request_executor_slice() {</div>
 <div class="line"><a id="l00814" name="l00814"></a><span class="lineno">  814</span>    std::lock_guard&lt;aggregation_mutex_t&gt; guard(mut);</div>
 <div class="line"><a id="l00815" name="l00815"></a><span class="lineno">  815</span>    if (!slices_exhausted) {</div>
 <div class="line"><a id="l00816" name="l00816"></a><span class="lineno">  816</span>      const size_t local_slice_id = ++current_slices;</div>
@@ -946,14 +946,14 @@ $(document).ready(function() { init_codefold(0); });
 <div class="line"><a id="l00839" name="l00839"></a><span class="lineno">  839</span>        dealloc_counter = 0;</div>
 <div class="line"><a id="l00840" name="l00840"></a><span class="lineno">  840</span> </div>
 <div class="line"><a id="l00841" name="l00841"></a><span class="lineno">  841</span>        if (mode == aggregated_executor_modes::STRICT ) {</div>
-<div class="line"><a id="l00842" name="l00842"></a><span class="lineno">  842</span>          slices_full_promise = hpx::lcos::local::promise&lt;void&gt;{};</div>
+<div class="line"><a id="l00842" name="l00842"></a><span class="lineno">  842</span>          slices_full_promise = hpx::promise&lt;void&gt;{};</div>
 <div class="line"><a id="l00843" name="l00843"></a><span class="lineno">  843</span>        }</div>
 <div class="line"><a id="l00844" name="l00844"></a><span class="lineno">  844</span>      }</div>
 <div class="line"><a id="l00845" name="l00845"></a><span class="lineno">  845</span> </div>
 <div class="line"><a id="l00846" name="l00846"></a><span class="lineno">  846</span>      // Create Executor Slice future -- that will be returned later</div>
-<div class="line"><a id="l00847" name="l00847"></a><span class="lineno">  847</span>      hpx::lcos::future&lt;executor_slice&gt; ret_fut;</div>
+<div class="line"><a id="l00847" name="l00847"></a><span class="lineno">  847</span>      hpx::future&lt;executor_slice&gt; ret_fut;</div>
 <div class="line"><a id="l00848" name="l00848"></a><span class="lineno">  848</span>      if (local_slice_id &lt; max_slices) {</div>
-<div class="line"><a id="l00849" name="l00849"></a><span class="lineno">  849</span>        executor_slices.emplace_back(hpx::lcos::local::promise&lt;executor_slice&gt;{});</div>
+<div class="line"><a id="l00849" name="l00849"></a><span class="lineno">  849</span>        executor_slices.emplace_back(hpx::promise&lt;executor_slice&gt;{});</div>
 <div class="line"><a id="l00850" name="l00850"></a><span class="lineno">  850</span>        ret_fut =</div>
 <div class="line"><a id="l00851" name="l00851"></a><span class="lineno">  851</span>            executor_slices[local_slice_id - 1].get_future();</div>
 <div class="line"><a id="l00852" name="l00852"></a><span class="lineno">  852</span>      } else {</div>
@@ -978,7 +978,7 @@ $(document).ready(function() { init_codefold(0); });
 <div class="line"><a id="l00871" name="l00871"></a><span class="lineno">  871</span>                gpu_id));</div>
 <div class="line"><a id="l00872" name="l00872"></a><span class="lineno">  872</span>        // Renew promise that all slices will be ready as the primary launch</div>
 <div class="line"><a id="l00873" name="l00873"></a><span class="lineno">  873</span>        // criteria...</div>
-<div class="line"><a id="l00874" name="l00874"></a><span class="lineno">  874</span>        hpx::lcos::shared_future&lt;void&gt; fut;</div>
+<div class="line"><a id="l00874" name="l00874"></a><span class="lineno">  874</span>        hpx::shared_future&lt;void&gt; fut;</div>
 <div class="line"><a id="l00875" name="l00875"></a><span class="lineno">  875</span>        if (mode == aggregated_executor_modes::EAGER ||</div>
 <div class="line"><a id="l00876" name="l00876"></a><span class="lineno">  876</span>            mode == aggregated_executor_modes::ENDLESS) {</div>
 <div class="line"><a id="l00877" name="l00877"></a><span class="lineno">  877</span>          // Fallback launch condidtion: Launch as soon as the underlying stream</div>
@@ -1029,7 +1029,7 @@ $(document).ready(function() { init_codefold(0); });
 <div class="line"><a id="l00922" name="l00922"></a><span class="lineno">  922</span>      return ret_fut;</div>
 <div class="line"><a id="l00923" name="l00923"></a><span class="lineno">  923</span>    } else {</div>
 <div class="line"><a id="l00924" name="l00924"></a><span class="lineno">  924</span>      // Return empty optional as failure</div>
-<div class="line"><a id="l00925" name="l00925"></a><span class="lineno">  925</span>      return std::optional&lt;hpx::lcos::future&lt;executor_slice&gt;&gt;{};</div>
+<div class="line"><a id="l00925" name="l00925"></a><span class="lineno">  925</span>      return std::optional&lt;hpx::future&lt;executor_slice&gt;&gt;{};</div>
 <div class="line"><a id="l00926" name="l00926"></a><span class="lineno">  926</span>    }</div>
 <div class="line"><a id="l00927" name="l00927"></a><span class="lineno">  927</span>  }</div>
 </div>
