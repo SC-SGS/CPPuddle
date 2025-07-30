@@ -36,7 +36,7 @@ void triad_kernel(float_t *A, const float_t *B, const float_t *C, const float_t 
 /// production use!
 struct Dummy_Executor {
   /// Executor is always ready
-  hpx::lcos::future<void> get_future() {
+  hpx::future<void> get_future() {
     // To trigger interruption in exeuctor coalesing manually with the promise
     // For a proper CUDA executor we would get a future that's ready once the
     // stream is ready of course!
@@ -48,7 +48,7 @@ struct Dummy_Executor {
   }
   /// async -- executores immediately and returns ready future
   template <typename F, typename... Ts>
-  hpx::lcos::future<void> async(F &&f, Ts &&...ts) {
+  hpx::future<void> async(F &&f, Ts &&...ts) {
     f(std::forward<Ts>(ts)...);
     return hpx::make_ready_future();
   }
@@ -213,7 +213,7 @@ int hpx_main(int argc, char *argv[]) {
     const float_t scalar = 3.0;
 
     size_t number_tasks = problem_size / kernel_size;
-    std::vector<hpx::lcos::future<void>> futs;
+    std::vector<hpx::future<void>> futs;
 
     for (size_t task_id = 0; task_id < number_tasks; task_id++) {
       // Concurrency Wrapper: Splits stream benchmark into #number_tasks tasks
@@ -222,7 +222,7 @@ int hpx_main(int argc, char *argv[]) {
         if (slice_fut1.has_value()) {
           // Work aggregation Wrapper: Recombines (some) tasks, depending on the
           // number of slices
-          hpx::lcos::future<void> current_fut =
+          hpx::future<void> current_fut =
               slice_fut1.value().then([&, task_id](auto &&fut) {
                 auto slice_exec = fut.get();
 
@@ -258,11 +258,11 @@ int hpx_main(int argc, char *argv[]) {
           return current_fut;
         } else {
           hpx::cout << "ERROR: Executor was not properly initialized!" << std::endl;
-          return hpx::lcos::make_ready_future();
+          return hpx::make_ready_future();
         }
       })); 
     }
-    auto final_fut = hpx::lcos::when_all(futs);
+    auto final_fut = hpx::when_all(futs);
     final_fut.get();
 
     bool results_correct = true;

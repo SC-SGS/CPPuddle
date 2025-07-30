@@ -57,7 +57,7 @@ public:
     /* const size_t gpu_id = 1; */
     std::lock_guard<aggregation_mutex_t> guard(instance()[gpu_id].pool_mutex);
     assert(!instance()[gpu_id].aggregation_executor_pool.empty());
-    std::optional<hpx::lcos::future<
+    std::optional<hpx::future<
         typename aggregated_executor<Interface>::executor_slice>>
         ret;
     size_t local_id = (instance()[gpu_id].current_interface) %

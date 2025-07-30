@@ -61,7 +61,7 @@ void add(size_t slice_size, Container &A, Container &B, Container &C) {
 /// production use!
 struct Dummy_Executor {
   /// Executor is always ready
-  hpx::lcos::future<void> get_future() {
+  hpx::future<void> get_future() {
     // To trigger interruption in exeuctor coalesing manually with the promise
     // For a proper CUDA executor we would get a future that's ready once the
     // stream is ready of course!
@@ -73,7 +73,7 @@ struct Dummy_Executor {
   }
   /// async -- executores immediately and returns ready future
   template <typename F, typename... Ts>
-  hpx::lcos::future<void> async(F &&f, Ts &&...ts) {
+  hpx::future<void> async(F &&f, Ts &&...ts) {
     f(std::forward<Ts>(ts)...);
     return hpx::make_ready_future();
   }
@@ -129,7 +129,7 @@ void sequential_test(void) {
   hpx::cout << "Sequential test with all executor slices" << std::endl;
   hpx::cout << "----------------------------------------" << std::endl;
   {
-    std::vector<hpx::lcos::future<void>> slices_done_futs;
+    std::vector<hpx::future<void>> slices_done_futs;
 
     auto slice_fut1 = kernel_pool1::request_executor_slice();
     if (slice_fut1.has_value()) {
@@ -257,7 +257,7 @@ void sequential_test(void) {
     }
     hpx::cout << "Requested all executors!" << std::endl;
     hpx::cout << "Realizing by equesting final fut..." << std::endl;
-    auto final_fut = hpx::lcos::when_all(slices_done_futs);
+    auto final_fut = hpx::when_all(slices_done_futs);
     final_fut.get();
   }
   hpx::cout << std::endl;
@@ -270,7 +270,7 @@ void interruption_test(void) {
   {
     cppuddle::kernel_aggregation::aggregated_executor<Dummy_Executor> agg_exec{
         4, cppuddle::kernel_aggregation::aggregated_executor_modes::EAGER};
-    std::vector<hpx::lcos::future<void>> slices_done_futs;
+    std::vector<hpx::future<void>> slices_done_futs;
 
     auto slice_fut1 = agg_exec.request_executor_slice();
     if (slice_fut1.has_value()) {
@@ -320,7 +320,7 @@ void interruption_test(void) {
     hpx::cout << "Requested 1 executors!" << std::endl;
     hpx::cout << "Realizing by setting the continuation future..." << std::endl;
     // Interrupt - should cause executor to start executing all slices
-    auto final_fut = hpx::lcos::when_all(slices_done_futs);
+    auto final_fut = hpx::when_all(slices_done_futs);
     final_fut.get();
   }
   hpx::cout << std::endl;
@@ -339,7 +339,7 @@ void failure_test(bool type_error) {
 
     auto slice_fut1 = agg_exec.request_executor_slice();
 
-    std::vector<hpx::lcos::future<void>> slices_done_futs;
+    std::vector<hpx::future<void>> slices_done_futs;
     if (slice_fut1.has_value()) {
     slices_done_futs.emplace_back(slice_fut1.value().then([](auto &&fut) {
       auto slice_exec = fut.get();
@@ -401,7 +401,7 @@ void failure_test(bool type_error) {
 
     hpx::cout << "Requested all executors!" << std::endl;
     hpx::cout << "Realizing by equesting final fut..." << std::endl;
-    auto final_fut = hpx::lcos::when_all(slices_done_futs);
+    auto final_fut = hpx::when_all(slices_done_futs);
     final_fut.get();
   }
   hpx::cout << std::endl;
@@ -420,7 +420,7 @@ void pointer_add_test(void) {
       8, 2, cppuddle::kernel_aggregation::aggregated_executor_modes::STRICT);
   {
     std::vector<float> erg(512);
-    std::vector<hpx::lcos::future<void>> slices_done_futs;
+    std::vector<hpx::future<void>> slices_done_futs;
 
     auto slice_fut1 = kernel_pool2::request_executor_slice();
 
@@ -585,7 +585,7 @@ void pointer_add_test(void) {
     }
     hpx::cout << "Requested all executors!" << std::endl;
     hpx::cout << "Realizing by requesting final fut..." << std::endl;
-    auto final_fut = hpx::lcos::when_all(slices_done_futs);
+    auto final_fut = hpx::when_all(slices_done_futs);
     final_fut.get();
 
     hpx::cout << "Number add_pointer_launches=" << add_pointer_launches
@@ -619,7 +619,7 @@ void references_add_test(void) {
                 cppuddle::kernel_aggregation::aggregated_executor<
                     Dummy_Executor>>>(0));
     std::vector<float> erg(512);
-    std::vector<hpx::lcos::future<void>> slices_done_futs;
+    std::vector<hpx::future<void>> slices_done_futs;
 
     auto slice_fut1 = agg_exec.request_executor_slice();
     if (slice_fut1.has_value()) {
@@ -763,7 +763,7 @@ void references_add_test(void) {
     }
     hpx::cout << "Requested all executors!" << std::endl;
     hpx::cout << "Realizing by requesting final fut..." << std::endl;
-    auto final_fut = hpx::lcos::when_all(slices_done_futs);
+    auto final_fut = hpx::when_all(slices_done_futs);
     final_fut.get();
     hpx::cout << "Number add_launches=" << add_launches
               << std::endl;

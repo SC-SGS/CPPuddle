@@ -128,7 +128,7 @@ void exec_post_wrapper(Executor & exec, F &&f, Ts &&...ts) {
 }
 
 template <typename Executor, typename F, typename... Ts>
-hpx::lcos::future<void> exec_async_wrapper(Executor & exec, F &&f, Ts &&...ts) {
+hpx::future<void> exec_async_wrapper(Executor & exec, F &&f, Ts &&...ts) {
   return hpx::async(exec, std::forward<F>(f), std::forward<Ts>(ts)...);
 }
 
@@ -148,9 +148,9 @@ private:
   std::atomic<size_t> slice_counter = 0;
 
   /// Promise to be set when all slices have visited this function call
-  /* hpx::lcos::local::promise<void> slices_ready_promise; */
+  /* hpx::promise<void> slices_ready_promise; */
   /// Tracks if all slices have visited this function call
-  /* hpx::lcos::future<void> all_slices_ready = slices_ready_promise.get_future(); */
+  /* hpx::future<void> all_slices_ready = slices_ready_promise.get_future(); */
   /// How many slices can we expect?
   const size_t number_slices;
   const bool async_mode;
@@ -168,7 +168,7 @@ private:
   aggregation_mutex_t debug_mut;
 #endif
 
-  std::vector<hpx::lcos::local::promise<void>> potential_async_promises{};
+  std::vector<hpx::promise<void>> potential_async_promises{};
 
 public:
   aggregated_function_call(const size_t number_slices, bool async_mode, Executor &exec)
@@ -182,7 +182,7 @@ public:
     // assert(!all_slices_ready.valid());
   }
   /// Returns true if all required slices have visited this point
-  bool sync_aggregation_slices(hpx::lcos::future<void> &stream_future) {
+  bool sync_aggregation_slices(hpx::future<void> &stream_future) {
     assert(!async_mode);
     assert(potential_async_promises.empty());
     const size_t local_counter = slice_counter++;
@@ -192,7 +192,7 @@ public:
     else return false;
   }
   template <typename F, typename... Ts>
-  void post_when(hpx::lcos::future<void> &stream_future, F &&f, Ts &&...ts) {
+  void post_when(hpx::future<void> &stream_future, F &&f, Ts &&...ts) {
 #if !(defined(NDEBUG)) && defined(DEBUG_AGGREGATION_CALLS)
     // needed for concurrent access to function_tuple and debug_type_information
     // Not required for normal use
@@ -265,7 +265,7 @@ public:
     }
   }
   template <typename F, typename... Ts>
-  hpx::lcos::future<void> async_when(hpx::lcos::future<void> &stream_future,
+  hpx::future<void> async_when(hpx::future<void> &stream_future,
                                      F &&f, Ts &&...ts) {
 #if !(defined(NDEBUG)) && defined(DEBUG_AGGREGATION_CALLS)
     // needed for concurrent access to function_tuple and debug_type_information
@@ -330,7 +330,7 @@ public:
     assert(local_counter < number_slices);
     assert(slice_counter < number_slices + 1);
     assert(potential_async_promises.size() == number_slices);
-    hpx::lcos::future<void> ret_fut =
+    hpx::future<void> ret_fut =
         potential_async_promises[local_counter].get_future();
     if (local_counter == number_slices - 1) {
       /* slices_ready_promise.set_value(); */
@@ -347,7 +347,7 @@ public:
     return ret_fut;
   }
   template <typename F, typename... Ts>
-  hpx::lcos::shared_future<void> wrap_async(hpx::lcos::future<void> &stream_future,
+  hpx::shared_future<void> wrap_async(hpx::future<void> &stream_future,
                                      F &&f, Ts &&...ts) {
     assert(async_mode);
     assert(!potential_async_promises.empty());
@@ -355,7 +355,7 @@ public:
     assert(local_counter < number_slices);
     assert(slice_counter < number_slices + 1);
     assert(potential_async_promises.size() == number_slices);
-    hpx::lcos::shared_future<void> ret_fut =
+    hpx::shared_future<void> ret_fut =
         potential_async_promises[local_counter].get_shared_future();
     if (local_counter == number_slices - 1) {
       auto fut = f(std::forward<Ts>(ts)...);
@@ -496,11 +496,11 @@ public:
       launch_counter++;
     }
     template <typename F, typename... Ts>
-    hpx::lcos::future<void> async(F &&f, Ts &&...ts) {
+    hpx::future<void> async(F &&f, Ts &&...ts) {
       // we should only execute function calls once all slices
       // have been given away (-> Executor Slices start)
       assert(parent.slices_exhausted == true);
-      hpx::lcos::future<void> ret_fut = parent.async(
+      hpx::future<void> ret_fut = parent.async(
           launch_counter, std::forward<F>(f), std::forward<Ts>(ts)...);
       launch_counter++;
       return ret_fut;
@@ -525,11 +525,11 @@ public:
     }
 
     template <typename F, typename... Ts>
-    hpx::lcos::shared_future<void> wrap_async(F &&f, Ts &&...ts) {
+    hpx::shared_future<void> wrap_async(F &&f, Ts &&...ts) {
       // we should only execute function calls once all slices
       // have been given away (-> Executor Slices start)
       assert(parent.slices_exhausted == true);
-      hpx::lcos::shared_future<void> ret_fut = parent.wrap_async(
+      hpx::shared_future<void> ret_fut = parent.wrap_async(
           launch_counter, std::forward<F>(f), std::forward<Ts>(ts)...);
       launch_counter++;
       return ret_fut;
@@ -557,10 +557,10 @@ public:
 
   //===============================================================================
 
-  hpx::lcos::local::promise<void> slices_full_promise;
+  hpx::promise<void> slices_full_promise;
   /// Promises with the slice executors -- to be set when the starting criteria
   /// is met
-  std::vector<hpx::lcos::local::promise<executor_slice>> executor_slices;
+  std::vector<hpx::promise<executor_slice>> executor_slices;
   /// List of aggregated function calls - function will be launched when all
   /// slices have called it
   std::deque<aggregated_function_call<Executor>> function_calls;
@@ -715,8 +715,8 @@ public:
   //===============================================================================
   // Public Interface
 public:
-  hpx::lcos::future<void> current_continuation;
-  hpx::lcos::future<void> last_stream_launch_done;
+  hpx::future<void> current_continuation;
+  hpx::future<void> last_stream_launch_done;
   std::atomic<size_t> overall_launch_counter = 0;
 
   /// Only meant to be accessed by the slice executors
@@ -764,7 +764,7 @@ public:
 
   /// Only meant to be accessed by the slice executors
   template <typename F, typename... Ts>
-  hpx::lcos::future<void> async(const size_t slice_launch_counter, F &&f,
+  hpx::future<void> async(const size_t slice_launch_counter, F &&f,
                                 Ts &&...ts) {
     std::lock_guard<aggregation_mutex_t> guard(mut);
     assert(slices_exhausted == true);
@@ -785,7 +785,7 @@ public:
   }
   /// Only meant to be accessed by the slice executors
   template <typename F, typename... Ts>
-  hpx::lcos::shared_future<void> wrap_async(const size_t slice_launch_counter, F &&f,
+  hpx::shared_future<void> wrap_async(const size_t slice_launch_counter, F &&f,
                                 Ts &&...ts) {
     std::lock_guard<aggregation_mutex_t> guard(mut);
     assert(slices_exhausted == true);
@@ -810,7 +810,7 @@ public:
     return !slices_exhausted;
   }
 
-  std::optional<hpx::lcos::future<executor_slice>> request_executor_slice() {
+  std::optional<hpx::future<executor_slice>> request_executor_slice() {
     std::lock_guard<aggregation_mutex_t> guard(mut);
     if (!slices_exhausted) {
       const size_t local_slice_id = ++current_slices;
@@ -839,14 +839,14 @@ public:
         dealloc_counter = 0;
 
         if (mode == aggregated_executor_modes::STRICT ) {
-          slices_full_promise = hpx::lcos::local::promise<void>{};
+          slices_full_promise = hpx::promise<void>{};
         }
       }
 
       // Create Executor Slice future -- that will be returned later
-      hpx::lcos::future<executor_slice> ret_fut;
+      hpx::future<executor_slice> ret_fut;
       if (local_slice_id < max_slices) {
-        executor_slices.emplace_back(hpx::lcos::local::promise<executor_slice>{});
+        executor_slices.emplace_back(hpx::promise<executor_slice>{});
         ret_fut =
             executor_slices[local_slice_id - 1].get_future();
       } else {
@@ -871,7 +871,7 @@ public:
                 gpu_id));
         // Renew promise that all slices will be ready as the primary launch
         // criteria...
-        hpx::lcos::shared_future<void> fut;
+        hpx::shared_future<void> fut;
         if (mode == aggregated_executor_modes::EAGER ||
             mode == aggregated_executor_modes::ENDLESS) {
           // Fallback launch condidtion: Launch as soon as the underlying stream
@@ -922,7 +922,7 @@ public:
       return ret_fut;
     } else {
       // Return empty optional as failure
-      return std::optional<hpx::lcos::future<executor_slice>>{};
+      return std::optional<hpx::future<executor_slice>>{};
     }
   }
   size_t launched_slices;
