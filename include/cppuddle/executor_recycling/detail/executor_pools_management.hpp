@@ -139,39 +139,39 @@ class executor_pool {
 public:
   template <typename Interface, typename Pool, typename... Ts>
   static void init(size_t number_of_executors, Ts ... executor_args) {
-    executor_pool_implementation<Interface, Pool>::init(number_of_executors,
+    pool_manager<Interface, Pool>::init(number_of_executors,
                                                       executor_args...);
   }
   template <typename Interface, typename Pool, typename... Ts>
   static void init_all_executor_pools(size_t number_of_executors, Ts ... executor_args) {
-    executor_pool_implementation<Interface, Pool>::init_all_executor_pools(number_of_executors,
+    pool_manager<Interface, Pool>::init_all_executor_pools(number_of_executors,
                                                       executor_args...);
   }
   template <typename Interface, typename Pool, typename... Ts>
   static void init_executor_pool(size_t pool_id, size_t number_of_executors, Ts ... executor_args) {
-    executor_pool_implementation<Interface, Pool>::init_executor_pool(pool_id, number_of_executors,
+    pool_manager<Interface, Pool>::init_executor_pool(pool_id, number_of_executors,
                                                       executor_args...);
   }
   template <typename Interface, typename Pool> static void cleanup() {
-    executor_pool_implementation<Interface, Pool>::cleanup();
+    pool_manager<Interface, Pool>::cleanup();
   }
   template <typename Interface, typename Pool>
   static std::tuple<Interface &, size_t> get_interface(const size_t gpu_id) {
-    return executor_pool_implementation<Interface, Pool>::get_interface(gpu_id);
+    return pool_manager<Interface, Pool>::get_interface(gpu_id);
   }
   template <typename Interface, typename Pool>
   static void release_interface(size_t index, const size_t gpu_id) noexcept {
-    executor_pool_implementation<Interface, Pool>::release_interface(index,
+    pool_manager<Interface, Pool>::release_interface(index,
         gpu_id);
   }
   template <typename Interface, typename Pool>
   static bool interface_available(size_t load_limit, const size_t gpu_id) noexcept {
-    return executor_pool_implementation<Interface, Pool>::interface_available(
+    return pool_manager<Interface, Pool>::interface_available(
         load_limit, gpu_id);
   }
   template <typename Interface, typename Pool>
   static size_t get_current_load(const size_t gpu_id = 0) noexcept {
-    return executor_pool_implementation<Interface, Pool>::get_current_load(
+    return pool_manager<Interface, Pool>::get_current_load(
         gpu_id);
   }
   template <typename Interface, typename Pool>
@@ -182,19 +182,19 @@ public:
 
   template <typename Interface, typename Pool>
   static void set_device_selector(std::function<void(size_t)> select_gpu_function) {
-    executor_pool_implementation<Interface, Pool>::set_device_selector(select_gpu_function);
+    pool_manager<Interface, Pool>::set_device_selector(select_gpu_function);
   }
 
   template <typename Interface, typename Pool>
   static void select_device(size_t gpu_id) {
-    executor_pool_implementation<Interface, Pool>::select_device(gpu_id);
+    pool_manager<Interface, Pool>::select_device(gpu_id);
   }
 
 private:
   executor_pool() = default;
 
 private:
-  template <typename Interface, typename Pool> class executor_pool_implementation {
+  template <typename Interface, typename Pool> class pool_manager {
   public:
     /// Deprecated! Use init_on_all_gpu or init_on_gpu
     template <typename... Ts>
@@ -277,7 +277,7 @@ private:
     }
 
   private:
-    executor_pool_implementation() = default;
+    pool_manager() = default;
     cppuddle::mutex_t pool_mut{};
     std::function<void(size_t)> select_gpu_function = [](size_t gpu_id) {
       // By default no multi gpu support
@@ -288,21 +288,21 @@ private:
     std::deque<Pool> executorpools{};
     std::array<cppuddle::mutex_t, cppuddle::max_number_gpus> gpu_mutexes;
 
-    static executor_pool_implementation& instance(void) {
-      static executor_pool_implementation pool_instance{};
+    static pool_manager& instance(void) {
+      static pool_manager pool_instance{};
       return pool_instance;
     }
 
   public:
-    ~executor_pool_implementation() = default;
+    ~pool_manager() = default;
     // Bunch of constructors we don't need
-    executor_pool_implementation(executor_pool_implementation const &other) =
+    pool_manager(pool_manager const &other) =
         delete;
-    executor_pool_implementation &
-    operator=(executor_pool_implementation const &other) = delete;
-    executor_pool_implementation(executor_pool_implementation &&other) = delete;
-    executor_pool_implementation &
-    operator=(executor_pool_implementation &&other) = delete;
+    pool_manager &
+    operator=(pool_manager const &other) = delete;
+    pool_manager(pool_manager &&other) = delete;
+    pool_manager &
+    operator=(pool_manager &&other) = delete;
   };
 
 public:
