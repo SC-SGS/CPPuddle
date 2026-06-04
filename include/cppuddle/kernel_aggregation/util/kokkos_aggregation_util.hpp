@@ -105,7 +105,9 @@ template <
     typename... Args>
 CPPUDDLE_HOST_DEVICE_METHOD auto
 map_views_to_slice(const Agg_executor_t &agg_exec,
-                   const Agg_view_t &current_arg, const Args &...rest) {
+                   const Agg_view_t &current_arg, const Args &...rest) ->
+                     std::tuple<typename Agg_view_t::view_type,
+                                typename Args::view_type...> {
   const size_t slice_id = agg_exec.id;
   const size_t max_slices = agg_exec.max_slices;
   static_assert(Kokkos::is_view<typename Agg_view_t::view_type>::value,
