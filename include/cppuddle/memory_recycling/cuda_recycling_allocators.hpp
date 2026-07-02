@@ -7,7 +7,7 @@
 #define CUDA_RECYCLING_ALLOCATORS_HPP
 
 #include "buffer_management_interface.hpp"
-// import cuda_pinned_allocator and cuda_device_allocator
+// import underlying cuda allocators used here
 #include "detail/cuda_underlying_allocators.hpp"
 
 /// \file
@@ -40,6 +40,10 @@ using recycle_allocator_cuda_host =
 template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
 using recycle_allocator_cuda_device =
     detail::recycle_allocator<T, detail::cuda_device_allocator<T>>;
+
+template <typename T, std::enable_if_t<std::is_trivial<T>::value, int> = 0>
+using recycle_allocator_cuda_managed =
+    detail::aggressive_recycle_allocator<T, detail::cuda_managed_memory_allocator<T>>;
 
 } // namespace memory_recycling
 } // end namespace cppuddle
