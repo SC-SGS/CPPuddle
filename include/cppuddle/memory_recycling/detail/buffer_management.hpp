@@ -507,7 +507,7 @@ private:
           // sanity checks:
           assert(std::get<1>(tuple) == number_of_elements);
           // move to the unused_buffer list
-          instance()[location_id].unused_buffer_map[number_of_elements].push_front(tuple);
+          instance()[location_id].unused_buffer_map.at(std::get<1>(tuple)).push_front(tuple);
           instance()[location_id].buffer_map.erase(memory_location);
           return; // Success
         }
@@ -539,7 +539,7 @@ private:
           // sanity checks:
           assert(std::get<1>(tuple) == number_of_elements);
           // move to the unused_buffer list
-          instance()[location_id].unused_buffer_map[number_of_elements].push_front(tuple);
+          instance()[location_id].unused_buffer_map.at(std::get<1>(tuple)).push_front(tuple);
           instance()[location_id].buffer_map.erase(memory_location);
           return; // Success
         }
@@ -573,7 +573,7 @@ private:
             // sanity checks:
             assert(std::get<1>(tuple) == number_of_elements);
             // move to the unused_buffer list
-            instance()[location_id].unused_buffer_map[number_of_elements].push_front(tuple);
+            instance()[location_id].unused_buffer_map.at(std::get<1>(tuple)).push_front(tuple);
             instance()[location_id].buffer_map.erase(memory_location);
             return; // Success
           }
@@ -599,7 +599,7 @@ private:
             // sanity checks:
             assert(std::get<1>(tuple) == number_of_elements);
             // move to the unused_buffer list
-            instance()[location_id].unused_buffer_map[number_of_elements].push_front(tuple);
+            instance()[location_id].unused_buffer_map.at(std::get<1>(tuple)).push_front(tuple);
             instance()[location_id].buffer_map.erase(memory_location);
             return; // Success
           }
@@ -702,9 +702,9 @@ private:
                 << "--> Number of times a new buffer had to be created for a "
                    "request: "
                 << number_creation << std::endl
-                // << "--> Number cleaned up buffers:                             "
-                //    "       "
-                // << number_cleaned << std::endl
+                << "--> Number cleaned up buffers:                             "
+                   "       "
+                << number_creation << std::endl // TODO Add actual deallocation counter across map
                 << "--> Number wrong deallocation hints:                       "
                    "       "
                 << number_wrong_hints << std::endl
