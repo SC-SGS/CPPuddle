@@ -252,22 +252,33 @@ install(FILES cppuddle-config.cmake DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/cmak
 install(EXPORT CPPuddle NAMESPACE CPPuddle:: DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/cmake/CPPuddle/)
 
 #Boost::boost Boost::program_options HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager stream_manager
+if (CPPUDDLE_WITH_CUDA)
+   add_hpx_executable(
+        cuda_gemm_fusion_experiments
+        DEPENDENCIES
+        Boost::boost Boost::program_options atomic Kokkos::kokkos HPXKokkos::hpx_kokkos HPX::hpx buffer_manager stream_manager
+        COMPONENT_DEPENDENCIES iostreams
+        SOURCES
+        benchmarks/cuda_gemm_fusion_experiments.cpp
+        )
+endif()
+
 if (CPPUDDLE_WITH_TESTS)
   if (CPPUDDLE_WITH_CUDA)
      add_hpx_executable(
           recycling-with-hpx-cuda
           DEPENDENCIES
-          Boost::boost Boost::program_options HPX::hpx buffer_manager stream_manager
+          Boost::boost Boost::program_options atomic Kokkos::kokkos HPXKokkos::hpx_kokkos HPX::hpx buffer_manager stream_manager
           COMPONENT_DEPENDENCIES iostreams
           SOURCES
-          examples/recycling-with-hpx-cuda.cu
+          examples/recycling-with-hpx-cuda.cpp
           )
         
       if (CPPUDDLE_WITH_KOKKOS)
          add_hpx_executable(
               recycling-with-hpx-kokkos
               DEPENDENCIES
-              Boost::boost Boost::program_options Kokkos::kokkos HPXKokkos::hpx_kokkos HPX::hpx buffer_manager stream_manager
+              Boost::boost Boost::program_options atomic Kokkos::kokkos HPXKokkos::hpx_kokkos HPX::hpx buffer_manager stream_manager
               COMPONENT_DEPENDENCIES iostreams
               SOURCES
               examples/recycling-with-hpx-kokkos.cpp
@@ -275,7 +286,7 @@ if (CPPUDDLE_WITH_TESTS)
          add_hpx_executable(
               kernel-aggregation-with-hpx-kokkos
               DEPENDENCIES
-              Boost::boost Boost::program_options Kokkos::kokkos HPXKokkos::hpx_kokkos HPX::hpx buffer_manager stream_manager
+              Boost::boost Boost::program_options atomic Kokkos::kokkos HPXKokkos::hpx_kokkos HPX::hpx buffer_manager stream_manager
               COMPONENT_DEPENDENCIES iostreams
               SOURCES
               examples/kernel-aggregation-with-hpx-kokkos.cpp
@@ -320,7 +331,7 @@ if (CPPUDDLE_WITH_TESTS)
 
       add_executable(allocator_cuda_test tests/allocator_cuda_test.cu)
       target_link_libraries(allocator_cuda_test
-        PRIVATE Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
+        PRIVATE atomic Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
       target_compile_definitions(allocator_cuda_test PRIVATE CPPUDDLE_HAVE_CUDA)
 
       add_executable(
@@ -338,13 +349,13 @@ if (CPPUDDLE_WITH_TESTS)
           tests/allocator_kokkos_test.cpp
           include/buffer_manager.hpp)
         target_link_libraries(allocator_kokkos_test
-          PRIVATE Boost::boost Boost::program_options HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
+          PRIVATE Boost::boost Boost::program_options HPX::hpx atomic Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager)
         target_compile_definitions(allocator_kokkos_test PRIVATE HPX_WITH_CUDA CPPUDDLE_HAVE_CUDA)
 
         add_hpx_executable(
           allocator_kokkos_executor_for_loop_test
           DEPENDENCIES
-          HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager
+          HPX::hpx atomic Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager
           SOURCES
           ${CMAKE_CURRENT_SOURCE_DIR}/tests/allocator_kokkos_executor_for_loop_test.cpp)
        # target_link_libraries(allocator_kokkos_executor_for_loop_test
@@ -354,7 +365,7 @@ if (CPPUDDLE_WITH_TESTS)
         add_hpx_executable(
           work_aggregation_test
           DEPENDENCIES
-          Boost::boost Boost::program_options HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager stream_manager
+          Boost::boost Boost::program_options HPX::hpx atomic Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager stream_manager
           COMPONENT_DEPENDENCIES iostreams
           SOURCES
           tests/work_aggregation_test.cpp
@@ -363,7 +374,7 @@ if (CPPUDDLE_WITH_TESTS)
         add_hpx_executable(
           work_aggregation_cpu_triad
           DEPENDENCIES
-          Boost::boost Boost::program_options HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager stream_manager
+          Boost::boost Boost::program_options HPX::hpx atomic Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager stream_manager
           COMPONENT_DEPENDENCIES iostreams
           SOURCES
           tests/work_aggregation_cpu_triad.cpp
@@ -372,7 +383,7 @@ if (CPPUDDLE_WITH_TESTS)
         add_hpx_executable(
           work_aggregation_cuda_triad
           DEPENDENCIES
-          Boost::boost Boost::program_options HPX::hpx Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager stream_manager
+          Boost::boost Boost::program_options HPX::hpx atomic Kokkos::kokkos HPXKokkos::hpx_kokkos buffer_manager stream_manager
           COMPONENT_DEPENDENCIES iostreams
           SOURCES
           tests/work_aggregation_cuda_triad.cpp

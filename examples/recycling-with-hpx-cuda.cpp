@@ -6,13 +6,13 @@
 // Developer  TODOs regarding CPPuddle usability:
 // TODO(daissgr) Simplify specifying an executor pool (at least when using the
 // default round_robin_pool_impl). The current way seems awfully verbose
-
 #include <algorithm>
 #include <cstdlib>
-#include <hpx/include/async.hpp>
+
 #include <hpx/include/lcos.hpp>
 #include <hpx/hpx_init.hpp>
 #include <hpx/include/iostreams.hpp>
+#include <hpx/modules/async_cuda.hpp>
 #include <hpx/async_cuda/cuda_executor.hpp>
 
 #include <boost/program_options.hpp>
@@ -26,6 +26,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <vector>
+
 
 
 /** \file This example shows how to use HPX + CPPuddle with GPU-accelerated
@@ -51,6 +52,12 @@
 using float_t = float;
 // ... and we will use the HPX CUDA executor inside the executor pool later on
 using device_executor_t = hpx::cuda::experimental::cuda_executor;
+
+// clang + newer cuda versions cannot deduce the type of cudaMemcpyAsync otherwise...
+// deducing is necessary for the post/async calls below
+auto memcpy_wrapper(void *dst, const void *src, size_t count, enum cudaMemcpyKind kind, cudaStream_t stream) {
+      return cudaMemcpyAsync(dst, src, count, kind, stream);
+}
 
 /** Just some example CUDA kernel. For simplicity it just adds two vectors. */
 __global__ void kernel_add(const float_t *input_a, const float_t *input_b, float_t *output_c) {
@@ -126,19 +133,19 @@ void launch_gpu_kernel_task(const size_t task_id, const size_t entries_per_task,
         entries_per_task);
 
     // 4c. Launch data transfers and kernel
-    hpx::apply(static_cast<device_executor_t>(executor), cudaMemcpyAsync,
+    hpx::post(static_cast<device_executor_t>(executor), memcpy_wrapper,
                device_a.device_side_buffer, host_a.data(),
                entries_per_task * sizeof(float_t), cudaMemcpyHostToDevice);
-    hpx::apply(static_cast<device_executor_t>(executor), cudaMemcpyAsync,
+    hpx::post(static_cast<device_executor_t>(executor), memcpy_wrapper,
                device_b.device_side_buffer, host_b.data(),
                entries_per_task * sizeof(float_t), cudaMemcpyHostToDevice);
     void *args[] = {&device_a.device_side_buffer, &device_b.device_side_buffer,
                     &device_c.device_side_buffer};
-    hpx::apply(static_cast<device_executor_t>(executor),
+    hpx::post(static_cast<device_executor_t>(executor),
                cudaLaunchKernel<decltype(kernel_add)>, kernel_add,
                entries_per_task / 128, 128, args, 0);
     auto fut =
-        hpx::async(static_cast<device_executor_t>(executor), cudaMemcpyAsync,
+        hpx::async(static_cast<device_executor_t>(executor), memcpy_wrapper,
                    host_c.data(), device_c.device_side_buffer,
                    entries_per_task * sizeof(float_t), cudaMemcpyDeviceToHost);
     fut.get(); // Allow worker thread to jump away until the kernel and
