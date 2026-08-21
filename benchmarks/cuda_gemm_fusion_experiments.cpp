@@ -2,6 +2,7 @@
 #include <cublas_v2.h>
 #include <mma.h>
 
+
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
@@ -11,6 +12,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <cstdio>
 
 // ------------------------------------------------------------
 // Variant 1: naive row-major DGEMM
@@ -27,14 +29,7 @@
 // ------------------------------------------------------------
 
 void dgemm_naive_cpu(
-    int M,
-    int N,
-    int K,
-    double alpha,
-    const double* A,
-    const double* B,
-    double beta,
-    double* C) {
+    int M, int N, int K, double alpha, const double* A, const double* B, double beta, double* C) {
   for (auto row = 0; row < M; row++) {
     for (auto column = 0; column < N; column++) {
       double acc = 0.0;
@@ -72,15 +67,7 @@ void reset_C_cpu(int M, int N, double *C) {
 
 
 __global__ void dgemm_naive_unoptimized_v0(
-    int M,
-    int N,
-    int K,
-    double alpha,
-    const double* A,
-    const double* B,
-    double beta,
-    double* C)
-{
+    int M, int N, int K, double alpha, const double* A, const double* B, double beta, double* C) {
     // Deliberately bad mapping:
     // threadIdx.x maps to row instead of column.
     int row = blockIdx.x * blockDim.x + threadIdx.x;
@@ -96,15 +83,8 @@ __global__ void dgemm_naive_unoptimized_v0(
     }
 }
 __global__ void dgemm_naive_v1(
-    int M,
-    int N,
-    int K,
-    double alpha,
-    const double* __restrict__ A,
-    const double* __restrict__ B,
-    double beta,
-    double* __restrict__ C)
-{
+    int M, int N, int K, double alpha, const double* __restrict__ A, const double* __restrict__ B,
+    double beta, double* __restrict__ C) {
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     if (row < M && col < N) {
@@ -121,44 +101,31 @@ __global__ void dgemm_naive_v1(
 
 template <int TILE>
 __global__ void dgemm_shared_tiled_v2(
-    int M,
-    int N,
-    int K,
-    double alpha,
-    const double* __restrict__ A,
-    const double* __restrict__ B,
-    double beta,
-    double* __restrict__ C)
-{
+    int M, int N, int K, double alpha, const double* __restrict__ A, const double* __restrict__ B,
+    double beta, double* __restrict__ C) {
+
     __shared__ double As[TILE][TILE + 1];
     __shared__ double Bs[TILE][TILE + 1];
-
     int tx = threadIdx.x;
     int ty = threadIdx.y;
-
     int row = blockIdx.y * TILE + ty;
     int col = blockIdx.x * TILE + tx;
-
     double acc = 0.0;
 
     for (int kb = 0; kb < K; kb += TILE) {
         int a_col = kb + tx;
         int b_row = kb + ty;
-
         if (row < M && a_col < K) {
             As[ty][tx] = A[row * K + a_col];
         } else {
             As[ty][tx] = 0.0;
         }
-
         if (b_row < K && col < N) {
             Bs[ty][tx] = B[b_row * N + col];
         } else {
             Bs[ty][tx] = 0.0;
         }
-
         __syncthreads();
-
         #pragma unroll
         for (int kk = 0; kk < TILE; ++kk) {
             acc = fma(As[ty][kk], Bs[kk][tx], acc);
@@ -166,7 +133,6 @@ __global__ void dgemm_shared_tiled_v2(
 
         __syncthreads();
     }
-
     if (row < M && col < N) {
         int idx = row * N + col;
         C[idx] = alpha * acc + beta * C[idx];
@@ -174,38 +140,21 @@ __global__ void dgemm_shared_tiled_v2(
 }
 
 
-template <
-    int BM,
-    int BN,
-    int BK,
-    int TM,
-    int TN
->
+template <int BM, int BN, int BK, int TM, int TN>
 __global__ void dgemm_register_tiled_v3(
-    int M,
-    int N,
-    int K,
-    double alpha,
-    const double* __restrict__ A,
-    const double* __restrict__ B,
-    double beta,
-    double* __restrict__ C)
-{
+    int M, int N, int K, double alpha, const double* __restrict__ A, const double* __restrict__ B,
+    double beta, double* __restrict__ C) {
+
     __shared__ double As[BM][BK + 1];
     __shared__ double Bs[BK][BN + 1];
-
     int tx = threadIdx.x;
     int ty = threadIdx.y;
-
     int tid = ty * blockDim.x + tx;
     int num_threads = blockDim.x * blockDim.y;
-
     int block_row = blockIdx.y * BM;
     int block_col = blockIdx.x * BN;
-
     int thread_row = ty * TM;
     int thread_col = tx * TN;
-
     double acc[TM][TN];
 
     #pragma unroll
@@ -217,13 +166,9 @@ __global__ void dgemm_register_tiled_v3(
     }
 
     for (int kb = 0; kb < K; kb += BK) {
-        // --------------------------------------------------------
-        // Cooperative load of A tile: BM x BK
-        // --------------------------------------------------------
         for (int idx = tid; idx < BM * BK; idx += num_threads) {
             int r = idx / BK;
             int c = idx % BK;
-
             int global_row = block_row + r;
             int global_col = kb + c;
 
@@ -234,13 +179,9 @@ __global__ void dgemm_register_tiled_v3(
             }
         }
 
-        // --------------------------------------------------------
-        // Cooperative load of B tile: BK x BN
-        // --------------------------------------------------------
         for (int idx = tid; idx < BK * BN; idx += num_threads) {
             int r = idx / BN;
             int c = idx % BN;
-
             int global_row = kb + r;
             int global_col = block_col + c;
 
@@ -250,12 +191,8 @@ __global__ void dgemm_register_tiled_v3(
                 Bs[r][c] = 0.0;
             }
         }
-
         __syncthreads();
 
-        // --------------------------------------------------------
-        // Compute this thread's TM x TN output tile
-        // --------------------------------------------------------
         #pragma unroll
         for (int kk = 0; kk < BK; ++kk) {
             double a_frag[TM];
@@ -265,12 +202,10 @@ __global__ void dgemm_register_tiled_v3(
             for (int i = 0; i < TM; ++i) {
                 a_frag[i] = As[thread_row + i][kk];
             }
-
             #pragma unroll
             for (int j = 0; j < TN; ++j) {
                 b_frag[j] = Bs[kk][thread_col + j];
             }
-
             #pragma unroll
             for (int i = 0; i < TM; ++i) {
                 #pragma unroll
@@ -279,13 +214,9 @@ __global__ void dgemm_register_tiled_v3(
                 }
             }
         }
-
         __syncthreads();
     }
 
-    // ------------------------------------------------------------
-    // Store TM x TN result tile
-    // ------------------------------------------------------------
     #pragma unroll
     for (int i = 0; i < TM; ++i) {
         int global_row = block_row + thread_row + i;
@@ -302,10 +233,6 @@ __global__ void dgemm_register_tiled_v3(
     }
 }
 
-#include <cuda_runtime.h>
-#include <cstdio>
-#include <cmath>
-
 template <
     int BM = 64,   // block tile size in M dimension
     int BN = 32,   // block tile size in N dimension
@@ -314,35 +241,22 @@ template <
     int TN = 2     // per-thread tile size in N
 >
 __global__ void dgemm_v4_shared_register_tiled(
-    int M,
-    int N,
-    int K,
-    double alpha,
-    const double* __restrict__ A,
-    const double* __restrict__ B,
-    double beta,
-    double* __restrict__ C)
-{
+    int M, int N, int K, double alpha, const double* __restrict__ A, const double* __restrict__ B,
+    double beta, double* __restrict__ C) {
+
     static_assert(BM % TM == 0, "BM must be divisible by TM");
     static_assert(BN % TN == 0, "BN must be divisible by TN");
-
     constexpr int blockDimX = BN / TN;
     constexpr int blockDimY = BM / TM;
-
     __shared__ double As[BM][BK + 1];
     __shared__ double Bs[BK][BN + 1];
-
     int tx = threadIdx.x;
     int ty = threadIdx.y;
-
     int blockRow = blockIdx.y * BM;
     int blockCol = blockIdx.x * BN;
-
     int localRow = ty * TM;
     int localCol = tx * TN;
-
     double acc[TM][TN];
-
     #pragma unroll
     for (int i = 0; i < TM; ++i) {
         #pragma unroll
@@ -353,13 +267,10 @@ __global__ void dgemm_v4_shared_register_tiled(
 
     int tid = ty * blockDim.x + tx;
     int numThreads = blockDim.x * blockDim.y;
-
     for (int k0 = 0; k0 < K; k0 += BK) {
-        // Load A tile into shared memory.
         for (int idx = tid; idx < BM * BK; idx += numThreads) {
             int r = idx / BK;
             int k = idx % BK;
-
             int globalRow = blockRow + r;
             int globalK   = k0 + k;
 
@@ -370,11 +281,9 @@ __global__ void dgemm_v4_shared_register_tiled(
             }
         }
 
-        // Load B tile into shared memory.
         for (int idx = tid; idx < BK * BN; idx += numThreads) {
             int k = idx / BN;
             int c = idx % BN;
-
             int globalK   = k0 + k;
             int globalCol = blockCol + c;
 
@@ -384,10 +293,8 @@ __global__ void dgemm_v4_shared_register_tiled(
                 Bs[k][c] = 0.0;
             }
         }
-
         __syncthreads();
 
-        // Compute partial tile.
         #pragma unroll
         for (int k = 0; k < BK; ++k) {
             double aFrag[TM];
@@ -397,12 +304,10 @@ __global__ void dgemm_v4_shared_register_tiled(
             for (int i = 0; i < TM; ++i) {
                 aFrag[i] = As[localRow + i][k];
             }
-
             #pragma unroll
             for (int j = 0; j < TN; ++j) {
                 bFrag[j] = Bs[k][localCol + j];
             }
-
             #pragma unroll
             for (int i = 0; i < TM; ++i) {
                 #pragma unroll
@@ -411,11 +316,9 @@ __global__ void dgemm_v4_shared_register_tiled(
                 }
             }
         }
-
         __syncthreads();
     }
 
-    // Store results.
     #pragma unroll
     for (int i = 0; i < TM; ++i) {
         int globalRow = blockRow + localRow + i;
@@ -440,38 +343,25 @@ template <
     int TN = 4
 >
 __global__ void dgemm_v5_vectorized_register_tiled(
-    int M,
-    int N,
-    int K,
-    double alpha,
-    const double* __restrict__ A,
-    const double* __restrict__ B,
-    double beta,
-    double* __restrict__ C)
-{
+    int M, int N, int K, double alpha, const double* __restrict__ A, const double* __restrict__ B,
+    double beta, double* __restrict__ C) {
+
     static_assert(BM % TM == 0, "BM must be divisible by TM");
     static_assert(BN % TN == 0, "BN must be divisible by TN");
     static_assert(BK % 2 == 0, "BK must be even for double2 loads");
     static_assert(BN % 2 == 0, "BN must be even for double2 loads");
-
     constexpr int THREADS_X = BN / TN;  // 16
     constexpr int THREADS_Y = BM / TM;  // 16
-
     __shared__ double As[BM][BK];
     __shared__ double Bs[BK][BN];
-
     const int tx = threadIdx.x;
     const int ty = threadIdx.y;
-
     const int tid = ty * blockDim.x + tx;
     const int numThreads = blockDim.x * blockDim.y;
-
     const int blockRow = blockIdx.y * BM;
     const int blockCol = blockIdx.x * BN;
-
     const int localRow = ty * TM;
     const int localCol = tx * TN;
-
     double acc[TM][TN];
 
     #pragma unroll
@@ -491,20 +381,12 @@ __global__ void dgemm_v5_vectorized_register_tiled(
     const bool canVectorize = ((K & 1) == 0) && ((N & 1) == 0);
 
     for (int k0 = 0; k0 < K; k0 += BK) {
-        // ============================================================
-        // Load A tile into shared memory.
-        // Tile shape: BM x BK
-        // Vectorized as double2 along K dimension.
-        // ============================================================
-
         constexpr int A_VEC_ELEMS = BM * BK / 2;
 
         for (int idx = tid; idx < A_VEC_ELEMS; idx += numThreads) {
             int elem = idx * 2;
-
             int r = elem / BK;
             int k = elem - r * BK;
-
             int globalRow = blockRow + r;
             int globalK   = k0 + k;
 
@@ -530,12 +412,6 @@ __global__ void dgemm_v5_vectorized_register_tiled(
                 As[r][k + 1] = v1;
             }
         }
-
-        // ============================================================
-        // Load B tile into shared memory.
-        // Tile shape: BK x BN
-        // Vectorized as double2 along N dimension.
-        // ============================================================
 
         constexpr int B_VEC_ELEMS = BK * BN / 2;
 
@@ -570,13 +446,7 @@ __global__ void dgemm_v5_vectorized_register_tiled(
                 Bs[k][c + 1] = v1;
             }
         }
-
         __syncthreads();
-
-        // ============================================================
-        // Compute this BK slice.
-        // Each thread computes a 4 x 4 microtile of C.
-        // ============================================================
 
         #pragma unroll
         for (int k = 0; k < BK; ++k) {
@@ -587,12 +457,10 @@ __global__ void dgemm_v5_vectorized_register_tiled(
             for (int i = 0; i < TM; ++i) {
                 aFrag[i] = As[localRow + i][k];
             }
-
             #pragma unroll
             for (int j = 0; j < TN; ++j) {
                 bFrag[j] = Bs[k][localCol + j];
             }
-
             #pragma unroll
             for (int i = 0; i < TM; ++i) {
                 #pragma unroll
@@ -601,13 +469,8 @@ __global__ void dgemm_v5_vectorized_register_tiled(
                 }
             }
         }
-
         __syncthreads();
     }
-
-    // ================================================================
-    // Store C tile.
-    // ================================================================
 
     #pragma unroll
     for (int i = 0; i < TM; ++i) {
@@ -627,40 +490,25 @@ __global__ void dgemm_v5_vectorized_register_tiled(
 
 using namespace nvcuda;
 __global__ void dgemm_v6_fp64_tensorcore_wmma(
-    int M,
-    int N,
-    int K,
-    double alpha,
-    const double* __restrict__ A,
-    const double* __restrict__ B,
-    double beta,
-    double* __restrict__ C)
-{
+    int M, int N, int K, double alpha, const double* __restrict__ A, const double* __restrict__ B,
+    double beta, double* __restrict__ C) {
+
     constexpr int WMMA_M = 8;
     constexpr int WMMA_N = 8;
     constexpr int WMMA_K = 4;
-
     constexpr int WARP_SIZE = 32;
-
     int warpIdInBlock = threadIdx.x / WARP_SIZE;
     int laneId = threadIdx.x % WARP_SIZE;
-
     int warpsPerBlock = blockDim.x / WARP_SIZE;
-
     int tilesM = M / WMMA_M;
     int tilesN = N / WMMA_N;
-
     int globalWarpId = blockIdx.x * warpsPerBlock + warpIdInBlock;
-
     int tileId = globalWarpId;
-
     if (tileId >= tilesM * tilesN) {
         return;
     }
-
     int tileM = tileId / tilesN;
     int tileN = tileId - tileM * tilesN;
-
     int row = tileM * WMMA_M;
     int col = tileN * WMMA_N;
 
@@ -689,7 +537,6 @@ __global__ void dgemm_v6_fp64_tensorcore_wmma(
         WMMA_K,
         double
     > accFrag;
-
     wmma::fill_fragment(accFrag, 0.0);
 
     for (int k0 = 0; k0 < K; k0 += WMMA_K) {
@@ -698,7 +545,6 @@ __global__ void dgemm_v6_fp64_tensorcore_wmma(
 
         wmma::load_matrix_sync(aFrag, aTile, K);
         wmma::load_matrix_sync(bFrag, bTile, N);
-
         wmma::mma_sync(accFrag, aFrag, bFrag, accFrag);
     }
 
@@ -710,9 +556,7 @@ __global__ void dgemm_v6_fp64_tensorcore_wmma(
             WMMA_K,
             double
         > cOldFrag;
-
         const double* cTileIn = C + row * N + col;
-
         wmma::load_matrix_sync(cOldFrag, cTileIn, N, wmma::mem_row_major);
 
         #pragma unroll
@@ -725,9 +569,7 @@ __global__ void dgemm_v6_fp64_tensorcore_wmma(
             accFrag.x[i] = alpha * accFrag.x[i];
         }
     }
-
     double* cTileOut = C + row * N + col;
-
     wmma::store_matrix_sync(cTileOut, accFrag, N, wmma::mem_row_major);
 }
 
@@ -737,22 +579,14 @@ template <
     int BK = 16
 >
 __global__ void dgemm_v6_fp64_wmma_tiled(
-    int M,
-    int N,
-    int K,
-    double alpha,
-    const double* __restrict__ A,
-    const double* __restrict__ B,
-    double beta,
-    double* __restrict__ C)
-{
+    int M, int N, int K, double alpha, const double* __restrict__ A, const double* __restrict__ B,
+    double beta, double* __restrict__ C) {
+
     constexpr int WMMA_M = 8;
     constexpr int WMMA_N = 8;
     constexpr int WMMA_K = 4;
-
     constexpr int WARPS_PER_BLOCK = 16;
     constexpr int THREADS_PER_BLOCK = WARPS_PER_BLOCK * 32;
-
     static_assert(BM == 64, "This kernel expects BM = 64");
     static_assert(BN == 64, "This kernel expects BN = 64");
     static_assert(BK == 16, "This kernel expects BK = 16");
@@ -765,13 +599,10 @@ __global__ void dgemm_v6_fp64_wmma_tiled(
     */
     constexpr int AS_LD = BK + 4;   // 20
     constexpr int BS_LD = BN + 8;   // 72
-
     __shared__ __align__(16) double As[BM][AS_LD];
     __shared__ __align__(16) double Bs[BK][BS_LD];
-
     const int tid = threadIdx.x;
     const int warpId = tid / 32;
-
     const int blockRow = blockIdx.y * BM;
     const int blockCol = blockIdx.x * BN;
 
@@ -791,7 +622,6 @@ __global__ void dgemm_v6_fp64_wmma_tiled(
     const int warp_m = warpId / 2;          // 0..7
     const int warp_n_group = warpId & 1;    // 0..1
     const int warp_n_base = warp_n_group * 4;
-
     const int cRow = warp_m * WMMA_M;
 
     wmma::fragment<
@@ -812,7 +642,6 @@ __global__ void dgemm_v6_fp64_wmma_tiled(
         // Cooperative vectorized load of A tile into shared memory.
         // A tile shape: 64 x 16
         // ============================================================
-
         constexpr int A_VEC_LOADS = BM * BK / 2;  // 512 double2 loads
 
         for (int idx = tid; idx < A_VEC_LOADS; idx += THREADS_PER_BLOCK) {
@@ -953,26 +782,16 @@ template <
 >
 __global__ __launch_bounds__(256)
 void dgemm_v7_fp64_wmma_64x64_8warps(
-    int M,
-    int N,
-    int K,
-    double alpha,
-    const double* __restrict__ A,
-    const double* __restrict__ B,
-    double beta,
-    double* __restrict__ C)
-{
+    int M, int N, int K, double alpha, const double* __restrict__ A, const double* __restrict__ B,
+    double beta, double* __restrict__ C) {
     constexpr int WMMA_M = 8;
     constexpr int WMMA_N = 8;
     constexpr int WMMA_K = 4;
-
     constexpr int WARPS_PER_BLOCK = 8;
     constexpr int THREADS_PER_BLOCK = WARPS_PER_BLOCK * 32;
-
     static_assert(BM == 64, "BM must be 64");
 //static_assert(BN == 64, "BN must be 64");
     static_assert(BK == 16, "BK must be 16");
-
     constexpr int AS_LD = BK + 4;   // 20
     constexpr int BS_LD = BN + 8;   // 72
 
@@ -1258,13 +1077,7 @@ int main(int argc, char** argv)
 
     auto start_cpu = std::chrono::high_resolution_clock::now();
     dgemm_naive_cpu(
-        M, N, K,
-        alpha,
-        hA.data(),
-        hB.data(),
-        beta,
-        hC_comparison.data()
-    );
+      M, N, K, alpha, hA.data(), hB.data(), beta, hC_comparison.data());
     auto end_cpu = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_cpu = end_cpu - start_cpu;
     double total_seconds_cpu = elapsed_cpu.count();
@@ -1282,13 +1095,7 @@ int main(int argc, char** argv)
     auto start_v0 = std::chrono::high_resolution_clock::now();
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
         dgemm_naive_unoptimized_v0<<<grid_v1, block_v1>>>(
-            M, N, K,
-            alpha,
-            dA,
-            dB,
-            beta,
-            dC
-        );
+          M, N, K, alpha, dA, dB, beta, dC);
     }
     cudaGetLastError();
     cudaDeviceSynchronize();
@@ -1314,13 +1121,7 @@ int main(int argc, char** argv)
     auto start_v1 = std::chrono::high_resolution_clock::now();
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
         dgemm_naive_v1<<<grid_v1, block_v1>>>(
-            M, N, K,
-            alpha,
-            dA,
-            dB,
-            beta,
-            dC
-        );
+          M, N, K, alpha, dA, dB, beta, dC);
     }
     cudaGetLastError();
     cudaDeviceSynchronize();
@@ -1359,13 +1160,7 @@ int main(int argc, char** argv)
     auto start_v2 = std::chrono::high_resolution_clock::now();
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
             dgemm_shared_tiled_v2<TILE_V2><<<grid_v2, block_v2>>>(
-                M, N, K,
-                alpha,
-                dA,
-                dB,
-                beta,
-                dC
-            );
+              M, N, K, alpha, dA, dB, beta, dC);
     }
     cudaGetLastError();
     cudaDeviceSynchronize();
@@ -1406,13 +1201,7 @@ int main(int argc, char** argv)
     auto start_v3 = std::chrono::high_resolution_clock::now();
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
             dgemm_register_tiled_v3<BM_v3, BN_v3, BK_v3, TM_v3, TN_v3><<<grid_v3, block_v3>>>(
-                M, N, K,
-                alpha,
-                dA,
-                dB,
-                beta,
-                dC
-            );
+              M, N, K, alpha, dA, dB, beta, dC);
         }
     cudaGetLastError();
     cudaDeviceSynchronize();
@@ -1455,13 +1244,7 @@ int main(int argc, char** argv)
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
       dgemm_v4_shared_register_tiled<BM_v4, BN_v4, BK_v4, TM_v4, TN_v4>
           <<<grid_v4, block_v4>>>(
-              M, N, K,
-              alpha,
-              dA,
-              dB,
-              beta,
-              dC
-          );
+            M, N, K, alpha, dA, dB, beta, dC);
         }
     cudaGetLastError();
     cudaDeviceSynchronize();
@@ -1504,13 +1287,7 @@ int main(int argc, char** argv)
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
       dgemm_v5_vectorized_register_tiled<BM_v5, BN_v5, BK_v5, TM_v5, TN_v5>
           <<<grid_v5, block_v5>>>(
-              M, N, K,
-              alpha,
-              dA,
-              dB,
-              beta,
-              dC
-          );
+            M, N, K, alpha, dA, dB, beta, dC);
         }
     cudaGetLastError();
     cudaDeviceSynchronize();
@@ -1554,16 +1331,8 @@ int main(int argc, char** argv)
 
     auto start_v6 = std::chrono::high_resolution_clock::now();
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
-      dgemm_v6_fp64_wmma_tiled<<<grid_v6, block_v6>>>(
-          M,
-          N,
-          K,
-          alpha,
-          dA,
-          dB,
-          beta,
-          dC
-      );
+      dgemm_v6_fp64_wmma_tiled<<<grid_v6,  block_v6>>>(
+        M, N, K, alpha, dA, dB, beta, dC);
     }
     cudaGetLastError();
     cudaDeviceSynchronize();
@@ -1603,16 +1372,7 @@ int main(int argc, char** argv)
     auto start_v7 = std::chrono::high_resolution_clock::now();
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
     dgemm_v7_fp64_wmma_64x64_8warps<BM_v7, BN_v7, BK_v7>
-        <<<grid_v7, block_v7>>>(
-            M,
-            N,
-            K,
-            alpha,
-            dA,
-            dB,
-            beta,
-            dC
-        );
+        <<<grid_v7, block_v7>>>(M, N, K, alpha, dA, dB, beta, dC);
     }
     cudaGetLastError();
     cudaDeviceSynchronize();
@@ -1642,44 +1402,14 @@ int main(int argc, char** argv)
     // CHECK_CUBLAS(cublasSetStream(handle, stream));
     //cublasSetPointerMode(handle, CUBLAS_POINTER_MODE_HOST);
     // warmup
-    for (int repeat = 0; repeat < num_repeats; ++repeat) {
-    cublasDgemm(
-        handle,
-        CUBLAS_OP_N,
-        CUBLAS_OP_N,
-        N,          
-        M,          
-        K,          
-        &alpha,
-        dB,         // A in cuBLAS sense: B_row interpreted as B^T
-        N,          
-        dA,         // B in cuBLAS sense: A_row interpreted as A^T
-        K,         
-        &beta,
-        dC,
-        N           // ldc
-    );
-    }
+    cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, dB, N, dA, K, &beta, dC, N);
     cudaGetLastError();
     cudaDeviceSynchronize();
     auto start_cublas = std::chrono::high_resolution_clock::now();
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
-    cublasDgemm(
-        handle,
-        CUBLAS_OP_N,
-        CUBLAS_OP_N,
-        N,          
-        M,          
-        K,          
-        &alpha,
-        dB,         // A in cuBLAS sense: B_row interpreted as B^T
-        N,          
-        dA,         // B in cuBLAS sense: A_row interpreted as A^T
-        K,         
-        &beta,
-        dC,
-        N           // ldc
-    );
+    // A in cuBLAS sense: B_row interpreted as B^T
+    // B in cuBLAS sense: A_row interpreted as A^T
+      cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, dB, N, dA, K, &beta, dC, N);
     }
     cudaGetLastError();
     cudaDeviceSynchronize();
