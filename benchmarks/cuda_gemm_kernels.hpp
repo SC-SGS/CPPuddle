@@ -308,12 +308,6 @@ __global__ void dgemm_v5_vectorized_register_tiled(
     }
   }
 
-  /*
-      We can safely use double2 vectorized global loads when:
-      - K is even, so A rows are 16-byte aligned for even k
-      - N is even, so B rows are 16-byte aligned for even col
-      - cudaMalloc gives sufficiently aligned base pointers
-  */
   const bool canVectorize = ((K & 1) == 0) && ((N & 1) == 0);
 
   for (int k0 = 0; k0 < K; k0 += BK) {
@@ -523,12 +517,6 @@ __global__ void dgemm_v6_fp64_wmma_tiled(
   static_assert(BN == 64, "This kernel expects BN = 64");
   static_assert(BK == 16, "This kernel expects BK = 16");
 
-  /*
-      Padding helps reduce shared-memory bank conflicts.
-
-      AS_LD and BS_LD must remain compatible with WMMA load requirements.
-      For FP64 WMMA, keeping them multiples of 4 is a good rule.
-  */
   constexpr int AS_LD = BK + 4;   // 20
   constexpr int BS_LD = BN + 8;   // 72
   __shared__ __align__(16) double As[BM][AS_LD];
@@ -538,19 +526,6 @@ __global__ void dgemm_v6_fp64_wmma_tiled(
   const int blockRow = blockIdx.y * BM;
   const int blockCol = blockIdx.x * BN;
 
-  /*
-      There are 8 WMMA row tiles and 8 WMMA col tiles in a 64 x 64 block.
-
-      16 warps/block.
-
-      Mapping:
-          warp_m      = 0..7
-          warp_n_base = 0 or 4
-
-      Each warp computes four 8x8 C tiles:
-          same M tile
-          four consecutive N tiles
-  */
   const int warp_m = warpId / 2;          // 0..7
   const int warp_n_group = warpId & 1;    // 0..1
   const int warp_n_base = warp_n_group * 4;
@@ -570,15 +545,9 @@ __global__ void dgemm_v6_fp64_wmma_tiled(
   }
 
   for (int k0 = 0; k0 < K; k0 += BK) {
-    // ============================================================
-    // Cooperative vectorized load of A tile into shared memory.
-    // A tile shape: 64 x 16
-    // ============================================================
     constexpr int A_VEC_LOADS = BM * BK / 2;  // 512 double2 loads
-
     for (int idx = tid; idx < A_VEC_LOADS; idx += THREADS_PER_BLOCK) {
       int linear = idx * 2;
-
       int r = linear / BK;
       int k = linear - r * BK;
 
@@ -589,13 +558,7 @@ __global__ void dgemm_v6_fp64_wmma_tiled(
       As[r][k]     = v.x;
       As[r][k + 1] = v.y;
     }
-
-    // ============================================================
-    // Cooperative vectorized load of B tile into shared memory.
-    // B tile shape: 16 x 64
-    // ============================================================
     constexpr int B_VEC_LOADS = BK * BN / 2;  // 512 double2 loads
-                                              //
     for (int idx = tid; idx < B_VEC_LOADS; idx += THREADS_PER_BLOCK) {
       int linear = idx * 2;
       int k = linear / BN;
@@ -609,11 +572,6 @@ __global__ void dgemm_v6_fp64_wmma_tiled(
       Bs[k][c + 1] = v.y;
     }
     __syncthreads();
-
-    // ============================================================
-    // Tensor Core compute on this BK slice.
-    // BK = 16, WMMA_K = 4, so 4 inner WMMA steps.
-    // ============================================================
 
     #pragma unroll
     for (int kk = 0; kk < BK; kk += WMMA_K) {
@@ -658,10 +616,6 @@ __global__ void dgemm_v6_fp64_wmma_tiled(
     __syncthreads();
   }
 
-  // ================================================================
-  // alpha/beta and store.
-  // ================================================================
-
   #pragma unroll
   for (int t = 0; t < 4; ++t) {
     const int cCol = (warp_n_base + t) * WMMA_N;
@@ -693,7 +647,6 @@ __global__ void dgemm_v6_fp64_wmma_tiled(
         acc[t].x[i] = alpha * acc[t].x[i];
       }
     }
-
     wmma::store_matrix_sync(
       cPtr,
       acc[t],
@@ -729,7 +682,6 @@ void dgemm_v7_fp64_wmma_64x64_8warps(
   const int warpId = tid >> 5;
   const int blockRow = blockIdx.y * BM;
   const int blockCol = blockIdx.x * BN;
-
   /*
       64 x 64 C block = 8 x 8 WMMA tiles.
 
@@ -741,7 +693,6 @@ void dgemm_v7_fp64_wmma_64x64_8warps(
 
       So each warp computes a 16 x 32 C region.
   */
-
   const int warp_m_group = warpId >> 1;   // 0..3
   const int warp_n_group = warpId & 1;    // 0..1
   const int warpRowBase = warp_m_group * 16;   // 0, 16, 32, 48
@@ -766,7 +717,6 @@ void dgemm_v7_fp64_wmma_64x64_8warps(
   for (int k0 = 0; k0 < K; k0 += BK) {
     // Load A tile: 64 x 16
     constexpr int A_VEC_LOADS = BM * BK / 2;
-
     for (int idx = tid; idx < A_VEC_LOADS; idx += THREADS_PER_BLOCK) {
       int linear = idx * 2;
       int r = linear / BK;
@@ -775,7 +725,6 @@ void dgemm_v7_fp64_wmma_64x64_8warps(
       const double2 v = *reinterpret_cast<const double2*>(
         &A[(blockRow + r) * K + (k0 + k)]
       );
-
       As[r][k]     = v.x;
       As[r][k + 1] = v.y;
     }
@@ -785,14 +734,11 @@ void dgemm_v7_fp64_wmma_64x64_8warps(
 
     for (int idx = tid; idx < B_VEC_LOADS; idx += THREADS_PER_BLOCK) {
       int linear = idx * 2;
-
       int k = linear / BN;
       int c = linear - k * BN;
-
       const double2 v = *reinterpret_cast<const double2*>(
         &B[(k0 + k) * N + (blockCol + c)]
       );
-
       Bs[k][c]     = v.x;
       Bs[k][c + 1] = v.y;
     }
@@ -846,7 +792,6 @@ void dgemm_v7_fp64_wmma_64x64_8warps(
       }
     }
     __syncthreads();
-
   }
 
   // Store C
@@ -885,7 +830,6 @@ void dgemm_v7_fp64_wmma_64x64_8warps(
           acc[i][j].x[e] *= alpha;
         }
       }
-
       wmma::store_matrix_sync(
         cPtr,
         acc[i][j],
