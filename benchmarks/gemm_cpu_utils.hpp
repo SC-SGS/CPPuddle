@@ -35,6 +35,9 @@ bool check_gpu_results(int M, int N, double *C_device_results, double *C_referen
 void reset_C_cpu(int M, int N, double *C) {
   std::memset(C, 0, M * N * sizeof(double));
 }
+void reset_C_gpu(int M, int N, double *C) {
+  cudaMemset(C, 0, M * N * sizeof(double));
+}
 
 void fill_random(std::vector<double>& x, unsigned long long seed)
 {
