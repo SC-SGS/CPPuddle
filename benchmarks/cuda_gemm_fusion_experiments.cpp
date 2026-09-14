@@ -24,38 +24,32 @@
 enum graph_mode {serial = 0, parallel, top_down, bottom_up};
 enum fusion_mode {none = 0, cuda_graph, cppuddle};
 
-void kernel_fusion_benchmark(size_t utilized_implementation_id, std::vector<double> &hA, std::vector<double> &hB,
-                             std::vector<double> &hC, std::vector<double> &hC_comparison,
-                             size_t M = 1024, size_t N = 1024, size_t K = 1024) {
+void kernel_fusion_benchmark_iteration(const size_t utilized_implementation_id,
+    const double alpha, const double beta, const std::vector<double> &hA, const std::vector<double> &hB,
+    std::vector<double> &hC, double *dA, double *dB, double *dC, const std::vector<double> &hC_comparison,
+    const bool postprocessing_active, const size_t M, const size_t N, const size_t K, cublasHandle_t &handle);
 
-  bool inititial_launch = true;
-  bool postprocessing_active = false;
-  graph_mode utilized_graph = serial;
-  fusion_mode utilized_fusion_approach = none;
-  size_t number_kernels = 100;
-  size_t num_repeats = 100;
+void kernel_fusion_benchmark(const size_t utilized_implementation_id, const std::vector<double> &hA, const std::vector<double> &hB,
+                             std::vector<double> &hC, const std::vector<double> &hC_comparison,
+                             const size_t M = 1024, const size_t N = 1024, const size_t K = 1024) {
+  const bool inititial_launch = true;
+  const bool postprocessing_active = false;
+  const graph_mode utilized_graph = serial;
+  const fusion_mode utilized_fusion_approach = none;
+  const size_t number_kernels = 100;
+  const size_t num_repeats = 100;
 
-  double flops = 2.0 * static_cast<double>(M)
+  const double flops = 2.0 * static_cast<double>(M)
                      * static_cast<double>(N)
                      * static_cast<double>(K);
   const double alpha = 1.0;
   const double beta  = 0.0;
-  size_t sizeA = M * K;
-  size_t sizeB = K * N;
-  size_t sizeC = M * N;
-  size_t bytesA = sizeA * sizeof(double);
-  size_t bytesB = sizeB * sizeof(double);
-  size_t bytesC = sizeC * sizeof(double);
-  // std::vector<double> hA(sizeA);
-  // std::vector<double> hB(sizeB);
-  // std::vector<double> hC(sizeC);
-  // std::vector<double> hC_comparison(sizeC);
-  // fill_random(hA, 1);
-  // fill_random(hB, 2);
-  // fill_random(hC, 3);
-  // reset_C_cpu(M, N, hC_comparison.data());
-  // dgemm_naive_cpu(
-  //   M, N, K, alpha, hA.data(), hB.data(), beta, hC_comparison.data());
+  const size_t sizeA = M * K;
+  const size_t sizeB = K * N;
+  const size_t sizeC = M * N;
+  const size_t bytesA = sizeA * sizeof(double);
+  const size_t bytesB = sizeB * sizeof(double);
+  const size_t bytesC = sizeC * sizeof(double);
   double* dA = nullptr;
   double* dB = nullptr;
   double* dC = nullptr;
@@ -65,6 +59,10 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, std::vector<doub
   cudaMemcpy(dA, hA.data(), bytesA, cudaMemcpyHostToDevice);
   cudaMemcpy(dB, hB.data(), bytesB, cudaMemcpyHostToDevice);
   cudaMemcpy(dC, hC.data(), bytesC, cudaMemcpyHostToDevice);
+  cublasHandle_t handle;
+  cublasCreate(&handle);
+  cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
+  cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, dB, N, dA, K, &beta, dC, N); // first pass required -- I think there is some setup happening
 
   std::chrono::time_point start_timer = std::chrono::high_resolution_clock::now();
   // setup cuda graph
@@ -73,7 +71,30 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, std::vector<doub
   // setup buffers and copu initial data
   // repeat experiment n times (otherwise the cuda graphs will lose badly)
   // ... needs separate methods (cannot extend the recursion over the loop
+  kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, hC,
+      dA, dC, dC, hC_comparison, postprocessing_active, M, N, K, handle);
 
+  cudaGetLastError();
+  cudaDeviceSynchronize();
+  auto end_timer = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> elapsed = end_timer - start_timer;
+  double total_seconds = elapsed.count();
+  double avg_seconds = total_seconds / static_cast<double>(num_repeats);
+  if (utilized_implementation_id == 9) // no repeats for the slow CPU version
+    avg_seconds *= num_repeats;
+  double gflops = flops / avg_seconds / 1.0e9;
+  std::cout << "-> Average Runtime: " << avg_seconds * 1.0e3 << "ms\n";
+  std::cout << "-> Performance: " << gflops << " GFLOP/s";
+  std::cout << std::endl;
+
+}
+void kernel_fusion_benchmark_iteration(const size_t utilized_implementation_id,
+    const double alpha, const double beta, const std::vector<double> &hA, const std::vector<double> &hB,
+    std::vector<double> &hC, double *dA, double *dB, double *dC, const std::vector<double> &hC_comparison,
+    const bool postprocessing_active, const size_t M, const size_t N, const size_t K, cublasHandle_t &handle) {
+
+
+  size_t num_repeats = 100;
   // if graph == parallel
   // Launch one other kernel recursively for <number_kernels>
   // return when-all future
@@ -88,8 +109,9 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, std::vector<doub
         (N + block.x - 1) / block.x,
         (M + block.y - 1) / block.y
     );
+    if (postprocessing_active)
       reset_C_gpu(M, N, dC);
-      start_timer = std::chrono::high_resolution_clock::now();
+      // start_timer = std::chrono::high_resolution_clock::now();
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
       // preprocessing?
       dgemm_naive_unoptimized_v0<<<grid, block>>>(
@@ -104,8 +126,8 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, std::vector<doub
         (N + block.x - 1) / block.x,
         (M + block.y - 1) / block.y
     );
+    if (postprocessing_active)
       reset_C_gpu(M, N, dC);
-      start_timer = std::chrono::high_resolution_clock::now();
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
       dgemm_naive_v1<<<grid, block>>>(
         M, N, K, alpha, dA, dB, beta, dC);
@@ -119,8 +141,8 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, std::vector<doub
       (N + TILE - 1) / TILE,
       (M + TILE - 1) / TILE
     );
+    if (postprocessing_active)
       reset_C_gpu(M, N, dC);
-      start_timer = std::chrono::high_resolution_clock::now();
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
       dgemm_shared_tiled_v2<TILE><<<grid, block>>>(
         M, N, K, alpha, dA, dB, beta, dC);
@@ -133,8 +155,8 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, std::vector<doub
     static_assert(BN % TN == 0, "BN must be divisible by TN");
     dim3 block(BN / TN, BM / TM);
     dim3 grid((N + BN - 1) / BN, (M + BM - 1) / BM);
+    if (postprocessing_active)
       reset_C_gpu(M, N, dC);
-      start_timer = std::chrono::high_resolution_clock::now();
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
       dgemm_register_tiled_v3<BM, BN, BK, TM, TN><<<grid, block>>>(
         M, N, K, alpha, dA, dB, beta, dC);
@@ -148,8 +170,8 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, std::vector<doub
       (N + BN - 1) / BN,
       (M + BM - 1) / BM
     );
+    if (postprocessing_active)
       reset_C_gpu(M, N, dC);
-      start_timer = std::chrono::high_resolution_clock::now();
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
       dgemm_v4_shared_register_tiled<BM, BN, BK, TM, TN>
         <<<grid, block>>>(
@@ -161,8 +183,8 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, std::vector<doub
     constexpr int BM = 64, BN = 64, BK = 8, TM = 4, TN = 4;
     dim3 block(BN / TN, BM / TM);
     dim3 grid((N + BN - 1) / BN, (M + BM - 1) / BM);
+    if (postprocessing_active)
       reset_C_gpu(M, N, dC);
-      start_timer = std::chrono::high_resolution_clock::now();
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
       dgemm_v5_vectorized_register_tiled<BM, BN, BK, TM, TN>
         <<<grid, block>>>(
@@ -180,8 +202,8 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, std::vector<doub
     }
     dim3 block(512);
     dim3 grid(N / BN, M / BM);
+    if (postprocessing_active)
       reset_C_gpu(M, N, dC);
-      start_timer = std::chrono::high_resolution_clock::now();
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
       dgemm_v6_fp64_wmma_tiled<<<grid,  block>>>(
         M, N, K, alpha, dA, dB, beta, dC);
@@ -198,8 +220,8 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, std::vector<doub
     }
     dim3 block(256);
     dim3 grid(N / BN, M / BM);
+    if (postprocessing_active)
       reset_C_gpu(M, N, dC);
-      start_timer = std::chrono::high_resolution_clock::now();
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
       dgemm_v7_fp64_wmma_64x64_8warps<BM, BN, BK>
         <<<grid, block>>>(M, N, K, alpha, dA, dB, beta, dC);
@@ -207,12 +229,8 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, std::vector<doub
         std::cout << "-> ERROR: Variant 7 faulty!" << std::endl;
     }
   } else if (utilized_implementation_id == 8) {  // CUBLAS version
-    cublasHandle_t handle;
-    cublasCreate(&handle);
-    cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
-      cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, dB, N, dA, K, &beta, dC, N);
+    if (postprocessing_active)
       reset_C_gpu(M, N, dC);
-      start_timer = std::chrono::high_resolution_clock::now();
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
       cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, dB, N, dA, K, &beta, dC, N);
       if (postprocessing_active && !check_gpu_results(M, N, dC, hC_comparison.data())) 
@@ -220,7 +238,6 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, std::vector<doub
     }
   } else if (utilized_implementation_id == 9) { // CPU version
     reset_C_cpu(M, N, hC.data());
-    start_timer = std::chrono::high_resolution_clock::now();
     dgemm_naive_cpu(
     M, N, K, alpha, hA.data(), hB.data(), beta, hC.data());
     if (postprocessing_active && !compare_matrices(M, N, hC.data(), hC_comparison.data())) 
@@ -240,19 +257,6 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, std::vector<doub
   // gather runtimes per iteration of the experimentj
   // end loop
   
-  cudaGetLastError();
-  cudaDeviceSynchronize();
-  auto end_timer = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double> elapsed = end_timer - start_timer;
-  double total_seconds = elapsed.count();
-  double avg_seconds = total_seconds / static_cast<double>(num_repeats);
-  if (utilized_implementation_id == 9) // no repeats for the slow CPU version
-    avg_seconds *= num_repeats;
-  double gflops = flops / avg_seconds / 1.0e9;
-  std::cout << "-> Average Runtime: " << avg_seconds * 1.0e3 << "ms\n";
-  std::cout << "-> Performance: " << gflops << " GFLOP/s";
-  std::cout << std::endl;
-
 }
 
 int main(int argc, char** argv)

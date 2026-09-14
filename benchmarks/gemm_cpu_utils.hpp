@@ -12,7 +12,7 @@ void dgemm_naive_cpu(int M, int N, int K, double alpha, const double* A,
   }
 }
 
-bool compare_matrices(int M, int N, double *C_1, double *C_2, double epsilon = 1e-12) {
+bool compare_matrices(int M, int N, const double *C_1, const double *C_2, double epsilon = 1e-12) {
   bool correct = true;
   for (auto entry = 0; entry < M * N; entry ++) {
     if (std::abs(C_1[entry] - C_2[entry]) > epsilon) {
@@ -25,7 +25,8 @@ bool compare_matrices(int M, int N, double *C_1, double *C_2, double epsilon = 1
   return correct;
 }
 
-bool check_gpu_results(int M, int N, double *C_device_results, double *C_reference) {
+bool check_gpu_results(int M, int N, double *C_device_results, const double *C_reference) {
+  std::cout << "checking results ... " << std::endl;
   std::vector<double> c_host(M*N);
   cudaMemcpy(c_host.data(), C_device_results, M * N * sizeof(double), cudaMemcpyDeviceToHost);
   cudaMemset(C_device_results, 0, M * N * sizeof(double));
