@@ -24,9 +24,12 @@
 enum graph_mode {serial = 0, parallel, top_down, bottom_up};
 enum fusion_mode {none = 0, cuda_graph, cppuddle};
 
-void kernel_fusion_benchmark(size_t utilized_implementation_id, size_t M = 1024, size_t N = 1024, size_t K = 1024) {
+void kernel_fusion_benchmark(size_t utilized_implementation_id, std::vector<double> &hA, std::vector<double> &hB,
+                             std::vector<double> &hC, std::vector<double> &hC_comparison,
+                             size_t M = 1024, size_t N = 1024, size_t K = 1024) {
 
   bool inititial_launch = true;
+  bool postprocessing_active = false;
   graph_mode utilized_graph = serial;
   fusion_mode utilized_fusion_approach = none;
   size_t number_kernels = 100;
@@ -37,22 +40,22 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, size_t M = 1024,
                      * static_cast<double>(K);
   const double alpha = 1.0;
   const double beta  = 0.0;
-  size_t sizeA = static_cast<size_t>(M) * K;
-  size_t sizeB = static_cast<size_t>(K) * N;
-  size_t sizeC = static_cast<size_t>(M) * N;
+  size_t sizeA = M * K;
+  size_t sizeB = K * N;
+  size_t sizeC = M * N;
   size_t bytesA = sizeA * sizeof(double);
   size_t bytesB = sizeB * sizeof(double);
   size_t bytesC = sizeC * sizeof(double);
-  std::vector<double> hA(sizeA);
-  std::vector<double> hB(sizeB);
-  std::vector<double> hC(sizeC);
-  std::vector<double> hC_comparison(sizeC);
-  fill_random(hA, 1);
-  fill_random(hB, 2);
-  fill_random(hC, 3);
-  reset_C_cpu(M, N, hC_comparison.data());
-  dgemm_naive_cpu(
-    M, N, K, alpha, hA.data(), hB.data(), beta, hC_comparison.data());
+  // std::vector<double> hA(sizeA);
+  // std::vector<double> hB(sizeB);
+  // std::vector<double> hC(sizeC);
+  // std::vector<double> hC_comparison(sizeC);
+  // fill_random(hA, 1);
+  // fill_random(hB, 2);
+  // fill_random(hC, 3);
+  // reset_C_cpu(M, N, hC_comparison.data());
+  // dgemm_naive_cpu(
+  //   M, N, K, alpha, hA.data(), hB.data(), beta, hC_comparison.data());
   double* dA = nullptr;
   double* dB = nullptr;
   double* dC = nullptr;
@@ -63,7 +66,7 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, size_t M = 1024,
   cudaMemcpy(dB, hB.data(), bytesB, cudaMemcpyHostToDevice);
   cudaMemcpy(dC, hC.data(), bytesC, cudaMemcpyHostToDevice);
 
-  auto start_timer = std::chrono::high_resolution_clock::now();
+  std::chrono::time_point start_timer = std::chrono::high_resolution_clock::now();
   // setup cuda graph
   // setup executor pool
   // setup multiple cuda streams
@@ -85,13 +88,14 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, size_t M = 1024,
         (N + block.x - 1) / block.x,
         (M + block.y - 1) / block.y
     );
+      reset_C_gpu(M, N, dC);
+      start_timer = std::chrono::high_resolution_clock::now();
     for (int repeat = 0; repeat < num_repeats; ++repeat) {
       // preprocessing?
-      reset_C_gpu(M, N, dC);
       dgemm_naive_unoptimized_v0<<<grid, block>>>(
         M, N, K, alpha, dA, dB, beta, dC);
       // postprocessing
-      if (!check_gpu_results(M, N, dC, hC_comparison.data())) 
+      if (postprocessing_active && !check_gpu_results(M, N, dC, hC_comparison.data())) 
         std::cout << "-> ERROR: Variant 0 faulty!" << std::endl;
     }
   } else if (utilized_implementation_id == 1) {
@@ -100,11 +104,12 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, size_t M = 1024,
         (N + block.x - 1) / block.x,
         (M + block.y - 1) / block.y
     );
-    for (int repeat = 0; repeat < num_repeats; ++repeat) {
       reset_C_gpu(M, N, dC);
+      start_timer = std::chrono::high_resolution_clock::now();
+    for (int repeat = 0; repeat < num_repeats; ++repeat) {
       dgemm_naive_v1<<<grid, block>>>(
         M, N, K, alpha, dA, dB, beta, dC);
-      if (!check_gpu_results(M, N, dC, hC_comparison.data())) 
+      if (postprocessing_active && !check_gpu_results(M, N, dC, hC_comparison.data())) 
         std::cout << "-> ERROR: Variant 1 faulty!" << std::endl;
     }
   } else if (utilized_implementation_id == 2) {
@@ -114,11 +119,12 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, size_t M = 1024,
       (N + TILE - 1) / TILE,
       (M + TILE - 1) / TILE
     );
-    for (int repeat = 0; repeat < num_repeats; ++repeat) {
       reset_C_gpu(M, N, dC);
+      start_timer = std::chrono::high_resolution_clock::now();
+    for (int repeat = 0; repeat < num_repeats; ++repeat) {
       dgemm_shared_tiled_v2<TILE><<<grid, block>>>(
         M, N, K, alpha, dA, dB, beta, dC);
-      if (!check_gpu_results(M, N, dC, hC_comparison.data())) 
+      if (postprocessing_active && !check_gpu_results(M, N, dC, hC_comparison.data())) 
         std::cout << "-> ERROR: Variant 2 faulty!" << std::endl;
     }
   } else if (utilized_implementation_id == 3) {
@@ -127,11 +133,12 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, size_t M = 1024,
     static_assert(BN % TN == 0, "BN must be divisible by TN");
     dim3 block(BN / TN, BM / TM);
     dim3 grid((N + BN - 1) / BN, (M + BM - 1) / BM);
-    for (int repeat = 0; repeat < num_repeats; ++repeat) {
       reset_C_gpu(M, N, dC);
+      start_timer = std::chrono::high_resolution_clock::now();
+    for (int repeat = 0; repeat < num_repeats; ++repeat) {
       dgemm_register_tiled_v3<BM, BN, BK, TM, TN><<<grid, block>>>(
         M, N, K, alpha, dA, dB, beta, dC);
-      if (!check_gpu_results(M, N, dC, hC_comparison.data())) 
+      if (postprocessing_active && !check_gpu_results(M, N, dC, hC_comparison.data())) 
         std::cout << "-> ERROR: Variant 3 faulty!" << std::endl;
     }
   } else if (utilized_implementation_id == 4) {
@@ -141,24 +148,26 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, size_t M = 1024,
       (N + BN - 1) / BN,
       (M + BM - 1) / BM
     );
-    for (int repeat = 0; repeat < num_repeats; ++repeat) {
       reset_C_gpu(M, N, dC);
+      start_timer = std::chrono::high_resolution_clock::now();
+    for (int repeat = 0; repeat < num_repeats; ++repeat) {
       dgemm_v4_shared_register_tiled<BM, BN, BK, TM, TN>
         <<<grid, block>>>(
           M, N, K, alpha, dA, dB, beta, dC);
-      if (!check_gpu_results(M, N, dC, hC_comparison.data())) 
+      if (postprocessing_active && !check_gpu_results(M, N, dC, hC_comparison.data())) 
         std::cout << "-> ERROR: Variant 4 faulty!" << std::endl;
     }
   } else if (utilized_implementation_id == 5) {
     constexpr int BM = 64, BN = 64, BK = 8, TM = 4, TN = 4;
     dim3 block(BN / TN, BM / TM);
     dim3 grid((N + BN - 1) / BN, (M + BM - 1) / BM);
-    for (int repeat = 0; repeat < num_repeats; ++repeat) {
       reset_C_gpu(M, N, dC);
+      start_timer = std::chrono::high_resolution_clock::now();
+    for (int repeat = 0; repeat < num_repeats; ++repeat) {
       dgemm_v5_vectorized_register_tiled<BM, BN, BK, TM, TN>
         <<<grid, block>>>(
         M, N, K, alpha, dA, dB, beta, dC);
-      if (!check_gpu_results(M, N, dC, hC_comparison.data())) 
+      if (postprocessing_active && !check_gpu_results(M, N, dC, hC_comparison.data())) 
         std::cout << "-> ERROR: Variant 5 faulty!" << std::endl;
     }
   } else if (utilized_implementation_id == 6) {
@@ -171,11 +180,12 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, size_t M = 1024,
     }
     dim3 block(512);
     dim3 grid(N / BN, M / BM);
-    for (int repeat = 0; repeat < num_repeats; ++repeat) {
       reset_C_gpu(M, N, dC);
+      start_timer = std::chrono::high_resolution_clock::now();
+    for (int repeat = 0; repeat < num_repeats; ++repeat) {
       dgemm_v6_fp64_wmma_tiled<<<grid,  block>>>(
         M, N, K, alpha, dA, dB, beta, dC);
-      if (!check_gpu_results(M, N, dC, hC_comparison.data())) 
+      if (postprocessing_active && !check_gpu_results(M, N, dC, hC_comparison.data())) 
         std::cout << "-> ERROR: Variant 6 faulty!" << std::endl;
     }
   } else if (utilized_implementation_id == 7) {
@@ -188,31 +198,33 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, size_t M = 1024,
     }
     dim3 block(256);
     dim3 grid(N / BN, M / BM);
-    for (int repeat = 0; repeat < num_repeats; ++repeat) {
       reset_C_gpu(M, N, dC);
+      start_timer = std::chrono::high_resolution_clock::now();
+    for (int repeat = 0; repeat < num_repeats; ++repeat) {
       dgemm_v7_fp64_wmma_64x64_8warps<BM, BN, BK>
         <<<grid, block>>>(M, N, K, alpha, dA, dB, beta, dC);
-      if (!check_gpu_results(M, N, dC, hC_comparison.data())) 
+      if (postprocessing_active && !check_gpu_results(M, N, dC, hC_comparison.data())) 
         std::cout << "-> ERROR: Variant 7 faulty!" << std::endl;
     }
   } else if (utilized_implementation_id == 8) {  // CUBLAS version
     cublasHandle_t handle;
     cublasCreate(&handle);
     cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
-    for (int repeat = 0; repeat < num_repeats; ++repeat) {
-      reset_C_gpu(M, N, dC);
       cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, dB, N, dA, K, &beta, dC, N);
-      if (!check_gpu_results(M, N, dC, hC_comparison.data())) 
+      reset_C_gpu(M, N, dC);
+      start_timer = std::chrono::high_resolution_clock::now();
+    for (int repeat = 0; repeat < num_repeats; ++repeat) {
+      cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, dB, N, dA, K, &beta, dC, N);
+      if (postprocessing_active && !check_gpu_results(M, N, dC, hC_comparison.data())) 
         std::cout << "-> ERROR: Variant CUBLAS faulty!" << std::endl;
     }
   } else if (utilized_implementation_id == 9) { // CPU version
-    for (int repeat = 0; repeat < num_repeats; ++repeat) {
-      reset_C_cpu(M, N, hC.data());
-      dgemm_naive_cpu(
-        M, N, K, alpha, hA.data(), hB.data(), beta, hC.data());
-      if (!compare_matrices(M, N, hC.data(), hC_comparison.data())) 
-        std::cout << "-> ERROR: Variant CPU faulty!" << std::endl;
-    }
+    reset_C_cpu(M, N, hC.data());
+    start_timer = std::chrono::high_resolution_clock::now();
+    dgemm_naive_cpu(
+    M, N, K, alpha, hA.data(), hB.data(), beta, hC.data());
+    if (postprocessing_active && !compare_matrices(M, N, hC.data(), hC_comparison.data())) 
+      std::cout << "-> ERROR: Variant CPU faulty!" << std::endl;
   }
 
   // if graph == serial
@@ -234,9 +246,11 @@ void kernel_fusion_benchmark(size_t utilized_implementation_id, size_t M = 1024,
   std::chrono::duration<double> elapsed = end_timer - start_timer;
   double total_seconds = elapsed.count();
   double avg_seconds = total_seconds / static_cast<double>(num_repeats);
+  if (utilized_implementation_id == 9) // no repeats for the slow CPU version
+    avg_seconds *= num_repeats;
   double gflops = flops / avg_seconds / 1.0e9;
   std::cout << "-> Average Runtime: " << avg_seconds * 1.0e3 << "ms\n";
-  std::cout << "-> Performance: " << gflops << " GFLOP/s\n";
+  std::cout << "-> Performance: " << gflops << " GFLOP/s";
   std::cout << std::endl;
 
 }
@@ -276,6 +290,8 @@ int main(int argc, char** argv)
   fill_random(hB, 2);
   fill_random(hC, 3);
   reset_C_cpu(M, N, hC_comparison.data());
+  dgemm_naive_cpu(
+    M, N, K, alpha, hA.data(), hB.data(), beta, hC_comparison.data());
 
   double* dA = nullptr;
   double* dB = nullptr;
@@ -317,6 +333,9 @@ int main(int argc, char** argv)
   // ============================================================
   // CPU Comparison variant (datA)
   // ============================================================
+  std::cout << "Variant benchmark CPU: \n";
+  kernel_fusion_benchmark(9, hA, hB, hC, hC_comparison, N, M, K);
+  std::cout << "Variant benchmark CPU end \n";
   std::cout << "Variant CPU: Naive \n";
 
   auto start_cpu = std::chrono::high_resolution_clock::now();
@@ -334,9 +353,9 @@ int main(int argc, char** argv)
   // ============================================================
   // Variant 0 launch configuration
   // ============================================================
-  std::cout << "Variant benchmark 0: Naive \n";
-  kernel_fusion_benchmark(0, N, M, K);
-  std::cout << "Variant benchmark 0 end \n";
+  // std::cout << "Variant benchmark 0: Naive \n";
+  // kernel_fusion_benchmark(0, hA, hB, hC, hC_comparison, N, M, K);
+  // std::cout << "Variant benchmark 0 end \n";
 
   std::cout << "Variant 0: Naive \n";
   auto start_v0 = std::chrono::high_resolution_clock::now();
@@ -364,7 +383,7 @@ int main(int argc, char** argv)
   // Variant 1 launch configuration
   // ============================================================
   std::cout << "Variant benchmark 1: \n";
-  kernel_fusion_benchmark(1, N, M, K);
+  kernel_fusion_benchmark(1, hA, hB, hC, hC_comparison, N, M, K);
   std::cout << "Variant benchmark 1 \n";
 
   std::cout << "Variant 1: Naive but with optimized access pattern\n";
@@ -399,7 +418,7 @@ int main(int argc, char** argv)
   // Variant 2 launch configuration
   // ============================================================
   std::cout << "Variant benchmark 2: \n";
-  kernel_fusion_benchmark(2, N, M, K);
+  kernel_fusion_benchmark(2, hA, hB, hC, hC_comparison, N, M, K);
   std::cout << "Variant benchmark 2 \n";
 
   std::cout << "Variant 2: shared-memory tiled\n";
@@ -437,7 +456,7 @@ int main(int argc, char** argv)
   // Variant 3 launch configuration
   // ============================================================
   std::cout << "Variant benchmark 3: \n";
-  kernel_fusion_benchmark(3, N, M, K);
+  kernel_fusion_benchmark(3, hA, hB, hC, hC_comparison, N, M, K);
   std::cout << "Variant benchmark end 3 \n";
 
   std::cout << "Variant 3: register tiled\n";
@@ -485,7 +504,7 @@ int main(int argc, char** argv)
   // Variant 4 launch configuration
   // ============================================================
   std::cout << "Variant benchmark 4: \n";
-  kernel_fusion_benchmark(4, N, M, K);
+  kernel_fusion_benchmark(4, hA, hB, hC, hC_comparison, N, M, K);
   std::cout << "Variant benchmark 4 end \n";
   std::cout << "Variant 4: shared register tiled with better ccnfig\n";
 
@@ -531,7 +550,7 @@ int main(int argc, char** argv)
   // Variant 5 launch configuration
   // ============================================================
   std::cout << "Variant benchmark 5: \n";
-  kernel_fusion_benchmark(5, N, M, K);
+  kernel_fusion_benchmark(5, hA, hB, hC, hC_comparison, N, M, K);
   std::cout << "Variant benchmark 5 end \n";
   std::cout << "Variant 5: vectorized shared register tiled\n";
 
@@ -577,7 +596,7 @@ int main(int argc, char** argv)
   // Variant 6 launch configuration
   // ============================================================
   std::cout << "Variant benchmark 6: \n";
-  kernel_fusion_benchmark(6, N, M, K);
+  kernel_fusion_benchmark(6, hA, hB, hC, hC_comparison, N, M, K);
   std::cout << "Variant benchmark 6 end \n";
   std::cout << "Variant 6: WMMA\n";
   
@@ -621,7 +640,7 @@ int main(int argc, char** argv)
   // Variant 7 launch configuration
   // ============================================================
   std::cout << "Variant benchmark 7: \n";
-  kernel_fusion_benchmark(7, N, M, K);
+  kernel_fusion_benchmark(7, hA, hB, hC, hC_comparison, N, M, K);
   std::cout << "Variant benchmark 7 end \n";
   std::cout << "Variant 7: Better WMMA\n";
   constexpr int BM_v7 = 64;
@@ -661,6 +680,9 @@ int main(int argc, char** argv)
   std::cout << std::endl;
 
 
+  std::cout << "Variant benchmark cublas: \n";
+  kernel_fusion_benchmark(8, hA, hB, hC, hC_comparison, N, M, K);
+  std::cout << "Variant benchmark cublas end \n";
   std::cout << "Variant CUBLAS: \n";
   cublasHandle_t handle;
   cublasCreate(&handle);
