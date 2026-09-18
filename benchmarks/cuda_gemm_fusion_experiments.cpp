@@ -72,7 +72,7 @@ void kernel_fusion_benchmark(const size_t utilized_implementation_id, const std:
   // repeat experiment n times (otherwise the cuda graphs will lose badly)
   // ... needs separate methods (cannot extend the recursion over the loop
   kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, hC,
-      dA, dC, dC, hC_comparison, postprocessing_active, M, N, K, handle);
+      dA, dB, dC, hC_comparison, postprocessing_active, M, N, K, handle);
 
   cudaGetLastError();
   cudaDeviceSynchronize();
