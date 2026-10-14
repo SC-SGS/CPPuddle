@@ -1,8 +1,11 @@
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <iostream>
+#include <fstream>
 #include <random>
 #include <stdexcept>
 #include <string>
@@ -277,9 +280,64 @@ int main(int argc, char** argv)
   fill_random(hB, rng);
   fill_random(hC, rng);
   reset_C_cpu(M, N, hC_comparison.data());
-  dgemm_naive_cpu(
-    M, N, K, alpha, hA.data(), hB.data(), beta, hC_comparison.data());
 
+  std::string alpha_string =  std::to_string(alpha);
+  std::replace(alpha_string.begin(), alpha_string.end(), '.', '-');
+  std::string beta_string =  std::to_string(beta);
+  std::replace(beta_string.begin(), beta_string.end(), '.', '-');
+  std::string reference_data_filename = std::string("reference_") + std::to_string(seed) + 
+    std::string("_") + std::to_string(M) + std::string("_") + std::to_string(N) + std::string("_") + std::to_string(K) +
+    std::string("_") + alpha_string + std::string("_") + beta_string +
+    std::string(".txt");
+  std::cout << "Checking if reference file for this the given M, N, K, alpha, beta and seed " << seed << " exists..." << std::endl;
+  std::cout << "Filename format: reference_<seed>_<M>_<N>_<K>_<alpha>_<beta>.txt (alpha and beta use - instead of the decimal point)" << std::endl;
+  bool generate_results = true;
+  if (std::filesystem::exists(reference_data_filename)) {
+    std::cout << "Reference file " << reference_data_filename << " found!" << std::endl;
+    std::cout << "Loading reference file ... " << std::endl;
+    try {
+      std::ifstream in(reference_data_filename);
+      // C: M x N, row-major
+      for (auto row = 0; row < M; row++) {
+        for (auto column = 0; column < N; column++) {
+          in >> hC_comparison[row * N + column];
+        }
+      }
+      in.close();
+      generate_results = false;
+      std::cout << "Reference data stored! Continuing with benchmarks..." << std::endl;
+    } catch (...) {
+      std::cerr << "Unknown error when reading reference data" << reference_data_filename << " !" << std::endl;
+      std::cout << "Continuing with generating input data after failed reading!" << std::endl;
+    }
+
+  } else {
+    std::cout << "Reference file " << reference_data_filename << " not found in current directory!" << std::endl;
+  }
+
+  if (generate_results) {
+    std::cout << "Generating reference data on CPU... " << std::endl;
+    dgemm_naive_cpu(
+      M, N, K, alpha, hA.data(), hB.data(), beta, hC_comparison.data());
+
+    std::cout << "Reference data generated! Storing in " << reference_data_filename << "..." << std::endl;
+    try {
+      std::ofstream out(reference_data_filename);
+      out << std::fixed << std::setprecision(std::numeric_limits<double>::digits10 + 1);
+      // C: M x N, row-major
+      for (auto row = 0; row < M; row++) {
+        for (auto column = 0; column < N; column++) {
+          out << hC_comparison[row * N + column] << " ";
+        }
+        out << std::endl;
+      }
+      out.close();
+      std::cout << "Reference data stored! Continuing with benchmarks..." << std::endl;
+    } catch (...) {
+      std::cerr << "Unknown error when writing reference data" << reference_data_filename << " !" << std::endl;
+    }
+
+  }
 
   double* dA = nullptr;
   double* dB = nullptr;
@@ -319,14 +377,14 @@ int main(int argc, char** argv)
   const size_t  num_repetitions = 10;
   const graph_mode utilized_graph_mode = serial;  
   const size_t extra_graph_parameter = 10;
-  const bool postprocessing_active = false;
+  const bool postprocessing_active = true;
 
 
   // ============================================================
   // CPU Comparison variant (datA)
   // ============================================================
   std::cout << "Variant Benchmark CPU: \n";
-  kernel_fusion_benchmark(9, hA, hB, hC, hC_comparison, N, M, K, 1, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
+  kernel_fusion_benchmark(9, hA, hB, hC, hC_comparison, N, M, K, 0, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
   std::cout << "Variant Benchmark CPU end \n" << std::endl;
   // std::cout << "Variant CPU: Naive \n";
 
