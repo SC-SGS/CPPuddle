@@ -21,7 +21,9 @@
 //   C: M x N, row-major
 // ------------------------------------------------------------
 
-enum graph_mode {serial = 0, parallel, top_down, bottom_up};
+// serial / parallel extra argument: Number tasks
+// Top-down, updown extra argument: Depth and structure (number childs per node -- lets fix this to 2 for now)
+enum graph_mode {scalar = 0, serial, parallel, top_down, bottom_up};
 enum fusion_mode {none = 0, cuda_graph, cppuddle};
 
 void kernel_fusion_benchmark_iteration(const size_t utilized_implementation_id,
@@ -31,15 +33,9 @@ void kernel_fusion_benchmark_iteration(const size_t utilized_implementation_id,
 
 void kernel_fusion_benchmark(const size_t utilized_implementation_id, const std::vector<double> &hA, const std::vector<double> &hB,
                              std::vector<double> &hC, const std::vector<double> &hC_comparison,
-                             const size_t M = 1024, const size_t N = 1024, const size_t K = 1024) {
-  const bool inititial_launch = true;
-  const bool postprocessing_active = false;
-  const graph_mode utilized_graph = serial;
+                             const size_t M, const size_t N, const size_t K, const size_t num_repetitions, const graph_mode utilized_graph_mode,
+                             const size_t extra_graph_parameter, const bool postprocessing_active) {
   const fusion_mode utilized_fusion_approach = none;
-  const size_t number_kernels = 1;
-  size_t num_repeats = 10;
-  if (utilized_implementation_id == 9)
-    num_repeats = 0;
 
   const double flops = 2.0 * static_cast<double>(M)
                      * static_cast<double>(N)
@@ -73,7 +69,7 @@ void kernel_fusion_benchmark(const size_t utilized_implementation_id, const std:
   // setup buffers and copu initial data
   // repeat experiment n times (otherwise the cuda graphs will lose badly)
   // ... needs separate methods (cannot extend the recursion over the loop
-  for (size_t it = 0; it < num_repeats; it++) {
+  for (size_t it = 0; it < num_repetitions; it++) {
     kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, hC,
         dA, dB, dC, hC_comparison, postprocessing_active, M, N, K, handle);
   }
@@ -83,9 +79,9 @@ void kernel_fusion_benchmark(const size_t utilized_implementation_id, const std:
   auto end_timer = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> elapsed = end_timer - start_timer;
   double total_seconds = elapsed.count();
-  double avg_seconds = total_seconds / static_cast<double>(num_repeats);
+  double avg_seconds = total_seconds / static_cast<double>(num_repetitions);
   if (utilized_implementation_id == 9) // no repeats for the slow CPU version
-    avg_seconds *= num_repeats;
+    avg_seconds *= num_repetitions;
   double gflops = flops / avg_seconds / 1.0e9;
   std::cout << "-> Average Runtime: " << avg_seconds * 1.0e3 << "ms\n";
   std::cout << "-> Performance: " << gflops << " GFLOP/s";
@@ -98,7 +94,6 @@ void kernel_fusion_benchmark_iteration(const size_t utilized_implementation_id,
     const bool postprocessing_active, const size_t M, const size_t N, const size_t K, cublasHandle_t &handle) {
 
 
-  size_t num_repeats = 1;
   // if graph == parallel
   // Launch one other kernel recursively for <number_kernels>
   // return when-all future
@@ -276,12 +271,15 @@ int main(int argc, char** argv)
   std::vector<double> hC(sizeC);
   std::vector<double> hC_comparison(sizeC);
 
-  fill_random(hA, 1);
-  fill_random(hB, 2);
-  fill_random(hC, 3);
+  const unsigned long long seed = 42;
+  std::mt19937_64 rng(seed);
+  fill_random(hA, rng);
+  fill_random(hB, rng);
+  fill_random(hC, rng);
   reset_C_cpu(M, N, hC_comparison.data());
   dgemm_naive_cpu(
     M, N, K, alpha, hA.data(), hB.data(), beta, hC_comparison.data());
+
 
   double* dA = nullptr;
   double* dB = nullptr;
@@ -318,13 +316,17 @@ int main(int argc, char** argv)
   // ------------------------------------------------------------
   std::cout << "\nResults\n";
   std::cout << "-------\n\n";
-  constexpr int num_repeats = 10;
+  const size_t  num_repetitions = 10;
+  const graph_mode utilized_graph_mode = serial;  
+  const size_t extra_graph_parameter = 10;
+  const bool postprocessing_active = false;
+
 
   // ============================================================
   // CPU Comparison variant (datA)
   // ============================================================
   std::cout << "Variant Benchmark CPU: \n";
-  kernel_fusion_benchmark(9, hA, hB, hC, hC_comparison, N, M, K);
+  kernel_fusion_benchmark(9, hA, hB, hC, hC_comparison, N, M, K, 1, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
   std::cout << "Variant Benchmark CPU end \n" << std::endl;
   // std::cout << "Variant CPU: Naive \n";
 
@@ -347,7 +349,7 @@ int main(int argc, char** argv)
   // kernel_fusion_benchmark(0, hA, hB, hC, hC_comparison, N, M, K);
   // std::cout << "Variant Benchmark 0 end \n";
   std::cout << "Variant 0 Naive: \n";
-  kernel_fusion_benchmark(0, hA, hB, hC, hC_comparison, N, M, K);
+  kernel_fusion_benchmark(0, hA, hB, hC, hC_comparison, N, M, K, num_repetitions, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
   std::cout << "Variant 0 Naive \n" << std::endl;
 
   // std::cout << "Variant 0: Naive \n";
@@ -377,7 +379,7 @@ int main(int argc, char** argv)
   // ============================================================
   std::cout << "Variant Benchmark 1: \n";
   std::cout << "-> Description: Naive but with optimized access pattern\n";
-  kernel_fusion_benchmark(1, hA, hB, hC, hC_comparison, N, M, K);
+  kernel_fusion_benchmark(1, hA, hB, hC, hC_comparison, N, M, K, num_repetitions, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
   std::cout << "Variant Benchmark 1 \n" << std::endl;
 
   // std::cout << "Variant 1: Naive but with optimized access pattern\n";
@@ -413,7 +415,7 @@ int main(int argc, char** argv)
   // ============================================================
   std::cout << "Variant Benchmark 2: \n";
   std::cout << "-> Description: Shared-memory tiled\n";
-  kernel_fusion_benchmark(2, hA, hB, hC, hC_comparison, N, M, K);
+  kernel_fusion_benchmark(2, hA, hB, hC, hC_comparison, N, M, K, num_repetitions, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
   std::cout << "Variant Benchmark 2 \n" << std::endl;
 
   // std::cout << "Variant 2: shared-memory tiled\n";
@@ -452,7 +454,7 @@ int main(int argc, char** argv)
   // ============================================================
   std::cout << "Variant Benchmark 3: \n";
   std::cout << "-> Description: Register tiled\n";
-  kernel_fusion_benchmark(3, hA, hB, hC, hC_comparison, N, M, K);
+  kernel_fusion_benchmark(3, hA, hB, hC, hC_comparison, N, M, K, num_repetitions, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
   std::cout << "Variant Benchmark end 3 \n" << std::endl;
 
   // std::cout << "Variant 3: register tiled\n";
@@ -501,7 +503,7 @@ int main(int argc, char** argv)
   // ============================================================
   std::cout << "Variant Benchmark 4: \n";
   std::cout << "-> Description: Shared register tiled with better ccnfig\n";
-  kernel_fusion_benchmark(4, hA, hB, hC, hC_comparison, N, M, K);
+  kernel_fusion_benchmark(4, hA, hB, hC, hC_comparison, N, M, K, num_repetitions, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
   std::cout << "Variant Benchmark 4 end \n" << std::endl;
   // std::cout << "Variant 4: shared register tiled with better ccnfig\n";
 
@@ -548,7 +550,7 @@ int main(int argc, char** argv)
   // ============================================================
   std::cout << "Variant Benchmark 5: \n";
   std::cout << "-> Description: Vectorized shared register tiled\n";
-  kernel_fusion_benchmark(5, hA, hB, hC, hC_comparison, N, M, K);
+  kernel_fusion_benchmark(5, hA, hB, hC, hC_comparison, N, M, K, num_repetitions, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
   std::cout << "Variant Benchmark 5 end \n" << std::endl;
   // std::cout << "Variant 5: vectorized shared register tiled\n";
 
@@ -595,7 +597,7 @@ int main(int argc, char** argv)
   // ============================================================
   std::cout << "Variant Benchmark 6: \n";
   std::cout << "-> Description: WMMA\n";
-  kernel_fusion_benchmark(6, hA, hB, hC, hC_comparison, N, M, K);
+  kernel_fusion_benchmark(6, hA, hB, hC, hC_comparison, N, M, K, num_repetitions, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
   std::cout << "Variant Benchmark 6 end \n" << std::endl;
   // std::cout << "Variant 6: WMMA\n";
   
@@ -640,7 +642,7 @@ int main(int argc, char** argv)
   // ============================================================
   std::cout << "Variant Benchmark 7: \n";
   std::cout << "-> Description: Better WMMA\n";
-  kernel_fusion_benchmark(7, hA, hB, hC, hC_comparison, N, M, K);
+  kernel_fusion_benchmark(7, hA, hB, hC, hC_comparison, N, M, K, num_repetitions, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
   std::cout << "Variant Benchmark 7 end \n" << std::endl;
   // std::cout << "Variant 7: Better WMMA\n";
   // constexpr int BM_v7 = 64;
@@ -682,7 +684,7 @@ int main(int argc, char** argv)
 
   std::cout << "Variant Benchmark cublas: \n";
   std::cout << "-> Description: CUBLAS: \n";
-  kernel_fusion_benchmark(8, hA, hB, hC, hC_comparison, N, M, K);
+  kernel_fusion_benchmark(8, hA, hB, hC, hC_comparison, N, M, K, num_repetitions, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
   std::cout << "Variant Benchmark cublas end \n" << std::endl;
   //std::cout << "Variant CUBLAS: \n";
   //cublasHandle_t handle;

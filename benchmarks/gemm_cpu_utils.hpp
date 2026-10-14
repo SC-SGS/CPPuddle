@@ -40,9 +40,8 @@ void reset_C_gpu(int M, int N, double *C) {
   cudaMemset(C, 0, M * N * sizeof(double));
 }
 
-void fill_random(std::vector<double>& x, unsigned long long seed)
+void fill_random(std::vector<double>& x, std::mt19937_64 &rng)
 {
-  std::mt19937_64 rng(seed);
   std::uniform_real_distribution<double> dist(-1.0, 1.0);
 
   for (double& v : x) {
