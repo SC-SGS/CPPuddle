@@ -1,3 +1,9 @@
+#include <hpx/include/async.hpp>
+#include <hpx/include/lcos.hpp>
+#include <hpx/hpx_init.hpp>
+#include <hpx/include/iostreams.hpp>
+#include <hpx/async_cuda/cuda_executor.hpp>
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -269,8 +275,8 @@ void kernel_fusion_benchmark_iteration(const size_t utilized_implementation_id,
   
 }
 
-int main(int argc, char** argv)
-{
+int hpx_main(int argc, char *argv[]) {
+  std::cout << "Running benchmark with " << hpx::get_num_worker_threads() << " HPX worker threads!" << std::endl;
   size_t M = 1024;
   size_t N = 1024;
   size_t K = 1024;
@@ -281,7 +287,7 @@ int main(int argc, char** argv)
     K = std::stoull(argv[3]);
   }
 
-  std::cout << "Matrix Dimensions\n";
+  std::cout << "Using Matrix Dimensions: ";
   std::cout << "M = " << M << ", N = " << N << ", K = " << K << "\n";
 
   const double alpha = 1.0;
@@ -812,5 +818,11 @@ int main(int argc, char** argv)
   cudaFree(dB);
   cudaFree(dC);
 
-  return 0;
+  return hpx::finalize();
+}
+
+int main(int argc, char *argv[]) {
+  hpx::init_params p;
+  p.cfg = {"hpx.commandline.allow_unknown=1"};
+  return hpx::init(argc, argv, p);
 }
