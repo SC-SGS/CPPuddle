@@ -32,7 +32,8 @@ enum fusion_mode {none = 0, cuda_graph, cppuddle};
 void kernel_fusion_benchmark_iteration(const size_t utilized_implementation_id,
     const double alpha, const double beta, const std::vector<double> &hA, const std::vector<double> &hB,
     std::vector<double> &hC, double *dA, double *dB, double *dC, const std::vector<double> &hC_comparison,
-    const bool postprocessing_active, const size_t M, const size_t N, const size_t K, cublasHandle_t &handle);
+    const size_t M, const size_t N, const size_t K, cublasHandle_t &handle, const graph_mode utilized_graph_mode,
+                             const size_t extra_graph_parameter, const bool postprocessing_active);
 
 void kernel_fusion_benchmark(const size_t utilized_implementation_id, const std::vector<double> &hA, const std::vector<double> &hB,
                              std::vector<double> &hC, const std::vector<double> &hC_comparison,
@@ -74,7 +75,7 @@ void kernel_fusion_benchmark(const size_t utilized_implementation_id, const std:
   // ... needs separate methods (cannot extend the recursion over the loop
   for (size_t it = 0; it < num_repetitions; it++) {
     kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, hC,
-        dA, dB, dC, hC_comparison, postprocessing_active, M, N, K, handle);
+        dA, dB, dC, hC_comparison, M, N, K, handle, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
   }
 
   cudaGetLastError();
@@ -83,8 +84,8 @@ void kernel_fusion_benchmark(const size_t utilized_implementation_id, const std:
   std::chrono::duration<double> elapsed = end_timer - start_timer;
   double total_seconds = elapsed.count();
   double avg_seconds = total_seconds / static_cast<double>(num_repetitions);
-  if (utilized_implementation_id == 9) // no repeats for the slow CPU version
-    avg_seconds *= num_repetitions;
+  if (utilized_graph_mode == graph_mode::serial)
+    avg_seconds = avg_seconds / static_cast<double>(extra_graph_parameter);
   double gflops = flops / avg_seconds / 1.0e9;
   std::cout << "-> Average Runtime: " << avg_seconds * 1.0e3 << "ms\n";
   std::cout << "-> Performance: " << gflops << " GFLOP/s";
@@ -94,16 +95,33 @@ void kernel_fusion_benchmark(const size_t utilized_implementation_id, const std:
 void kernel_fusion_benchmark_iteration(const size_t utilized_implementation_id,
     const double alpha, const double beta, const std::vector<double> &hA, const std::vector<double> &hB,
     std::vector<double> &hC, double *dA, double *dB, double *dC, const std::vector<double> &hC_comparison,
-    const bool postprocessing_active, const size_t M, const size_t N, const size_t K, cublasHandle_t &handle) {
+    const size_t M, const size_t N, const size_t K, cublasHandle_t &handle, const graph_mode utilized_graph_mode,
+    const size_t extra_graph_parameter, const bool postprocessing_active) {
 
 
   // if graph == parallel
   // Launch one other kernel recursively for <number_kernels>
   // return when-all future
+  if (utilized_graph_mode == graph_mode::parallel) {
+    // TODO(daissgr) Needs to be launched asynchronousely with HPX
+    if (extra_graph_parameter > 1) {
+      kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, hC,
+          dA, dB, dC, hC_comparison, M, N, K, handle, utilized_graph_mode, extra_graph_parameter - 1, postprocessing_active);
+    }
+  }
 
   // if graph == bottom-up
   // Launch two more kernels -- wait until they're done (get), and only then launch this one)
   // do not return future
+  if (utilized_graph_mode == graph_mode::bottom_up) {
+    // TODO(daissgr) Needs to be launched asynchronousely with HPX
+    if (extra_graph_parameter > 1) {
+      kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, hC,
+          dA, dB, dC, hC_comparison, M, N, K, handle, utilized_graph_mode, extra_graph_parameter - 1, postprocessing_active);
+      kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, hC,
+          dA, dB, dC, hC_comparison, M, N, K, handle, utilized_graph_mode, extra_graph_parameter - 1, postprocessing_active);
+    }
+  }
 
   if (utilized_implementation_id == 0) {
     dim3 block(16, 16);
@@ -228,13 +246,21 @@ void kernel_fusion_benchmark_iteration(const size_t utilized_implementation_id,
       std::cout << "-> ERROR: Variant CPU faulty!" << std::endl;
   }
 
-  // if graph == serial
-  // launch other kernel after sync recursively
-  // return future
+  if (utilized_graph_mode == graph_mode::serial) {
+    if (extra_graph_parameter > 1) {
+      kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, hC,
+          dA, dB, dC, hC_comparison, M, N, K, handle, utilized_graph_mode, extra_graph_parameter - 1, postprocessing_active);
+    }
+  }
   
-  // if graph == top down
-  // launch two other kernel recursively until <number_kernels> reached
-  // return when_all
+  if (utilized_graph_mode == graph_mode::top_down) {
+    if (extra_graph_parameter > 1) {
+      kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, hC,
+          dA, dB, dC, hC_comparison, M, N, K, handle, utilized_graph_mode, extra_graph_parameter - 1, postprocessing_active);
+      kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, hC,
+          dA, dB, dC, hC_comparison, M, N, K, handle, utilized_graph_mode, extra_graph_parameter - 1, postprocessing_active);
+    }
+  }
   
   // if initial
   // stop timer
@@ -305,7 +331,7 @@ int main(int argc, char** argv)
       }
       in.close();
       generate_results = false;
-      std::cout << "Reference data stored! Continuing with benchmarks..." << std::endl;
+      std::cout << "Reference data loaded! Continuing with benchmarks..." << std::endl;
     } catch (...) {
       std::cerr << "Unknown error when reading reference data" << reference_data_filename << " !" << std::endl;
       std::cout << "Continuing with generating input data after failed reading!" << std::endl;
@@ -377,7 +403,7 @@ int main(int argc, char** argv)
   const size_t  num_repetitions = 10;
   const graph_mode utilized_graph_mode = serial;  
   const size_t extra_graph_parameter = 10;
-  const bool postprocessing_active = true;
+  const bool postprocessing_active = false;
 
 
   // ============================================================
