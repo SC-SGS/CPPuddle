@@ -43,7 +43,7 @@ enum fusion_mode {none = 0, cuda_graph, cppuddle};
 hpx::future<void> kernel_fusion_benchmark_iteration(const size_t utilized_implementation_id,
     const double alpha, const double beta, const std::vector<double> &hA, const std::vector<double> &hB,
     std::vector<double> &hC, double *dA, double *dB, double *dC, const std::vector<double> &hC_comparison,
-    const size_t M, const size_t N, const size_t K, const graph_mode utilized_graph_mode,
+    const size_t M, const size_t N, const size_t K, cublasHandle_t &handle, const graph_mode utilized_graph_mode,
     const size_t extra_graph_parameter, const bool postprocessing_active);
 
 void kernel_fusion_benchmark(const size_t utilized_implementation_id, const std::vector<double> &hA, const std::vector<double> &hB,
@@ -73,9 +73,9 @@ void kernel_fusion_benchmark(const size_t utilized_implementation_id, const std:
   cudaMemcpy(dB, hB.data(), bytesB, cudaMemcpyHostToDevice);
   cudaMemcpy(dC, hC.data(), bytesC, cudaMemcpyHostToDevice);
   cublasHandle_t handle;
-  // cublasCreate(&handle);
-  // cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
-  // cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, dB, N, dA, K, &beta, dC, N); // first pass required -- I think there is some setup happening
+  cublasCreate(&handle);
+  cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
+  cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, dB, N, dA, K, &beta, dC, N); // first pass required -- I think there is some setup happening
 
   std::chrono::time_point start_timer = std::chrono::high_resolution_clock::now();
   // setup cuda graph
@@ -99,10 +99,11 @@ void kernel_fusion_benchmark(const size_t utilized_implementation_id, const std:
     //     dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
     // loop_fut.get();
 
-    loop_fut = loop_fut.then([&](auto && fut) {
+    loop_fut = loop_fut.then(
+        [&](auto && fut) {
         // fut.get();
         return kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-        dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
+        dA, dB, dC, hC_comparison, M, N, K, std::ref(handle), utilized_graph_mode, extra_graph_parameter, postprocessing_active);
         });
     //
     // loop_fut = hpx::dataflow([&](auto void_val) {
@@ -146,7 +147,7 @@ void kernel_fusion_benchmark(const size_t utilized_implementation_id, const std:
 hpx::future<void> kernel_fusion_benchmark_iteration(const size_t utilized_implementation_id,
     const double alpha, const double beta, const std::vector<double> &hA, const std::vector<double> &hB,
     std::vector<double> &hC, double *dA, double *dB, double *dC, const std::vector<double> &hC_comparison,
-    const size_t M, const size_t N, const size_t K, const graph_mode utilized_graph_mode,
+    const size_t M, const size_t N, const size_t K, cublasHandle_t &handle, const graph_mode utilized_graph_mode,
     const size_t extra_graph_parameter, const bool postprocessing_active) {
 
   // auto policy = hpx::launch::async_policy(hpx::threads::thread_priority::default_, 
@@ -286,12 +287,12 @@ hpx::future<void> kernel_fusion_benchmark_iteration(const size_t utilized_implem
       <<<grid, block>>>(M, N, K, alpha, dA, dB, beta, dC);
     if (postprocessing_active && !check_gpu_results(M, N, dC, hC_comparison.data())) 
       std::cout << "-> ERROR: Variant 7 faulty!" << std::endl;
-  // } else if (utilized_implementation_id == 8) {  // CUBLAS version
-  //   if (postprocessing_active)
-  //     reset_C_gpu(M, N, dC);
-  //   cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, dB, N, dA, K, &beta, dC, N);
-  //   if (postprocessing_active && !check_gpu_results(M, N, dC, hC_comparison.data())) 
-  //     std::cout << "-> ERROR: Variant CUBLAS faulty!" << std::endl;
+  } else if (utilized_implementation_id == 8) {  // CUBLAS version
+    if (postprocessing_active)
+      reset_C_gpu(M, N, dC);
+    cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, dB, N, dA, K, &beta, dC, N);
+    if (postprocessing_active && !check_gpu_results(M, N, dC, hC_comparison.data())) 
+      std::cout << "-> ERROR: Variant CUBLAS faulty!" << std::endl;
   } else if (utilized_implementation_id == 9) { // CPU version
     reset_C_cpu(M, N, hC.data());
     dgemm_naive_cpu(
@@ -302,9 +303,10 @@ hpx::future<void> kernel_fusion_benchmark_iteration(const size_t utilized_implem
 
   if (utilized_graph_mode == graph_mode::serial) {
     if (extra_graph_parameter > 1) {
-      ret_fut = ret_fut.then([=, &hA, &hB, &hC, &hC_comparison](auto && fut) {
+      ret_fut = ret_fut.then(
+          [=, &handle, &hA, &hB, &hC, &hC_comparison](auto && fut) {
         kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-        dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter - 1, postprocessing_active);
+        dA, dB, dC, hC_comparison, M, N, K, std::ref(handle), utilized_graph_mode, extra_graph_parameter - 1, postprocessing_active);
           });
       // hpx::async(&kernel_fusion_benchmark_iteration, std::ref(previous_it),  utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
       //     dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter - 1, postprocessing_active);
@@ -828,10 +830,10 @@ int hpx_main(int argc, char *argv[]) {
   // std::cout << std::endl;
 
 
-  // std::cout << "Variant Benchmark cublas: \n";
-  // std::cout << "-> Description: CUBLAS: \n";
-  // kernel_fusion_benchmark(8, hA, hB, hC, hC_comparison, N, M, K, num_repetitions, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
-  // std::cout << "Variant Benchmark cublas end \n" << std::endl;
+  std::cout << "Variant Benchmark cublas: \n";
+  std::cout << "-> Description: CUBLAS: \n";
+  kernel_fusion_benchmark(8, hA, hB, hC, hC_comparison, N, M, K, num_repetitions, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
+  std::cout << "Variant Benchmark cublas end \n" << std::endl;
 
   //std::cout << "Variant CUBLAS: \n";
   //cublasHandle_t handle;
