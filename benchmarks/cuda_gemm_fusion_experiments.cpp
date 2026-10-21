@@ -35,116 +35,21 @@
 enum graph_mode {scalar = 0, serial, parallel, top_down, bottom_up};
 enum fusion_mode {none = 0, cuda_graph, cppuddle};
 
-// hpx::future<void> kernel_fusion_benchmark_iteration(const size_t utilized_implementation_id,
-//     const double alpha, const double beta, const std::vector<double> &hA, const std::vector<double> &hB,
-//     std::vector<double> &hC, double *dA, double *dB, double *dC, const std::vector<double> &hC_comparison,
-//     const size_t M, const size_t N, const size_t K, cublasHandle_t &handle, const graph_mode utilized_graph_mode,
-//                              const size_t extra_graph_parameter, const bool postprocessing_active);
-hpx::future<void> kernel_fusion_benchmark_iteration(const size_t utilized_implementation_id,
-    const double alpha, const double beta, const std::vector<double> &hA, const std::vector<double> &hB,
-    std::vector<double> &hC, double *dA, double *dB, double *dC, const std::vector<double> &hC_comparison,
-    const size_t M, const size_t N, const size_t K, cublasHandle_t &handle, const graph_mode utilized_graph_mode,
-    const size_t extra_graph_parameter, const bool postprocessing_active);
+struct empty_t {};
 
-void kernel_fusion_benchmark(const size_t utilized_implementation_id, const std::vector<double> &hA, const std::vector<double> &hB,
-                             std::vector<double> &hC, const std::vector<double> &hC_comparison,
-                             const size_t M, const size_t N, const size_t K, const size_t num_repetitions, const graph_mode utilized_graph_mode,
-                             const size_t extra_graph_parameter, const bool postprocessing_active) {
-  const fusion_mode utilized_fusion_approach = none;
+template <typename T>
+inline constexpr bool is_void_or_future_void_v =
+    std::is_void_v<T> || std::is_same_v<T, hpx::future<void>>;
 
-  const double flops = 2.0 * static_cast<double>(M)
-                     * static_cast<double>(N)
-                     * static_cast<double>(K);
-  const double alpha = 1.0;
-  const double beta  = 0.0;
-  const size_t sizeA = M * K;
-  const size_t sizeB = K * N;
-  const size_t sizeC = M * N;
-  const size_t bytesA = sizeA * sizeof(double);
-  const size_t bytesB = sizeB * sizeof(double);
-  const size_t bytesC = sizeC * sizeof(double);
-  double* dA = nullptr;
-  double* dB = nullptr;
-  double* dC = nullptr;
-  cudaMalloc(&dA, bytesA);
-  cudaMalloc(&dB, bytesB);
-  cudaMalloc(&dC, bytesC);
-  cudaMemcpy(dA, hA.data(), bytesA, cudaMemcpyHostToDevice);
-  cudaMemcpy(dB, hB.data(), bytesB, cudaMemcpyHostToDevice);
-  cudaMemcpy(dC, hC.data(), bytesC, cudaMemcpyHostToDevice);
-  cublasHandle_t handle;
-  cublasCreate(&handle);
-  cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
-  cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, dB, N, dA, K, &beta, dC, N); // first pass required -- I think there is some setup happening
 
-  std::chrono::time_point start_timer = std::chrono::high_resolution_clock::now();
-  // setup cuda graph
-  // setup executor pool
-  // setup multiple cuda streams
-  // setup buffers and copu initial data
-  // repeat experiment n times (otherwise the cuda graphs will lose badly)
-  // ... needs separate methods (cannot extend the recursion over the loop
-  auto loop_fut = hpx::make_ready_future<void>();
-  for (size_t it = 0; it < num_repetitions; it++) {
-    // kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-    //     dA, dB, dC, hC_comparison, M, N, K, std::ref(handle), utilized_graph_mode, extra_graph_parameter, postprocessing_active);
-    // auto loop_fut = hpx::async(
-    //     hpx::launch::async_policy(hpx::threads::thread_priority::default_, // maybe we need a generic policy for non-cublas
-    //                               hpx::threads::thread_stacksize::large),
-    //     &kernel_fusion_benchmark_iteration, utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-    //     dA, dB, dC, hC_comparison, M, N, K, std::ref(handle), utilized_graph_mode, extra_graph_parameter, postprocessing_active);
-    // loop_fut.get();
-    // auto loop_fut = hpx::async(
-    //     &kernel_fusion_benchmark_iteration, utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-    //     dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
-    // loop_fut.get();
-
-    loop_fut = loop_fut.then(
-        [&](auto && fut) {
-        // fut.get();
-        return kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-        dA, dB, dC, hC_comparison, M, N, K, std::ref(handle), utilized_graph_mode, extra_graph_parameter, postprocessing_active);
-        });
-    //
-    // loop_fut = hpx::dataflow([&](auto void_val) {
-    //     kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-    //     dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
-    //     }, loop_fut);
-    // loop_fut.get();
-    // hpx::post(
-    //     &kernel_fusion_benchmark_iteration, utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-    //     dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
-    // stack size is a problem with the hpx task
-    // can be fixed with:
-    // --hpx:ini=hpx.stacks.small_size=0x100000.
-    
-    // kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-    //     dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
-  }
-  loop_fut.get();
-  cudaGetLastError();
-  cudaDeviceSynchronize();
-  // cudaGetLastError();
-  // cudaDeviceSynchronize();
-
-  auto end_timer = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double> elapsed = end_timer - start_timer;
-  double total_seconds = elapsed.count();
-  double avg_seconds = total_seconds / static_cast<double>(num_repetitions);
-  if (utilized_graph_mode == graph_mode::serial)
-    avg_seconds = avg_seconds / static_cast<double>(extra_graph_parameter);
-  double gflops = flops / avg_seconds / 1.0e9;
-  std::cout << "-> Average Runtime: " << avg_seconds * 1.0e3 << "ms\n";
-  std::cout << "-> Performance: " << gflops << " GFLOP/s";
-  std::cout << std::endl;
-
-}
 // hpx::future<void> kernel_fusion_benchmark_iteration(const size_t utilized_implementation_id,
 //     const double alpha, const double beta, const std::vector<double> &hA, const std::vector<double> &hB,
 //     std::vector<double> &hC, double *dA, double *dB, double *dC, const std::vector<double> &hC_comparison,
 //     const size_t M, const size_t N, const size_t K, cublasHandle_t &handle, const graph_mode utilized_graph_mode,
 //     const size_t extra_graph_parameter, const bool postprocessing_active) {
-hpx::future<void> kernel_fusion_benchmark_iteration(const size_t utilized_implementation_id,
+template <typename R,
+          typename = std::enable_if_t<is_void_or_future_void_v<R>>>
+R kernel_fusion_benchmark_iteration(const size_t utilized_implementation_id,
     const double alpha, const double beta, const std::vector<double> &hA, const std::vector<double> &hB,
     std::vector<double> &hC, double *dA, double *dB, double *dC, const std::vector<double> &hC_comparison,
     const size_t M, const size_t N, const size_t K, cublasHandle_t &handle, const graph_mode utilized_graph_mode,
@@ -153,7 +58,10 @@ hpx::future<void> kernel_fusion_benchmark_iteration(const size_t utilized_implem
   // auto policy = hpx::launch::async_policy(hpx::threads::thread_priority::default_, 
   //                           hpx::threads::thread_stacksize::large);
 
-  hpx::future<void> ret_fut = hpx::make_ready_future<void>();
+  using result_t = std::conditional_t<std::is_void_v<R>, empty_t, R>;
+  result_t ret_fut; 
+  if constexpr (!std::is_void_v<R>)
+    ret_fut = hpx::make_ready_future<void>();
 
   // if graph == parallel
   // Launch one other kernel recursively for <number_kernels>
@@ -303,11 +211,17 @@ hpx::future<void> kernel_fusion_benchmark_iteration(const size_t utilized_implem
 
   if (utilized_graph_mode == graph_mode::serial) {
     if (extra_graph_parameter > 1) {
-      ret_fut = ret_fut.then(
-          [=, &handle, &hA, &hB, &hC, &hC_comparison](auto && fut) {
-        kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-        dA, dB, dC, hC_comparison, M, N, K, std::ref(handle), utilized_graph_mode, extra_graph_parameter - 1, postprocessing_active);
-          });
+      
+      if constexpr (!std::is_void_v<R>) {
+        ret_fut = ret_fut.then(
+            [=, &handle, &hA, &hB, &hC, &hC_comparison](auto && fut) {
+          kernel_fusion_benchmark_iteration<R>(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
+          dA, dB, dC, hC_comparison, M, N, K, std::ref(handle), utilized_graph_mode, extra_graph_parameter - 1, postprocessing_active);
+            });
+      } else {
+         kernel_fusion_benchmark_iteration<R>(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
+             dA, dB, dC, hC_comparison, M, N, K, std::ref(handle), utilized_graph_mode, extra_graph_parameter - 1, postprocessing_active);
+      }
       // hpx::async(&kernel_fusion_benchmark_iteration, std::ref(previous_it),  utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
       //     dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter - 1, postprocessing_active);
       // std::cout << extra_graph_parameter << " " << postprocessing_active << std::endl;
@@ -330,7 +244,116 @@ hpx::future<void> kernel_fusion_benchmark_iteration(const size_t utilized_implem
   //     ret_fut = hpx::when_all(fut1, fut2);
   //   }
   // }
-  return ret_fut;
+  if constexpr (!std::is_void_v<R>) 
+    return ret_fut;
+}
+
+// struct experiment_setup {
+//   const size_t utilized implementation_id;
+//   const size_t graph_mode utilized_graph_mode;
+// }kkk
+
+void kernel_fusion_benchmark(const size_t utilized_implementation_id, const std::vector<double> &hA, const std::vector<double> &hB,
+                             std::vector<double> &hC, const std::vector<double> &hC_comparison,
+                             const size_t M, const size_t N, const size_t K, const size_t num_repetitions, const graph_mode utilized_graph_mode,
+                             const size_t extra_graph_parameter, const bool postprocessing_active) {
+  const fusion_mode utilized_fusion_approach = none;
+
+  const double flops = 2.0 * static_cast<double>(M)
+                     * static_cast<double>(N)
+                     * static_cast<double>(K);
+  const double alpha = 1.0;
+  const double beta  = 0.0;
+  const size_t sizeA = M * K;
+  const size_t sizeB = K * N;
+  const size_t sizeC = M * N;
+  const size_t bytesA = sizeA * sizeof(double);
+  const size_t bytesB = sizeB * sizeof(double);
+  const size_t bytesC = sizeC * sizeof(double);
+  double* dA = nullptr;
+  double* dB = nullptr;
+  double* dC = nullptr;
+  cudaMalloc(&dA, bytesA);
+  cudaMalloc(&dB, bytesB);
+  cudaMalloc(&dC, bytesC);
+  cudaMemcpy(dA, hA.data(), bytesA, cudaMemcpyHostToDevice);
+  cudaMemcpy(dB, hB.data(), bytesB, cudaMemcpyHostToDevice);
+  cudaMemcpy(dC, hC.data(), bytesC, cudaMemcpyHostToDevice);
+  cublasHandle_t handle;
+  cublasCreate(&handle);
+  cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
+  cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, dB, N, dA, K, &beta, dC, N); // first pass required -- I think there is some setup happening
+
+  std::chrono::time_point start_timer = std::chrono::high_resolution_clock::now();
+  // setup cuda graph
+  // setup executor pool
+  // setup multiple cuda streams
+  // setup buffers and copu initial data
+  // repeat experiment n times (otherwise the cuda graphs will lose badly)
+  // ... needs separate methods (cannot extend the recursion over the loop
+  bool futurized = true;
+
+  if (futurized) {
+  auto loop_fut = hpx::make_ready_future<void>();
+  for (size_t it = 0; it < num_repetitions; it++) {
+    // kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
+    //     dA, dB, dC, hC_comparison, M, N, K, std::ref(handle), utilized_graph_mode, extra_graph_parameter, postprocessing_active);
+    // auto loop_fut = hpx::async(
+    //     hpx::launch::async_policy(hpx::threads::thread_priority::default_, // maybe we need a generic policy for non-cublas
+    //                               hpx::threads::thread_stacksize::large),
+    //     &kernel_fusion_benchmark_iteration, utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
+    //     dA, dB, dC, hC_comparison, M, N, K, std::ref(handle), utilized_graph_mode, extra_graph_parameter, postprocessing_active);
+    // loop_fut.get();
+    // auto loop_fut = hpx::async(
+    //     &kernel_fusion_benchmark_iteration, utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
+    //     dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
+    // loop_fut.get();
+
+    loop_fut = loop_fut.then(
+        [&](auto && fut) {
+        // fut.get();
+        return kernel_fusion_benchmark_iteration<hpx::future<void>>(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
+        dA, dB, dC, hC_comparison, M, N, K, std::ref(handle), utilized_graph_mode, extra_graph_parameter, postprocessing_active);
+        });
+    //
+    // loop_fut = hpx::dataflow([&](auto void_val) {
+    //     kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
+    //     dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
+    //     }, loop_fut);
+    // loop_fut.get();
+    // hpx::post(
+    //     &kernel_fusion_benchmark_iteration, utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
+    //     dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
+    // stack size is a problem with the hpx task
+    // can be fixed with:
+    // --hpx:ini=hpx.stacks.small_size=0x100000.
+    
+    // kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
+    //     dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
+  }
+  loop_fut.get();
+  } else {
+    for (size_t it = 0; it < num_repetitions; it++) {
+      kernel_fusion_benchmark_iteration<void>(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
+          dA, dB, dC, hC_comparison, M, N, K, std::ref(handle), utilized_graph_mode, extra_graph_parameter, postprocessing_active);
+    }
+  }
+  cudaGetLastError();
+  cudaDeviceSynchronize();
+  // cudaGetLastError();
+  // cudaDeviceSynchronize();
+
+  auto end_timer = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> elapsed = end_timer - start_timer;
+  double total_seconds = elapsed.count();
+  double avg_seconds = total_seconds / static_cast<double>(num_repetitions);
+  if (utilized_graph_mode == graph_mode::serial)
+    avg_seconds = avg_seconds / static_cast<double>(extra_graph_parameter);
+  double gflops = flops / avg_seconds / 1.0e9;
+  std::cout << "-> Average Runtime: " << avg_seconds * 1.0e3 << "ms\n";
+  std::cout << "-> Performance: " << gflops << " GFLOP/s";
+  std::cout << std::endl;
+
 }
 
 int hpx_main(int argc, char *argv[]) {
