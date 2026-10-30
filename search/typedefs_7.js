@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['priority_5fpool_0',['priority_pool',['../stream__manager_8hpp.html#af82395b1656d9334ba5234c1a4fe1fcd',1,'stream_manager.hpp']]],
-  ['priority_5fpool_5fimpl_1',['priority_pool_impl',['../namespacecppuddle_1_1executor__recycling.html#ae75084f34eee90ce44baba683599889b',1,'cppuddle::executor_recycling']]]
+  ['underlying_5fallocator_5ftype_0',['underlying_allocator_type',['../structcppuddle_1_1memory__recycling_1_1detail_1_1recycle__allocator.html#aaac68a40b6b827aa3d138d4cb8d0f338',1,'cppuddle::memory_recycling::detail::recycle_allocator::underlying_allocator_type'],['../structcppuddle_1_1memory__recycling_1_1detail_1_1aggressive__recycle__allocator.html#aeefe0e4b9a103606a72e4d831f208131',1,'cppuddle::memory_recycling::detail::aggressive_recycle_allocator::underlying_allocator_type']]]
 ];

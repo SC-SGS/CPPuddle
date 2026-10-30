@@ -1,0 +1,4 @@
+var structcppuddle_1_1memory__recycling_1_1device__selection_1_1select__device__functor_3_01T_00_01d6ccfb1d19097a141ab2840a1633cfb4d =
+[
+    [ "operator()", "structcppuddle_1_1memory__recycling_1_1device__selection_1_1select__device__functor_3_01T_00_01d6ccfb1d19097a141ab2840a1633cfb4d.html#a65b56ee69027b048cb01218c9008d5c6", null ]
+];

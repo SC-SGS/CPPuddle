@@ -1,0 +1,27 @@
+var namespacerecycler =
+[
+    [ "detail", "namespacerecycler_1_1detail.html", "namespacerecycler_1_1detail" ],
+    [ "cuda_device_buffer", "structrecycler_1_1cuda__device__buffer.html", "structrecycler_1_1cuda__device__buffer" ],
+    [ "cuda_aggregated_device_buffer", "structrecycler_1_1cuda__aggregated__device__buffer.html", "structrecycler_1_1cuda__aggregated__device__buffer" ],
+    [ "hip_device_buffer", "structrecycler_1_1hip__device__buffer.html", "structrecycler_1_1hip__device__buffer" ],
+    [ "hip_aggregated_device_buffer", "structrecycler_1_1hip__aggregated__device__buffer.html", "structrecycler_1_1hip__aggregated__device__buffer" ],
+    [ "aggregated_recycling_view", "classrecycler_1_1aggregated__recycling__view.html", "classrecycler_1_1aggregated__recycling__view" ],
+    [ "kokkos_type", "classrecycler_1_1kokkos__type.html", null ],
+    [ "recycling_view", "classrecycler_1_1recycling__view.html", "classrecycler_1_1recycling__view" ],
+    [ "aggressive_recycle_aligned", "namespacerecycler.html#acd7f8263a4ed09b4642ebf8128471cc7", null ],
+    [ "aggressive_recycle_std", "namespacerecycler.html#a795c12667cc748133826dc016a168c91", null ],
+    [ "recycle_aligned", "namespacerecycler.html#a98068e2256d8605ec7eb481dbf47145c", null ],
+    [ "recycle_allocator_cuda_device", "namespacerecycler.html#a8b89f42c2d4afc97ee88591292f19f33", null ],
+    [ "recycle_allocator_cuda_host", "namespacerecycler.html#a582cfefe6cc008ec51c1dead4a95eddd", null ],
+    [ "recycle_allocator_hip_device", "namespacerecycler.html#a22328ffff80b9159a68363d882b22711", null ],
+    [ "recycle_allocator_hip_host", "namespacerecycler.html#aecbbea63be7c8da691bb0ff5de142e11", null ],
+    [ "recycle_allocator_sycl_device", "namespacerecycler.html#a57a1bd5b2764ab532e55f7a03975ac14", null ],
+    [ "recycle_allocator_sycl_host", "namespacerecycler.html#a2fbef048849f907a90952a6fde5b2504", null ],
+    [ "recycle_std", "namespacerecycler.html#a1764465cb8b69d313f99aac3016d9970", null ],
+    [ "cleanup", "namespacerecycler.html#a1c1f00fa0294dd8f1a1d6b6753f227f8", null ],
+    [ "finalize", "namespacerecycler.html#ada17375f22e257ac8fd6563a00297158", null ],
+    [ "force_cleanup", "namespacerecycler.html#ab6beef4d673143b243754a91b9fb3326", null ],
+    [ "print_performance_counters", "namespacerecycler.html#afd7e93ea18561cbff8017ad6dcb5bc5a", null ],
+    [ "max_number_gpus", "namespacerecycler.html#a2b289219bd4bed10a2272336237ce21e", null ],
+    [ "number_instances", "namespacerecycler.html#a22f9cae42dbf2f4af11abea6b8e7b491", null ]
+];

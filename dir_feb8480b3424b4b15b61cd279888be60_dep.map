@@ -1,7 +1,7 @@
 <map id="include/cppuddle/memory_recycling/detail" name="include/cppuddle/memory_recycling/detail">
-<area shape="rect" id="node1" href="dir_feb8480b3424b4b15b61cd279888be60.html" title="detail" alt="" coords="57,52,116,77"/>
-<area shape="rect" id="node2" href="dir_a31e29f658aabd71a86035b64acade04.html" title="common" alt="" coords="47,125,126,151"/>
-<area shape="poly" id="edge1" href="dir_000004_000000.html" alt="" coords="89,78,89,112,84,112,84,78"/>
-<area shape="rect" id="edge1-headlabel" href="dir_000004_000000.html" title="1" alt="" coords="90,100,100,114"/>
-<area shape="rect" id="clust1" href="dir_b196a508d967b5292215dc75471d5392.html" title="memory_recycling" alt="" coords="16,16,159,88"/>
+<area shape="rect" id="node1" href="dir_feb8480b3424b4b15b61cd279888be60.html" title="detail" alt="" coords="58,54,116,82"/>
+<area shape="rect" id="node2" href="dir_a31e29f658aabd71a86035b64acade04.html" title="common" alt="" coords="48,130,126,158"/>
+<area shape="poly" id="edge1" href="dir_000004_000000.html" alt="" coords="88,81,89,115,84,113,85,85"/>
+<area shape="rect" id="edge1-headlabel" href="dir_000004_000000.html" title="1" alt="" coords="91,103,99,120"/>
+<area shape="rect" id="clust1" href="dir_b196a508d967b5292215dc75471d5392.html" title="memory_recycling" alt="" coords="16,16,159,93"/>
 </map>

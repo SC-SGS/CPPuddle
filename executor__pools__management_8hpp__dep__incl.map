@@ -1,31 +1,31 @@
 <map id="include/cppuddle/executor_recycling/detail/executor_pools_management.hpp" name="include/cppuddle/executor_recycling/detail/executor_pools_management.hpp">
-<area shape="rect" id="Node000001" title=" " alt="" coords="458,5,650,60"/>
-<area shape="rect" id="Node000002" href="$executor__pools__interface_8hpp.html" title=" " alt="" coords="458,108,650,163"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="557,74,557,108,552,108,552,74"/>
-<area shape="rect" id="Node000003" href="$aggregation__executors__and__allocators_8hpp.html" title=" " alt="" coords="260,211,491,265"/>
-<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="497,172,424,213,421,208,495,167"/>
-<area shape="rect" id="Node000005" href="$kernel__aggregation__interface_8hpp.html" title=" " alt="" coords="307,416,543,471"/>
-<area shape="poly" id="edge11_Node000002_Node000005" title=" " alt="" coords="542,176,505,266,439,417,434,415,500,264,537,174"/>
-<area shape="rect" id="Node000007" href="$kokkos__aggregation__util_8hpp.html" title=" " alt="" coords="172,607,353,661"/>
-<area shape="poly" id="edge12_Node000002_Node000007" title=" " alt="" coords="445,157,310,185,237,204,167,226,105,250,55,278,22,308,13,323,10,340,10,445,10,506,17,531,35,557,64,582,99,600,135,614,172,622,171,627,134,619,96,605,61,586,31,560,12,533,5,507,5,445,5,339,8,321,18,304,52,273,103,245,166,221,236,199,309,180,444,152"/>
-<area shape="rect" id="Node000010" href="$work__aggregation__test_8cpp.html" title=" " alt="" coords="618,519,792,559"/>
-<area shape="poly" id="edge16_Node000002_Node000010" title=" " alt="" coords="571,175,700,517,695,519,566,176"/>
-<area shape="rect" id="Node000011" href="$stream__manager_8hpp.html" title=" " alt="" coords="617,225,828,251"/>
-<area shape="poly" id="edge13_Node000002_Node000011" title=" " alt="" coords="611,167,705,223,702,228,608,172"/>
-<area shape="rect" id="Node000012" href="$stream__test_8hpp.html" title=" " alt="" coords="852,225,1016,251"/>
-<area shape="poly" id="edge14_Node000002_Node000012" title=" " alt="" coords="665,162,840,208,894,223,893,228,839,213,663,167"/>
-<area shape="rect" id="Node000004" href="$aggregation__executor__pools_8hpp.html" title=" " alt="" coords="183,313,414,368"/>
-<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="349,278,321,315,316,312,345,275"/>
-<area shape="poly" id="edge10_Node000003_Node000005" title=" " alt="" coords="409,275,428,312,433,340,435,367,432,416,427,416,430,367,428,340,423,314,404,278"/>
-<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="344,375,394,414,390,418,341,379"/>
-<area shape="rect" id="Node000006" href="$aggregation__manager_8hpp.html" title=" " alt="" coords="443,519,594,559"/>
-<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="463,479,501,517,498,521,459,482"/>
-<area shape="rect" id="Node000008" href="$work__aggregation__cpu__triad_8cpp.html" title=" " alt="" coords="244,519,419,559"/>
-<area shape="poly" id="edge7_Node000005_Node000008" title=" " alt="" coords="391,482,352,521,349,517,387,479"/>
-<area shape="rect" id="Node000009" href="$work__aggregation__cuda__triad_8cpp.html" title=" " alt="" coords="46,519,220,559"/>
-<area shape="poly" id="edge8_Node000005_Node000009" title=" " alt="" coords="331,477,193,521,191,516,329,472"/>
-<area shape="poly" id="edge9_Node000005_Node000010" title=" " alt="" coords="517,472,649,516,648,521,516,477"/>
-<area shape="poly" id="edge6_Node000006_Node000007" title=" " alt="" coords="455,566,335,609,334,604,453,561"/>
-<area shape="rect" id="Node000013" href="$stream__test_8cpp.html" title=" " alt="" coords="853,328,1016,353"/>
-<area shape="poly" id="edge15_Node000012_Node000013" title=" " alt="" coords="937,265,937,328,932,328,932,265"/>
+<area shape="rect" id="Node000001" title=" " alt="" coords="458,5,649,67"/>
+<area shape="rect" id="Node000002" href="$executor__pools__interface_8hpp.html" title=" " alt="" coords="458,115,649,177"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="555,80,556,115,551,114,553,85"/>
+<area shape="rect" id="Node000003" href="$aggregation__executors__and__allocators_8hpp.html" title=" " alt="" coords="262,225,491,286"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="489,187,427,226,424,222,493,183"/>
+<area shape="rect" id="Node000005" href="$kernel__aggregation__interface_8hpp.html" title=" " alt="" coords="307,444,542,506"/>
+<area shape="poly" id="edge11_Node000002_Node000005" title=" " alt="" coords="540,189,505,287,439,445,435,442,500,285,536,194"/>
+<area shape="rect" id="Node000007" href="$kokkos__aggregation__util_8hpp.html" title=" " alt="" coords="173,646,353,708"/>
+<area shape="poly" id="edge12_Node000002_Node000007" title=" " alt="" coords="441,170,308,202,236,222,167,246,105,272,55,301,22,332,14,348,11,364,11,476,10,542,16,568,36,597,65,622,99,641,136,655,175,666,169,667,134,660,97,646,62,627,32,600,12,571,4,543,6,476,6,364,9,346,18,329,52,297,102,267,165,241,234,217,307,197,445,166"/>
+<area shape="rect" id="Node000010" href="$work__aggregation__test_8cpp.html" title=" " alt="" coords="617,554,791,598"/>
+<area shape="poly" id="edge16_Node000002_Node000010" title=" " alt="" coords="571,189,699,553,694,553,567,193"/>
+<area shape="rect" id="Node000011" href="$stream__manager_8hpp.html" title=" " alt="" coords="616,242,827,269"/>
+<area shape="poly" id="edge13_Node000002_Node000011" title=" " alt="" coords="614,183,704,241,698,241,613,188"/>
+<area shape="rect" id="Node000012" href="$stream__test_8hpp.html" title=" " alt="" coords="851,242,1014,269"/>
+<area shape="poly" id="edge14_Node000002_Node000012" title=" " alt="" coords="664,173,840,222,895,241,889,241,838,227,664,179"/>
+<area shape="rect" id="Node000004" href="$aggregation__executor__pools_8hpp.html" title=" " alt="" coords="184,334,414,396"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="347,297,323,335,318,332,344,301"/>
+<area shape="poly" id="edge10_Node000003_Node000005" title=" " alt="" coords="410,297,428,334,434,362,436,392,432,445,427,442,430,392,428,363,423,335,409,302"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="346,404,392,443,387,444,345,409"/>
+<area shape="rect" id="Node000006" href="$aggregation__manager_8hpp.html" title=" " alt="" coords="442,554,593,598"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="464,515,500,554,495,553,462,520"/>
+<area shape="rect" id="Node000008" href="$work__aggregation__cpu__triad_8cpp.html" title=" " alt="" coords="244,554,418,598"/>
+<area shape="poly" id="edge7_Node000005_Node000008" title=" " alt="" coords="387,516,353,555,350,551,383,519"/>
+<area shape="rect" id="Node000009" href="$work__aggregation__cuda__triad_8cpp.html" title=" " alt="" coords="45,554,219,598"/>
+<area shape="poly" id="edge8_Node000005_Node000009" title=" " alt="" coords="318,513,197,555,195,551,323,509"/>
+<area shape="poly" id="edge9_Node000005_Node000010" title=" " alt="" coords="524,509,645,553,640,553,524,514"/>
+<area shape="poly" id="edge6_Node000006_Node000007" title=" " alt="" coords="450,604,342,648,340,643,445,605"/>
+<area shape="rect" id="Node000013" href="$stream__test_8cpp.html" title=" " alt="" coords="851,351,1013,379"/>
+<area shape="poly" id="edge15_Node000012_Node000013" title=" " alt="" coords="934,283,934,353,930,350,931,287"/>
 </map>

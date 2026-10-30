@@ -1,0 +1,27 @@
+var namespacecppuddle_1_1memory__recycling =
+[
+    [ "device_selection", "namespacecppuddle_1_1memory__recycling_1_1device__selection.html", "namespacecppuddle_1_1memory__recycling_1_1device__selection" ],
+    [ "detail", "namespacecppuddle_1_1memory__recycling_1_1detail.html", "namespacecppuddle_1_1memory__recycling_1_1detail" ],
+    [ "cuda_device_buffer", "structcppuddle_1_1memory__recycling_1_1cuda__device__buffer.html", "structcppuddle_1_1memory__recycling_1_1cuda__device__buffer" ],
+    [ "cuda_aggregated_device_buffer", "structcppuddle_1_1memory__recycling_1_1cuda__aggregated__device__buffer.html", "structcppuddle_1_1memory__recycling_1_1cuda__aggregated__device__buffer" ],
+    [ "hip_device_buffer", "structcppuddle_1_1memory__recycling_1_1hip__device__buffer.html", "structcppuddle_1_1memory__recycling_1_1hip__device__buffer" ],
+    [ "hip_aggregated_device_buffer", "structcppuddle_1_1memory__recycling_1_1hip__aggregated__device__buffer.html", "structcppuddle_1_1memory__recycling_1_1hip__aggregated__device__buffer" ],
+    [ "view_deleter", "structcppuddle_1_1memory__recycling_1_1view__deleter.html", "structcppuddle_1_1memory__recycling_1_1view__deleter" ],
+    [ "aggregated_recycling_view", "classcppuddle_1_1memory__recycling_1_1aggregated__recycling__view.html", "classcppuddle_1_1memory__recycling_1_1aggregated__recycling__view" ],
+    [ "recycling_view", "classcppuddle_1_1memory__recycling_1_1recycling__view.html", "classcppuddle_1_1memory__recycling_1_1recycling__view" ],
+    [ "aggressive_recycle_aligned", "namespacecppuddle_1_1memory__recycling.html#acd7f8263a4ed09b4642ebf8128471cc7", null ],
+    [ "aggressive_recycle_std", "namespacecppuddle_1_1memory__recycling.html#a795c12667cc748133826dc016a168c91", null ],
+    [ "recycle_aligned", "namespacecppuddle_1_1memory__recycling.html#a98068e2256d8605ec7eb481dbf47145c", null ],
+    [ "recycle_allocator_cuda_device", "namespacecppuddle_1_1memory__recycling.html#a8b89f42c2d4afc97ee88591292f19f33", null ],
+    [ "recycle_allocator_cuda_host", "namespacecppuddle_1_1memory__recycling.html#a582cfefe6cc008ec51c1dead4a95eddd", null ],
+    [ "recycle_allocator_cuda_managed", "namespacecppuddle_1_1memory__recycling.html#a32a9cc888b95682744df23c1752b35b8", null ],
+    [ "recycle_allocator_hip_device", "namespacecppuddle_1_1memory__recycling.html#a22328ffff80b9159a68363d882b22711", null ],
+    [ "recycle_allocator_hip_host", "namespacecppuddle_1_1memory__recycling.html#aecbbea63be7c8da691bb0ff5de142e11", null ],
+    [ "recycle_allocator_sycl_device", "namespacecppuddle_1_1memory__recycling.html#a57a1bd5b2764ab532e55f7a03975ac14", null ],
+    [ "recycle_allocator_sycl_host", "namespacecppuddle_1_1memory__recycling.html#a2fbef048849f907a90952a6fde5b2504", null ],
+    [ "recycle_std", "namespacecppuddle_1_1memory__recycling.html#a1764465cb8b69d313f99aac3016d9970", null ],
+    [ "finalize", "namespacecppuddle_1_1memory__recycling.html#a109fbe22127bef72cdf5f89d87c5ec1b", null ],
+    [ "force_buffer_cleanup", "namespacecppuddle_1_1memory__recycling.html#ae2e5492d8c61ac660f0943fc10e6287a", null ],
+    [ "print_buffer_counters", "namespacecppuddle_1_1memory__recycling.html#a588b73bb5215699426f49714fac8d97e", null ],
+    [ "unused_buffer_cleanup", "namespacecppuddle_1_1memory__recycling.html#a766581137c8135746512e41e9f51f5c8", null ]
+];

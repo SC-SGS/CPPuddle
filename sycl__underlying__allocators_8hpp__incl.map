@@ -1,9 +1,9 @@
 <map id="include/cppuddle/memory_recycling/detail/sycl_underlying_allocators.hpp" name="include/cppuddle/memory_recycling/detail/sycl_underlying_allocators.hpp">
-<area shape="rect" id="Node000001" title=" " alt="" coords="71,5,268,60"/>
-<area shape="rect" id="Node000002" title=" " alt="" coords="5,108,101,133"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="135,62,82,102,79,97,132,58"/>
-<area shape="rect" id="Node000003" title=" " alt="" coords="126,108,213,133"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="172,60,172,94,167,94,167,60"/>
-<area shape="rect" id="Node000004" title=" " alt="" coords="237,108,296,133"/>
-<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="201,58,245,97,241,101,197,62"/>
+<area shape="rect" id="Node000001" title=" " alt="" coords="70,5,266,67"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,115,101,143"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="132,67,83,107,80,103,127,68"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="125,115,210,143"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="169,66,170,100,165,98,166,69"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="234,115,293,143"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="201,65,241,104,236,104,199,70"/>
 </map>
