@@ -1,8 +1,6 @@
 ### CPPuddle
 
 [![ctest](https://github.com/SC-SGS/CPPuddle/actions/workflows/cmake.yml/badge.svg)](https://github.com/SC-SGS/CPPuddle/actions/workflows/cmake.yml)
-[![Build Status](https://simsgs.informatik.uni-stuttgart.de/jenkins/buildStatus/icon?job=CPPuddle%2Fmaster&config=allbuilds)](https://simsgs.informatik.uni-stuttgart.de/jenkins/view/Octo-Tiger%20and%20Dependencies/job/CPPuddle/job/master/)
-
 
 #### Purpose
 
@@ -51,5 +49,5 @@ find_package(CPPuddle REQUIRED)
 #### Disclosure
 
 CPPuddle contains contributions developed at Los Alamos National Laboratory (LANL).
-LANL software approval number: O5227
+LANL software release number: O5227
 
