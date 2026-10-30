@@ -1,4 +1,18 @@
-// Copyright (c) 2022-2024 Gregor Daiß
+// LANL Copyright Notice:
+//
+//© 2026. Triad National Security, LLC. All rights reserved.
+//
+// This program was produced under U.S. Government contract 89233218CNA000001
+// for Los Alamos National Laboratory (LANL), which is operated by Triad
+// National Security, LLC for the U.S. Department of Energy/National Nuclear
+// Security Administration. All rights in the program are reserved by Triad
+// National Security, LLC, and the U.S. Department of Energy/National Nuclear
+// Security Administration. The Government is granted for itself and others
+// acting on its behalf a nonexclusive, paid-up, irrevocable worldwide license
+// in this material to reproduce, prepare. derivative works, distribute copies
+// to the public, perform publicly and display publicly, and to permit others
+// to do so.
+//
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -105,7 +119,9 @@ template <
     typename... Args>
 CPPUDDLE_HOST_DEVICE_METHOD auto
 map_views_to_slice(const Agg_executor_t &agg_exec,
-                   const Agg_view_t &current_arg, const Args &...rest) {
+                   const Agg_view_t &current_arg, const Args &...rest) ->
+                     std::tuple<typename Agg_view_t::view_type,
+                                typename Args::view_type...> {
   const size_t slice_id = agg_exec.id;
   const size_t max_slices = agg_exec.max_slices;
   static_assert(Kokkos::is_view<typename Agg_view_t::view_type>::value,

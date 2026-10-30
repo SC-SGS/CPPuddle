@@ -1,4 +1,18 @@
-// Copyright (c) 2020-2024 Gregor Daiß
+// LANL Copyright Notice:
+//
+//© 2026. Triad National Security, LLC. All rights reserved.
+//
+// This program was produced under U.S. Government contract 89233218CNA000001
+// for Los Alamos National Laboratory (LANL), which is operated by Triad
+// National Security, LLC for the U.S. Department of Energy/National Nuclear
+// Security Administration. All rights in the program are reserved by Triad
+// National Security, LLC, and the U.S. Department of Energy/National Nuclear
+// Security Administration. The Government is granted for itself and others
+// acting on its behalf a nonexclusive, paid-up, irrevocable worldwide license
+// in this material to reproduce, prepare. derivative works, distribute copies
+// to the public, perform publicly and display publicly, and to permit others
+// to do so.
+//
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -9,6 +23,7 @@
 #include <cuda_runtime.h>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 
 namespace cppuddle {
 namespace memory_recycling {
@@ -92,6 +107,45 @@ constexpr bool operator==(cuda_device_allocator<T> const &,
 template <class T, class U>
 constexpr bool operator!=(cuda_device_allocator<T> const &,
                           cuda_device_allocator<U> const &) noexcept {
+  return false;
+}
+/// Underlying allocator for CUDA managed memory
+template <class T> struct cuda_managed_memory_allocator {
+  using value_type = T;
+  cuda_managed_memory_allocator() noexcept = default;
+  template <class U>
+  explicit cuda_managed_memory_allocator(cuda_managed_memory_allocator<U> const &) noexcept {}
+  T *allocate(std::size_t n) {
+    T *data;
+    cudaError_t error = cudaMallocManaged(&data, n * sizeof(T));
+    if (error != cudaSuccess) {
+      std::string msg =
+          std::string(
+              "cuda_managed_memory_allocator failed due to cudaMallocManaged failure : ") +
+          std::string(cudaGetErrorString(error));
+      throw std::runtime_error(msg);
+    }
+    return data;
+  }
+  void deallocate(T *p, std::size_t n) {
+    cudaError_t error = cudaFree(p);
+    if (error != cudaSuccess) {
+      std::string msg =
+          std::string(
+              "cuda_managed_memory_allocator failed due to cudaFree failure : ") +
+          std::string(cudaGetErrorString(error));
+      throw std::runtime_error(msg);
+    }
+  }
+};
+template <class T, class U>
+constexpr bool operator==(cuda_managed_memory_allocator<T> const &,
+                          cuda_managed_memory_allocator<U> const &) noexcept {
+  return true;
+}
+template <class T, class U>
+constexpr bool operator!=(cuda_managed_memory_allocator<T> const &,
+                          cuda_managed_memory_allocator<U> const &) noexcept {
   return false;
 }
 } // end namespace detail

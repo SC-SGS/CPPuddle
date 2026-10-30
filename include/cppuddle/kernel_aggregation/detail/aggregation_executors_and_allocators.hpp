@@ -1,4 +1,18 @@
-// Copyright (c) 2022-2024 Gregor Daiß
+// LANL Copyright Notice:
+//
+//© 2026. Triad National Security, LLC. All rights reserved.
+//
+// This program was produced under U.S. Government contract 89233218CNA000001
+// for Los Alamos National Laboratory (LANL), which is operated by Triad
+// National Security, LLC for the U.S. Department of Energy/National Nuclear
+// Security Administration. All rights in the program are reserved by Triad
+// National Security, LLC, and the U.S. Department of Energy/National Nuclear
+// Security Administration. The Government is granted for itself and others
+// acting on its behalf a nonexclusive, paid-up, irrevocable worldwide license
+// in this material to reproduce, prepare. derivative works, distribute copies
+// to the public, perform publicly and display publicly, and to permit others
+// to do so.
+//
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -557,7 +571,7 @@ public:
 
   //===============================================================================
 
-  hpx::promise<void> slices_full_promise;
+  // hpx::promise<void> slices_full_promise;
   /// Promises with the slice executors -- to be set when the starting criteria
   /// is met
   std::vector<hpx::promise<executor_slice>> executor_slices;
@@ -837,10 +851,12 @@ public:
         executor_slices_alive = true;
         buffers_in_use = false;
         dealloc_counter = 0;
+        launched_slices = 0;
 
-        if (mode == aggregated_executor_modes::STRICT ) {
-          slices_full_promise = hpx::promise<void>{};
-        }
+
+        // if (mode == aggregated_executor_modes::STRICT ) {
+        //   slices_full_promise = hpx::promise<void>{};
+        // }
       }
 
       // Create Executor Slice future -- that will be returned later
@@ -883,14 +899,10 @@ public:
           auto exec_fut = (*executor_wrapper).get_future();
           /* auto fut = hpx::when_any(exec_fut, slices_full_fut); */
           fut = std::move(exec_fut);
-        } else {
-          auto slices_full_fut = slices_full_promise.get_shared_future();
-          // Just use the slices launch condition
-          fut = std::move(slices_full_fut);
-        }
         // Launch all executor slices within this continuation
         current_continuation = fut.then([this](auto &&fut) {
           std::lock_guard<aggregation_mutex_t> guard(mut);
+          // if (!slices_exhausted) {
           slices_exhausted = true;
           launched_slices = current_slices;
           size_t id = 0;
@@ -901,23 +913,19 @@ public:
           }
           executor_slices.clear();
         });
+        }
       }
       if (local_slice_id >= max_slices &&
           mode != aggregated_executor_modes::ENDLESS) {
-        slices_exhausted = true; // prevents any more threads from entering
-                                 // before the continuation is launched
-        /* launched_slices = current_slices; */
-        /* size_t id = 0; */
-        /* for (auto &slice_promise : executor_slices) { */
-        /*   slice_promise.set_value( */
-        /*       executor_slice{*this, id, launched_slices}); */
-        /*   id++; */
-        /* } */
-        /* executor_slices.clear(); */
-        if (mode == aggregated_executor_modes::STRICT ) {
-          slices_full_promise.set_value(); // Trigger slices launch condition continuation 
-        }
-        // that continuation will set all executor slices so far handed out to ready
+          slices_exhausted = true;
+          launched_slices = current_slices;
+          size_t id = 0;
+          for (auto &slice_promise : executor_slices) {
+            slice_promise.set_value(
+                executor_slice{*this, id, launched_slices, max_slices});
+            id++;
+          }
+          executor_slices.clear();
       }
       return ret_fut;
     } else {
@@ -937,6 +945,8 @@ public:
     // Last slice goes out scope?
     if (local_slice_id == 0) {
       // Mark executor fit for reusage
+      if (mode != aggregated_executor_modes::STRICT )
+        current_continuation.get(); // clear remaining task in case it was not run yet
       std::lock_guard<aggregation_mutex_t> guard(mut);
       executor_slices_alive = false; 
       if (!executor_slices_alive && !buffers_in_use) {
@@ -952,9 +962,9 @@ public:
     assert(executor_slices_alive == false);
     assert(buffers_in_use == false);
 
-    if (mode != aggregated_executor_modes::STRICT ) {
-        slices_full_promise.set_value(); // Trigger slices launch condition continuation 
-    }
+    // if (mode != aggregated_executor_modes::STRICT ) {
+    //     slices_full_promise.set_value(); // Trigger slices launch condition continuation 
+    // }
 
     // Cleanup leftovers from last run if any
     function_calls.clear();

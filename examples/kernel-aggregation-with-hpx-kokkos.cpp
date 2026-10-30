@@ -280,7 +280,8 @@ void launch_gpu_kernel_task(
     // correctness))
     for (size_t i = 0; i < entries_per_task; i++) {
       if (host_c_slice[i] != 1.0 + 2.0) {
-        std::cerr << "Task " << task_id << " contained wrong results!!"
+        std::cerr << "Task " << task_id << " contained wrong results!"
+                  << "Expected: " << 1.0 + 2.0 << "  Got: " << host_c_slice[i] 
                   << std::endl;
         break;
       }
