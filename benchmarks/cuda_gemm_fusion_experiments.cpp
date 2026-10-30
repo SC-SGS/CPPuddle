@@ -32,9 +32,9 @@
 
 // serial / parallel extra argument: Number tasks
 // Top-down, updown extra argument: Depth and structure (number childs per node -- lets fix this to 2 for now)
-enum graph_mode {scalar = 0, serial, parallel, top_down, bottom_up};
-enum fusion_mode {none = 0, cuda_graph, cppuddle};
-enum futurization_mode {none = 0, async, then, dataflow, sender_receiver};
+enum class graph_mode {scalar = 0, serial, parallel, top_down, bottom_up};
+enum class fusion_mode {none = 0, cuda_graph, cppuddle};
+enum class futurization_mode {none = 0, async, then, dataflow, sender_receiver};
 
 struct experiment_setup {
   size_t utilized_implementation_id;
@@ -44,6 +44,7 @@ struct experiment_setup {
   bool postprocessing_active;
   fusion_mode utilized_fusion_approach;
   futurization_mode utilized_futurization_mode;
+  futurization_mode futurized;
 };
 
 
@@ -256,7 +257,7 @@ void kernel_fusion_benchmark(const experiment_setup &experiment_parameters,
   const size_t &extra_graph_parameter = experiment_parameters.extra_graph_parameter;
   const bool &postprocessing_active = experiment_parameters.postprocessing_active;
   const fusion_mode &utilized_fusion_approach = experiment_parameters.utilized_fusion_approach;
-  const bool &futurized = experiment_parameters.futurized;
+  const futurization_mode &futurized = experiment_parameters.futurized;
 
 
   const double flops = 2.0 * static_cast<double>(M)
@@ -292,7 +293,7 @@ void kernel_fusion_benchmark(const experiment_setup &experiment_parameters,
   // repeat experiment n times (otherwise the cuda graphs will lose badly)
   // ... needs separate methods (cannot extend the recursion over the loop
 
-  if (futurized) {
+  if (futurized == futurization_mode::then) {
     auto loop_fut = hpx::make_ready_future<void>();
     for (size_t it = 0; it < num_repetitions; it++) {
       loop_fut = loop_fut.then(
@@ -467,7 +468,7 @@ int hpx_main(int argc, char *argv[]) {
   std::cout << "\nResults\n";
   std::cout << "-------\n\n";
   const size_t  num_repetitions = 10;
-  const graph_mode utilized_graph_mode = serial;  
+  const graph_mode utilized_graph_mode = graph_mode::serial;  
   const size_t extra_graph_parameter = 10;
   const bool postprocessing_active = false;
 
