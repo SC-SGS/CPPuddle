@@ -48,4 +48,8 @@ find_package(CPPuddle REQUIRED)
   cmake -H/path/to/source -B$/path/to/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/path/to/install/cppuddle -DCPPUDDLE_WITH_HPX=ON -DCPPUDDLE_WITH_HPX_AWARE_ALLOCATORS=ON -DCPPUDDLE_WITH_TESTS=OFF -DCPPUDDLE_WITH_COUNTERS=OFF                                                             
 ```
 
+#### Disclosure
+
+CPPuddle contains contributions developed at Los Alamos National Laboratory (LANL).
+LANL software approval number: O5227
 
