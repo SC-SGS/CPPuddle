@@ -190,7 +190,7 @@ private:
   /// one buffer_manager
   std::list<std::function<void()>> finalize_callbacks;
   /// Callbacks for buffer_manager cleanups - each callback destroys all buffers within 
-  /// one buffer_manager, both used and unsued
+  /// one buffer_manager, both used and unused
   std::list<std::function<void()>> total_cleanup_callbacks;
   /// Callbacks for partial buffer_manager cleanups - each callback deallocates
   /// all unused buffers of a manager
@@ -268,14 +268,17 @@ private:
       assert(instance() && !is_finalized);
       for (auto i = 0; i < number_instances * max_number_gpus; i++) {
         std::lock_guard<mutex_t> guard(instance()[i].mut);
-        for (auto &buffer_tuple : instance()[i].unused_buffer_list) {
-          Host_Allocator alloc;
-          if (std::get<3>(buffer_tuple)) {
-            std::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+        for (auto &unused_buffer_list_tuple : instance()[i].unused_buffer_map) {
+          auto &unused_buffer_list = std::get<1>(unused_buffer_list_tuple);
+          for (auto &buffer_tuple : unused_buffer_list) {
+            Host_Allocator alloc;
+            if (std::get<3>(buffer_tuple)) {
+              std::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+            }
+            alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
           }
-          alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+          unused_buffer_list.clear();
         }
-        instance()[i].unused_buffer_list.clear();
       }
     }
 #if defined(CPPUDDLE_HAVE_COUNTERS) && defined(CPPUDDLE_HAVE_HPX)
@@ -383,17 +386,19 @@ private:
       location_id = location_id + device_id * number_instances;
       std::lock_guard<mutex_t> guard(instance()[location_id].mut);
 
+      std::list<buffer_entry_type> &unused_buffer_list = instance()[location_id].unused_buffer_map[number_of_elements];
+
 
 #ifdef CPPUDDLE_HAVE_COUNTERS
       instance()[location_id].number_allocation++;
       sum_number_allocation++;
 #endif
       // Check for unused buffers we can recycle:
-      for (auto iter = instance()[location_id].unused_buffer_list.begin();
-           iter != instance()[location_id].unused_buffer_list.end(); iter++) {
+      for (auto iter = unused_buffer_list.begin();
+           iter != unused_buffer_list.end(); iter++) {
         auto tuple = *iter;
         if (std::get<1>(tuple) == number_of_elements) {
-          instance()[location_id].unused_buffer_list.erase(iter);
+          unused_buffer_list.erase(iter);
 
           // handle the switch from aggressive to non aggressive reusage (or
           // vice-versa)
@@ -502,7 +507,7 @@ private:
           // sanity checks:
           assert(std::get<1>(tuple) == number_of_elements);
           // move to the unused_buffer list
-          instance()[location_id].unused_buffer_list.push_front(tuple);
+          instance()[location_id].unused_buffer_map.at(std::get<1>(tuple)).push_front(tuple);
           instance()[location_id].buffer_map.erase(memory_location);
           return; // Success
         }
@@ -534,7 +539,7 @@ private:
           // sanity checks:
           assert(std::get<1>(tuple) == number_of_elements);
           // move to the unused_buffer list
-          instance()[location_id].unused_buffer_list.push_front(tuple);
+          instance()[location_id].unused_buffer_map.at(std::get<1>(tuple)).push_front(tuple);
           instance()[location_id].buffer_map.erase(memory_location);
           return; // Success
         }
@@ -568,7 +573,7 @@ private:
             // sanity checks:
             assert(std::get<1>(tuple) == number_of_elements);
             // move to the unused_buffer list
-            instance()[location_id].unused_buffer_list.push_front(tuple);
+            instance()[location_id].unused_buffer_map.at(std::get<1>(tuple)).push_front(tuple);
             instance()[location_id].buffer_map.erase(memory_location);
             return; // Success
           }
@@ -594,7 +599,7 @@ private:
             // sanity checks:
             assert(std::get<1>(tuple) == number_of_elements);
             // move to the unused_buffer list
-            instance()[location_id].unused_buffer_list.push_front(tuple);
+            instance()[location_id].unused_buffer_map.at(std::get<1>(tuple)).push_front(tuple);
             instance()[location_id].buffer_map.erase(memory_location);
             return; // Success
           }
@@ -621,8 +626,10 @@ private:
   private:
     /// List with all buffers still in usage
     std::unordered_map<T *, buffer_entry_type> buffer_map{};
+    /// Map to lists with all buffers currently not in use
+    std::unordered_map<size_t, std::list<buffer_entry_type>> unused_buffer_map{};
     /// List with all buffers currently not used
-    std::list<buffer_entry_type> unused_buffer_list{};
+    // std::list<buffer_entry_type> unused_buffer_list{};
     /// Access control
     mutex_t mut;
 #ifdef CPPUDDLE_HAVE_COUNTERS
@@ -675,7 +682,8 @@ private:
       if (number_allocation == 0)
         return;
       // Print performance counters
-      size_t number_cleaned = unused_buffer_list.size() + buffer_map.size();
+      // size_t number_cleaned = unused_buffer_list.size() + buffer_map.size();
+      // 
       std::cout << "\nBuffer manager destructor for (Alloc: "
                 << boost::core::demangle(typeid(Host_Allocator).name()) << ", Type: "
                 << boost::core::demangle(typeid(T).name())
@@ -696,7 +704,7 @@ private:
                 << number_creation << std::endl
                 << "--> Number cleaned up buffers:                             "
                    "       "
-                << number_cleaned << std::endl
+                << number_creation << std::endl // TODO Add actual deallocation counter across map
                 << "--> Number wrong deallocation hints:                       "
                    "       "
                 << number_wrong_hints << std::endl
@@ -715,16 +723,20 @@ private:
 #ifdef CPPUDDLE_HAVE_COUNTERS
       if (number_allocation == 0 && number_recycling == 0 &&
           number_bad_alloc == 0 && number_creation == 0 &&
-          unused_buffer_list.empty() && buffer_map.empty()) {
+          unused_buffer_map.empty() && buffer_map.empty()) {
         return;
       }
 #endif
-      for (auto &buffer_tuple : unused_buffer_list) {
-        Host_Allocator alloc;
-        if (std::get<3>(buffer_tuple)) {
-          std::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+      for (auto &unused_buffer_list_tuple : unused_buffer_map) {
+        auto &unused_buffer_list = std::get<1>(unused_buffer_list_tuple);
+        for (auto &buffer_tuple : unused_buffer_list) {
+          Host_Allocator alloc;
+          if (std::get<3>(buffer_tuple)) {
+            std::destroy_n(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+          }
+          alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
         }
-        alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
+        unused_buffer_list.clear();
       }
       for (auto &map_tuple : buffer_map) {
         auto buffer_tuple = map_tuple.second;
@@ -734,7 +746,6 @@ private:
         }
         alloc.deallocate(std::get<0>(buffer_tuple), std::get<1>(buffer_tuple));
       }
-      unused_buffer_list.clear();
       buffer_map.clear();
 #ifdef CPPUDDLE_HAVE_COUNTERS
       number_allocation = 0;
