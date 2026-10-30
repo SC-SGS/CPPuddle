@@ -34,6 +34,7 @@
 // Top-down, updown extra argument: Depth and structure (number childs per node -- lets fix this to 2 for now)
 enum graph_mode {scalar = 0, serial, parallel, top_down, bottom_up};
 enum fusion_mode {none = 0, cuda_graph, cppuddle};
+enum futurization_mode {none = 0, async, then, dataflow, sender_receiver};
 
 struct experiment_setup {
   size_t utilized_implementation_id;
@@ -42,7 +43,7 @@ struct experiment_setup {
   size_t  extra_graph_parameter;
   bool postprocessing_active;
   fusion_mode utilized_fusion_approach;
-  bool futurized;
+  futurization_mode utilized_futurization_mode;
 };
 
 
@@ -53,11 +54,6 @@ inline constexpr bool is_void_or_future_void_v =
     std::is_void_v<T> || std::is_same_v<T, hpx::future<void>>;
 
 
-// hpx::future<void> kernel_fusion_benchmark_iteration(const size_t utilized_implementation_id,
-//     const double alpha, const double beta, const std::vector<double> &hA, const std::vector<double> &hB,
-//     std::vector<double> &hC, double *dA, double *dB, double *dC, const std::vector<double> &hC_comparison,
-//     const size_t M, const size_t N, const size_t K, cublasHandle_t &handle, const graph_mode utilized_graph_mode,
-//     const size_t extra_graph_parameter, const bool postprocessing_active) {
 template <typename R,
           typename = std::enable_if_t<is_void_or_future_void_v<R>>>
 R kernel_fusion_benchmark_iteration(const size_t utilized_implementation_id,
@@ -233,16 +229,6 @@ R kernel_fusion_benchmark_iteration(const size_t utilized_implementation_id,
          kernel_fusion_benchmark_iteration<R>(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
              dA, dB, dC, hC_comparison, M, N, K, std::ref(handle), utilized_graph_mode, extra_graph_parameter - 1, postprocessing_active);
       }
-      // hpx::async(&kernel_fusion_benchmark_iteration, std::ref(previous_it),  utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-      //     dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter - 1, postprocessing_active);
-      // std::cout << extra_graph_parameter << " " << postprocessing_active << std::endl;
-      // previous_it.then([=, &hA, &hB, &hC, &hC_comparison](auto && fut) {
-      //   kernel_fusion_benchmark_iteration(fut, utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-      //        dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter - 1, postprocessing_active);
-      //    });
-      // kernel_fusion_benchmark_iteration(previous_it, utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-      //     dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter - 1, postprocessing_active);
-      // ret_fut = hpx::make_ready_future<void>();
     }
   }
   
@@ -307,44 +293,24 @@ void kernel_fusion_benchmark(const experiment_setup &experiment_parameters,
   // ... needs separate methods (cannot extend the recursion over the loop
 
   if (futurized) {
-  auto loop_fut = hpx::make_ready_future<void>();
-  for (size_t it = 0; it < num_repetitions; it++) {
-    // kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-    //     dA, dB, dC, hC_comparison, M, N, K, std::ref(handle), utilized_graph_mode, extra_graph_parameter, postprocessing_active);
-    // auto loop_fut = hpx::async(
-    //     hpx::launch::async_policy(hpx::threads::thread_priority::default_, // maybe we need a generic policy for non-cublas
-    //                               hpx::threads::thread_stacksize::large),
-    //     &kernel_fusion_benchmark_iteration, utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-    //     dA, dB, dC, hC_comparison, M, N, K, std::ref(handle), utilized_graph_mode, extra_graph_parameter, postprocessing_active);
-    // loop_fut.get();
-    // auto loop_fut = hpx::async(
-    //     &kernel_fusion_benchmark_iteration, utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-    //     dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
-    // loop_fut.get();
-
-    loop_fut = loop_fut.then(
-        [&](auto && fut) {
-        // fut.get();
-        return kernel_fusion_benchmark_iteration<hpx::future<void>>(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-        dA, dB, dC, hC_comparison, M, N, K, std::ref(handle), utilized_graph_mode, extra_graph_parameter, postprocessing_active);
-        });
-    //
-    // loop_fut = hpx::dataflow([&](auto void_val) {
-    //     kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-    //     dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
-    //     }, loop_fut);
-    // loop_fut.get();
-    // hpx::post(
-    //     &kernel_fusion_benchmark_iteration, utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-    //     dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
-    // stack size is a problem with the hpx task
-    // can be fixed with:
-    // --hpx:ini=hpx.stacks.small_size=0x100000.
-    
-    // kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
-    //     dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
-  }
-  loop_fut.get();
+    auto loop_fut = hpx::make_ready_future<void>();
+    for (size_t it = 0; it < num_repetitions; it++) {
+      loop_fut = loop_fut.then(
+          [&](auto && fut) {
+          // fut.get();
+          return kernel_fusion_benchmark_iteration<hpx::future<void>>(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
+          dA, dB, dC, hC_comparison, M, N, K, std::ref(handle), utilized_graph_mode, extra_graph_parameter, postprocessing_active);
+          });
+      // loop_fut = hpx::dataflow([&](auto void_val) {
+      //     kernel_fusion_benchmark_iteration(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
+      //     dA, dB, dC, hC_comparison, M, N, K, utilized_graph_mode, extra_graph_parameter, postprocessing_active);
+      //     }, loop_fut);
+      //
+      // stack size is a problem with the hpx task
+      // can be fixed with:
+      // --hpx:ini=hpx.stacks.small_size=0x100000.
+    }
+    loop_fut.get();
   } else {
     for (size_t it = 0; it < num_repetitions; it++) {
       kernel_fusion_benchmark_iteration<void>(utilized_implementation_id, alpha, beta, hA, hB, std::ref(hC),
@@ -508,11 +474,11 @@ int hpx_main(int argc, char *argv[]) {
   experiment_setup experiment_parameters;
   experiment_parameters.num_repetitions = 10;
   experiment_parameters.utilized_implementation_id = 9;
-  experiment_parameters.utilized_fusion_approach = none;
-  experiment_parameters.utilized_graph_mode = serial;
+  experiment_parameters.utilized_fusion_approach = fusion_mode::none;
+  experiment_parameters.utilized_graph_mode = graph_mode::serial;
   experiment_parameters.extra_graph_parameter = 10;
   experiment_parameters.postprocessing_active = false;
-  experiment_parameters.futurized = false;
+  experiment_parameters.utilized_futurization_mode = futurization_mode::then;
 
 
   // ============================================================
